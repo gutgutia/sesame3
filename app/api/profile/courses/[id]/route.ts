@@ -51,7 +51,8 @@ export async function DELETE(
     await requireProfile();
     const { id } = await params;
     
-    await prisma.course.delete({
+    // Use deleteMany to avoid error if record doesn't exist (idempotent delete)
+    await prisma.course.deleteMany({
       where: { id },
     });
     

@@ -9,44 +9,19 @@ import {
   Trash2,
   Pencil,
   Filter,
-  Upload,
   ChevronDown,
-  FileText,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
-import { CourseForm, TranscriptUploader, CourseReviewTable } from "@/components/profile";
+import { CourseForm, BulkCourseEditor } from "@/components/profile";
 import { calculateGPA, formatGPA } from "@/lib/gpa-calculator";
 
-type AddMode = "single" | "transcript" | "review";
+type AddMode = "single" | "bulk";
 
 type FilterLevel = "all" | "ap" | "honors" | "regular";
-
-interface ExtractedCourse {
-  name: string;
-  subject: string;
-  level: string;
-  gradeLevel: string;
-  grade?: string;
-  credits?: number;
-  isDuplicate?: boolean;
-  isPotentialDuplicate?: boolean;
-  matchType?: "exact" | "similar" | "new";
-  existingName?: string;
-}
-
-interface ExtractionResult {
-  courses: ExtractedCourse[];
-  studentName?: string;
-  schoolName?: string;
-  gpaUnweighted?: number;
-  gpaWeighted?: number;
-  totalExtracted: number;
-  duplicates: number;
-  potentialDuplicates: number;
-}
 
 export default function CoursesPage() {
   const { profile, isLoading, error, refreshProfile } = useProfile();
@@ -54,10 +29,9 @@ export default function CoursesPage() {
   const [editingCourse, setEditingCourse] = useState<Record<string, unknown> | null>(null);
   const [filterLevel, setFilterLevel] = useState<FilterLevel>("all");
   
-  // Add course modes
+  // Add course modes: single form or bulk editor
   const [addMode, setAddMode] = useState<AddMode>("single");
   const [showAddDropdown, setShowAddDropdown] = useState(false);
-  const [extractedData, setExtractedData] = useState<ExtractionResult | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -108,8 +82,7 @@ export default function CoursesPage() {
     );
     if (response.ok) {
       await refreshProfile();
-      setIsModalOpen(false);
-      setEditingCourse(null);
+      closeModal();
     }
   };
 
@@ -121,7 +94,6 @@ export default function CoursesPage() {
   const openAddModal = (mode: AddMode = "single") => {
     setAddMode(mode);
     setEditingCourse(null);
-    setExtractedData(null);
     setIsModalOpen(true);
     setShowAddDropdown(false);
   };
@@ -132,30 +104,22 @@ export default function CoursesPage() {
     setIsModalOpen(true);
   };
 
-  const handleTranscriptExtracted = (result: ExtractionResult) => {
-    setExtractedData(result);
-    setAddMode("review");
-  };
-
-  const handleImportCourses = async (coursesToImport: ExtractedCourse[]) => {
+  const handleBulkSave = async (coursesToSave: { name: string; subject: string; level: string; gradeLevel: string; grade: string }[]) => {
     const response = await fetch("/api/profile/courses/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courses: coursesToImport }),
+      body: JSON.stringify({ courses: coursesToSave }),
     });
     
     if (response.ok) {
       await refreshProfile();
-      setIsModalOpen(false);
-      setExtractedData(null);
-      setAddMode("single");
+      closeModal();
     }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingCourse(null);
-    setExtractedData(null);
     setAddMode("single");
   };
 
@@ -208,7 +172,7 @@ export default function CoursesPage() {
             </Button>
             
             {showAddDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-border-subtle shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl border border-border-subtle shadow-lg z-50 overflow-hidden">
                 <button
                   onClick={() => openAddModal("single")}
                   className="w-full flex items-start gap-3 p-4 hover:bg-bg-sidebar transition-colors text-left"
@@ -218,22 +182,22 @@ export default function CoursesPage() {
                   </div>
                   <div>
                     <div className="font-medium text-text-main">Add Single Course</div>
-                    <div className="text-xs text-text-muted">Add one course at a time</div>
+                    <div className="text-xs text-text-muted">Quick add one course at a time</div>
                   </div>
                 </button>
                 
                 <div className="border-t border-border-subtle" />
                 
                 <button
-                  onClick={() => openAddModal("transcript")}
+                  onClick={() => openAddModal("bulk")}
                   className="w-full flex items-start gap-3 p-4 hover:bg-bg-sidebar transition-colors text-left"
                 >
                   <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 shrink-0">
-                    <Upload className="w-4 h-4" />
+                    <List className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="font-medium text-text-main">Upload Transcript</div>
-                    <div className="text-xs text-text-muted">AI extracts all your courses</div>
+                    <div className="font-medium text-text-main">Add Multiple Courses</div>
+                    <div className="text-xs text-text-muted">Upload transcript or enter manually in bulk</div>
                   </div>
                 </button>
               </div>
@@ -309,11 +273,11 @@ export default function CoursesPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button variant="secondary" onClick={() => openAddModal("single")}>
               <Plus className="w-4 h-4" />
-              Add Course Manually
+              Add Single Course
             </Button>
-            <Button onClick={() => openAddModal("transcript")}>
-              <Upload className="w-4 h-4" />
-              Upload Transcript
+            <Button onClick={() => openAddModal("bulk")}>
+              <List className="w-4 h-4" />
+              Add Multiple Courses
             </Button>
           </div>
         </div>
@@ -392,20 +356,16 @@ export default function CoursesPage() {
         title={
           editingCourse 
             ? "Edit Course" 
-            : addMode === "transcript" 
-              ? "Upload Transcript" 
-              : addMode === "review"
-                ? "Review Extracted Courses"
-                : "Add Course"
+            : addMode === "bulk"
+              ? "Add Multiple Courses"
+              : "Add Course"
         }
         description={
-          addMode === "transcript"
-            ? "Upload a photo or PDF of your transcript and we'll extract your courses automatically"
-            : addMode === "review"
-              ? "Review the courses we found and make any corrections before importing"
-              : "Add a course to your academic record"
+          addMode === "bulk"
+            ? "Add courses manually or upload a transcript to extract them automatically"
+            : "Add a course to your academic record"
         }
-        size={addMode === "review" ? "xl" : "lg"}
+        size={addMode === "bulk" ? "xl" : "lg"}
       >
         {addMode === "single" && (
           <CourseForm
@@ -415,21 +375,9 @@ export default function CoursesPage() {
           />
         )}
         
-        {addMode === "transcript" && (
-          <TranscriptUploader
-            onExtracted={handleTranscriptExtracted}
-            onCancel={closeModal}
-          />
-        )}
-        
-        {addMode === "review" && extractedData && (
-          <CourseReviewTable
-            courses={extractedData.courses}
-            studentName={extractedData.studentName}
-            schoolName={extractedData.schoolName}
-            gpaUnweighted={extractedData.gpaUnweighted}
-            gpaWeighted={extractedData.gpaWeighted}
-            onImport={handleImportCourses}
+        {addMode === "bulk" && (
+          <BulkCourseEditor
+            onSave={handleBulkSave}
             onCancel={closeModal}
           />
         )}
