@@ -4,6 +4,7 @@ import { z } from "zod";
 import { models } from "@/lib/ai/providers";
 import { prisma } from "@/lib/db";
 import { requireProfile } from "@/lib/auth";
+import { TRANSCRIPT_EXTRACTION_PROMPT } from "@/lib/prompts";
 
 // Schema for extracted courses
 const ExtractedCourseSchema = z.object({
@@ -77,19 +78,7 @@ export async function POST(request: NextRequest) {
             fileContent,
             {
               type: "text",
-              text: `Analyze this high school transcript and extract ALL courses listed.
-
-For each course, identify:
-- The exact course name as shown
-- The subject area (Math, Science, English, History, Language, Arts, Computer Science, or Other)
-- The course level (look for indicators like "AP", "Honors", "H", "IB", "Dual Enrollment", "DE", "College" in the name)
-- The grade level/year when taken (9th/Freshman, 10th/Sophomore, 11th/Junior, 12th/Senior)
-- The letter grade received
-- Credits (if shown, otherwise assume 1.0 for full year courses)
-
-Also extract the student name, school name, and GPAs if visible.
-
-Be thorough - extract every course you can find, even if some information is unclear. For unclear fields, make your best guess based on context.`,
+              text: TRANSCRIPT_EXTRACTION_PROMPT,
             },
           ],
         },

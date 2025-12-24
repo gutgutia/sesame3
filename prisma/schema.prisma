@@ -100,10 +100,7 @@ model AboutMe {
   studentProfileId String @unique
   studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
   
-  // Personal Story
-  story       String?   // Free-form narrative
-  
-  // Identity
+  // Identity (synthesized from story entries)
   values      String[]  // ["curiosity", "equity", "creativity"]
   interests   String[]  // ["robotics", "philosophy", "music"]
   personality String?   // "curious introvert who loves teaching"
@@ -114,6 +111,41 @@ model AboutMe {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // Relations
+  storyEntries StoryEntry[]
+}
+
+// -----------------------------------------------------------------------------
+// Story Entries - Journal-like personal narrative entries
+// Students share stories over time, building a rich picture of who they are.
+// -----------------------------------------------------------------------------
+
+model StoryEntry {
+  id        String @id @default(uuid())
+  aboutMeId String
+  aboutMe   AboutMe @relation(fields: [aboutMeId], references: [id], onDelete: Cascade)
+  
+  // AI-Generated Summary (from conversation or note)
+  title     String    // "Learning to Lead Through Failure"
+  summary   String    // 2-3 sentence summary
+  themes    String[]  // ["Growth", "Leadership", "Challenge"]
+  
+  // Raw Content
+  rawContent    String    // Original conversation transcript or note text
+  contentType   String    // "conversation" | "note"
+  
+  // For conversation mode: the conversation ID (optional link)
+  conversationId String?
+  
+  // Timestamps
+  capturedAt    DateTime  @default(now())  // When the story was shared
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([aboutMeId])
+  @@index([capturedAt])
 }
 
 // -----------------------------------------------------------------------------

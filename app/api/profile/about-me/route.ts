@@ -36,7 +36,6 @@ export async function PUT(request: NextRequest) {
     const aboutMe = await prisma.aboutMe.upsert({
       where: { studentProfileId: profileId },
       update: {
-        story: body.story,
         values: body.values || [],
         interests: body.interests || [],
         personality: body.personality,
@@ -45,7 +44,6 @@ export async function PUT(request: NextRequest) {
       },
       create: {
         studentProfileId: profileId,
-        story: body.story,
         values: body.values || [],
         interests: body.interests || [],
         personality: body.personality,

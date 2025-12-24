@@ -56,7 +56,8 @@ function calculateZone(profile: ProfileData | null): ZoneStatus {
   const hasActivities = profile.activities.length > 0;
   const hasProfile = hasAcademics || hasActivities || profile.awards.length > 0;
   const hasGoals = profile.goals.length > 0;
-  const hasStory = !!(profile.aboutMe?.story && profile.aboutMe.story.length > 20);
+  // Story is now tracked via storyEntries - this is a simplified check
+  const hasStory = false; // Will be updated when we fetch storyEntries separately
 
   const filledAreas = [hasSchools, hasProfile, hasGoals].filter(Boolean).length;
 

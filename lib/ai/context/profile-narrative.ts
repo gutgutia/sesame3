@@ -186,11 +186,7 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
   // ==========================================================================
   // About Me (brief)
   // ==========================================================================
-  if (profile.aboutMe?.story) {
-    // Take first 100 chars of their story
-    const snippet = profile.aboutMe.story.slice(0, 100);
-    sections.push(`About: "${snippet}..."`);
-  }
+  // Note: Story is now stored in storyEntries, accessed separately
   
   // ==========================================================================
   // Profile Gaps

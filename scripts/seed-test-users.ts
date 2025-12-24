@@ -255,7 +255,6 @@ async function seedTestUsers() {
         await prisma.aboutMe.create({
           data: {
             studentProfileId: profile.id,
-            story: profileData.aboutMe.story,
             interests: profileData.aboutMe.interests,
             values: profileData.aboutMe.values,
           },
