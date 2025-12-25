@@ -10,16 +10,17 @@
 // Story capture prompts
 export {
   STORY_CAPTURE_SYSTEM,
-  STORY_CONVERSATION_OPENER,
-  shouldWrapUpPrompt,
+  STORY_OPENER,
+  STORY_INPUT_PLACEHOLDER,
   synthesizeStoryPrompt,
-  QUICK_NOTE_PLACEHOLDER,
   STORY_THEMES,
   type StoryTheme,
+  // Legacy aliases
+  QUICK_NOTE_PLACEHOLDER,
+  STORY_CONVERSATION_OPENER,
 } from "./story";
 
 // Data extraction prompts
 export {
   TRANSCRIPT_EXTRACTION_PROMPT,
 } from "./extraction";
-

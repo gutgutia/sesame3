@@ -3,84 +3,90 @@
  * 
  * Used for the "Share My Story" feature where students capture
  * meaningful personal narratives for their college profile.
+ * 
+ * FLOW:
+ * 1. Simple opener + large text field for initial share
+ * 2. AI responds with follow-up (if needed) or suggests saving
+ * 3. User can continue OR save at any point
+ * 4. AI synthesizes title/summary/themes on save
  */
 
 // =============================================================================
-// CONVERSATION MODE
+// CONVERSATION SYSTEM PROMPT
 // =============================================================================
 
 /**
- * System prompt for the story capture conversation.
+ * System prompt for the unified story capture experience.
  * 
- * Goal: Help students articulate meaningful personal stories through
- * a warm, conversational exchange (3-5 turns).
+ * Key behaviors:
+ * - Warm, brief responses (1-2 sentences)
+ * - Encourage depth without pressure
+ * - Recognize when there's enough to save
+ * - Never make the student feel they MUST continue
  */
-export const STORY_CAPTURE_SYSTEM = `You are helping a high school student capture a meaningful personal story for their college profile.
+export const STORY_CAPTURE_SYSTEM = `You are a warm, curious listener helping a high school student capture a personal story for their college profile.
 
-## Your Goal
-Help them articulate something meaningful about themselves - an experience, passion, challenge, or insight that reveals who they are.
+## Your Role
+- Listen actively and respond briefly (1-2 sentences)
+- Ask ONE thoughtful follow-up question to go deeper
+- Focus on the "why" - motivations, feelings, realizations
+- Recognize when you have enough for a good story
 
-## Your Approach
-- Be warm, curious, and encouraging
-- Ask thoughtful follow-up questions to go deeper
-- Focus on the "why" behind their experiences
-- Extract specific details: names, moments, feelings, realizations
-- Keep the conversation focused on ONE story (don't branch to multiple topics)
+## Response Format
+Keep responses SHORT. After they share:
+1. Acknowledge what they said (brief, genuine)
+2. Ask ONE follow-up question OR suggest saving
 
-## Conversation Flow
-1. If they haven't shared anything yet, ask an open-ended question
-2. After they share, ask 2-3 follow-up questions to understand:
-   - What motivated them
-   - How they felt in key moments
-   - What they learned or how they changed
-3. After 3-5 exchanges, gently wrap up: "I think I have a good picture of this story. Would you like to save it?"
+## When to Suggest Saving
+After 1-2 meaningful exchanges, if you have:
+- What happened (the experience)
+- Why it mattered (the meaning)
+- How they felt or changed (the impact)
 
-## What NOT to do
-- Don't give advice or evaluate their story
-- Don't be interview-like or clinical
-- Don't ask about multiple unrelated topics
-- Don't rush - let the story unfold naturally
-- Don't judge - every story has value
+Then say something like: "This is a really meaningful story. Would you like to save it, or is there more you'd like to add?"
 
 ## Tone
-Imagine you're a trusted mentor having coffee with the student. Be genuine, interested, and supportive.`;
+- Friendly and casual, not formal
+- Curious, not interrogating
+- Brief - you're a listener, not a lecturer
+
+## Don'ts
+- Don't give advice or evaluate
+- Don't write long responses
+- Don't pressure them to continue
+- Don't ask multiple questions at once`;
 
 /**
- * Opening message when the student hasn't said anything yet.
+ * Brief opening message for the story capture.
  */
-export const STORY_CONVERSATION_OPENER = `I'd love to learn more about you beyond grades and test scores. 
-
-What's something you're passionate about, or an experience that shaped who you are? It could be anything - big or small.`;
+export const STORY_OPENER = "Hey! What's on your mind today?";
 
 /**
- * Prompt to determine if the conversation has enough content to wrap up.
+ * Placeholder for the initial text input.
  */
-export function shouldWrapUpPrompt(conversationSoFar: string): string {
-  return `Based on this conversation about a student's personal story:
+export const STORY_INPUT_PLACEHOLDER = `Share something meaningful to you...
 
-${conversationSoFar}
+It could be:
+• A moment that shaped who you are
+• Something you're passionate about
+• A challenge you faced
+• A person who influenced you
 
-Has the student shared enough meaningful detail that we could write a good summary? Consider:
-- Do we know what happened?
-- Do we understand why it mattered to them?
-- Do we have specific details (not just generalizations)?
-
-Respond with JSON: { "ready": true/false, "reason": "brief explanation" }`;
-}
+Write as much or as little as you'd like.`;
 
 // =============================================================================
 // SYNTHESIS
 // =============================================================================
 
 /**
- * Prompt to synthesize a story entry from conversation or note.
+ * Prompt to synthesize a story entry from the conversation.
  * 
- * Input: The raw content (conversation transcript or note text)
+ * Input: The raw content (conversation transcript)
  * Output: JSON with title, summary, and themes
  */
 export function synthesizeStoryPrompt(rawContent: string, contentType: "conversation" | "note"): string {
   const contextNote = contentType === "conversation" 
-    ? "This is a transcript of a conversation where a student shared their story."
+    ? "This is a conversation where a student shared their story."
     : "This is a note the student wrote about themselves.";
 
   return `${contextNote}
@@ -91,21 +97,11 @@ ${rawContent}
 
 Based on this, generate:
 
-1. **title**: A compelling 5-8 word title that captures the essence of their story. Make it personal and specific, not generic.
+1. **title**: A compelling 5-8 word title that captures the essence. Make it personal and specific.
 
-2. **summary**: 2-3 sentences summarizing the story in third person ("They..." not "I..."). Capture the key experience and what it reveals about them.
+2. **summary**: Write in FIRST PERSON ("I..." not "They...") from the student's perspective. Faithfully summarize everything meaningful they shared - do NOT limit to 2-3 sentences. If they shared a lot, write a proportionally longer summary that does justice to their story. Capture the key experiences, motivations, feelings, and what they learned.
 
-3. **themes**: Select 2-4 themes that best fit this story from the following list:
-   - Identity (who they are, cultural background, values)
-   - Passion (deep interests, what excites them)
-   - Challenge (obstacles overcome, difficult experiences)
-   - Growth (personal development, learning moments)
-   - Leadership (guiding others, taking initiative)
-   - Family (family relationships, heritage)
-   - Community (helping others, social impact)
-   - Creativity (artistic expression, innovation)
-   - Discovery (intellectual curiosity, exploration)
-   - Resilience (bouncing back, perseverance)
+3. **themes**: Select 2-4 themes from: Identity, Passion, Challenge, Growth, Leadership, Family, Community, Creativity, Discovery, Resilience
 
 Return as JSON:
 {
@@ -116,27 +112,11 @@ Return as JSON:
 }
 
 // =============================================================================
-// QUICK NOTE MODE
-// =============================================================================
-
-/**
- * Placeholder text for the quick note textarea.
- */
-export const QUICK_NOTE_PLACEHOLDER = `Write about something meaningful to you...
-
-Some ideas:
-• A moment that changed how you see the world
-• Something you're passionate about and why
-• A challenge you overcame
-• A person who shaped who you are`;
-
-// =============================================================================
 // THEME DEFINITIONS
 // =============================================================================
 
 /**
  * Available themes for story categorization.
- * These should match what's used in the synthesis prompt.
  */
 export const STORY_THEMES = [
   "Identity",
@@ -153,3 +133,6 @@ export const STORY_THEMES = [
 
 export type StoryTheme = typeof STORY_THEMES[number];
 
+// Legacy exports for backwards compatibility
+export const QUICK_NOTE_PLACEHOLDER = STORY_INPUT_PLACEHOLDER;
+export const STORY_CONVERSATION_OPENER = STORY_OPENER;
