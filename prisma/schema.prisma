@@ -534,7 +534,8 @@ model StudentSchool {
   school           School @relation(fields: [schoolId], references: [id])
   
   // Classification
-  tier             String    // "dream" | "reach" | "target" | "safety"
+  tier             String    // "reach" | "target" | "safety"
+  isDream          Boolean   @default(false)  // Can be true for any tier
   
   // Interest Level
   interestLevel    String?   // "high" | "medium" | "low" | "uncertain"

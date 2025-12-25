@@ -29,21 +29,47 @@ export async function GET() {
 /**
  * POST /api/profile/schools
  * Add a school to the student's list
+ * 
+ * Body:
+ *   - schoolId: ID of school from global database (preferred)
+ *   - schoolName: Name of school (fallback - will create if not found)
+ *   - tier: "reach" | "target" | "safety"
+ *   - isDream: boolean
+ *   - interestLevel?: "high" | "medium" | "low" | "uncertain"
+ *   - applicationType?: "ed" | "ed2" | "ea" | "rea" | "rd"
+ *   - whyInterested?: string
  */
 export async function POST(request: NextRequest) {
   try {
     const profileId = await requireProfile();
     const body = await request.json();
     
-    // Find or create the school in reference data
-    let school = await prisma.school.findFirst({
-      where: { name: { contains: body.schoolName, mode: "insensitive" } },
-    });
+    let schoolId = body.schoolId;
     
-    if (!school) {
-      school = await prisma.school.create({
-        data: { name: body.schoolName },
+    // If no schoolId, find or create by name
+    if (!schoolId && body.schoolName) {
+      let school = await prisma.school.findFirst({
+        where: { name: { equals: body.schoolName, mode: "insensitive" } },
       });
+      
+      if (!school) {
+        // Create a new school entry (manual fallback)
+        school = await prisma.school.create({
+          data: { 
+            name: body.schoolName,
+            dataSource: "manual",
+          },
+        });
+      }
+      
+      schoolId = school.id;
+    }
+    
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: "schoolId or schoolName required" },
+        { status: 400 }
+      );
     }
     
     // Check if already on list
@@ -51,7 +77,7 @@ export async function POST(request: NextRequest) {
       where: {
         studentProfileId_schoolId: {
           studentProfileId: profileId,
-          schoolId: school.id,
+          schoolId,
         },
       },
     });
@@ -61,10 +87,11 @@ export async function POST(request: NextRequest) {
       const updated = await prisma.studentSchool.update({
         where: { id: existing.id },
         data: {
-          tier: body.tier,
-          interestLevel: body.interestLevel,
-          applicationType: body.applicationType,
-          whyInterested: body.whyInterested,
+          tier: body.tier ?? existing.tier,
+          isDream: body.isDream ?? existing.isDream,
+          interestLevel: body.interestLevel ?? existing.interestLevel,
+          applicationType: body.applicationType ?? existing.applicationType,
+          whyInterested: body.whyInterested ?? existing.whyInterested,
         },
         include: { school: true },
       });
@@ -81,8 +108,9 @@ export async function POST(request: NextRequest) {
     const studentSchool = await prisma.studentSchool.create({
       data: {
         studentProfileId: profileId,
-        schoolId: school.id,
+        schoolId,
         tier: body.tier || "reach",
+        isDream: body.isDream || false,
         interestLevel: body.interestLevel,
         applicationType: body.applicationType,
         whyInterested: body.whyInterested,

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { 
   Plus, 
@@ -8,12 +8,16 @@ import {
   Sparkles,
   TrendingUp,
   School,
-  Trash2
+  Trash2,
+  Heart,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
+import { AddSchoolModal } from "@/components/schools";
+import { SchoolLogo } from "@/components/ui/SchoolLogo";
 
 // =============================================================================
 // TYPES
@@ -21,12 +25,21 @@ import { useProfile } from "@/lib/context/ProfileContext";
 
 interface StudentSchool {
   id: string;
-  tier: string | null;
+  tier: string;
+  isDream: boolean;
   status: string | null;
+  interestLevel: string | null;
   school: {
     id: string;
     name: string;
-  } | null;
+    shortName: string | null;
+    city: string | null;
+    state: string | null;
+    acceptanceRate: number | null;
+    satRange25: number | null;
+    satRange75: number | null;
+    websiteUrl: string | null;
+  };
 }
 
 // =============================================================================
@@ -34,31 +47,30 @@ interface StudentSchool {
 // =============================================================================
 
 export default function SchoolsPage() {
-  // Use global profile context
   const { profile, isLoading, refreshProfile } = useProfile();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  // Extract schools from profile, with type assertion for compatibility
+  // Extract schools from profile
   const schools: StudentSchool[] = (profile?.schoolList || []).map(s => ({
     id: s.id,
-    tier: s.tier || null,
+    tier: s.tier || "reach",
+    isDream: s.isDream || false,
     status: s.status || null,
-    school: s.school || null,
+    interestLevel: s.interestLevel || null,
+    school: s.school || { id: "", name: "Unknown", shortName: null, city: null, state: null, acceptanceRate: null, satRange25: null, satRange75: null, websiteUrl: null },
   }));
-  
-  const refreshSchools = () => {
-    refreshProfile();
-  };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Remove this school from your list?")) return;
     await fetch(`/api/profile/schools?id=${id}`, { method: "DELETE" });
-    refreshSchools();
+    refreshProfile();
   };
 
   // Group by tier
   const reachSchools = schools.filter(s => s.tier === "reach");
   const targetSchools = schools.filter(s => s.tier === "target");
   const safetySchools = schools.filter(s => s.tier === "safety");
-  const otherSchools = schools.filter(s => !s.tier || !["reach", "target", "safety"].includes(s.tier));
+  const dreamSchools = schools.filter(s => s.isDream);
 
   if (isLoading) {
     return (
@@ -83,103 +95,152 @@ export default function SchoolsPage() {
               Check Chances
             </Button>
           </Link>
-          <Link href="/advisor?mode=schools">
-            <Button>
-              <Plus className="w-4 h-4" />
-              Add Schools
-            </Button>
-          </Link>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add School
+          </Button>
         </div>
       </div>
 
-      {/* Subtle Chat Prompt */}
-      <Link 
-        href="/advisor?mode=schools" 
-        className="flex items-center gap-2 text-sm text-text-muted hover:text-accent-primary transition-colors mb-6 group"
-      >
-        <MessageCircle className="w-4 h-4" />
-        <span>Need help building your list? <span className="text-accent-primary group-hover:underline">Chat with your advisor →</span></span>
-      </Link>
-
       {schools.length === 0 ? (
-        <Card className="p-8 text-center">
-          <div className="w-16 h-16 bg-accent-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <School className="w-8 h-8 text-accent-primary" />
-          </div>
-          <h2 className="font-display font-bold text-xl mb-2">No schools yet</h2>
-          <p className="text-text-muted mb-4">Start building your college list with reaches, targets, and safeties.</p>
-          <Link href="/advisor?mode=schools">
-            <Button>
-              <Plus className="w-4 h-4" />
-              Add Your First School
-            </Button>
-          </Link>
-        </Card>
-      ) : (
-        <div className="space-y-8">
-          {/* Balance Overview */}
-          <Card className="p-5">
-            <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent-primary" />
-              List Balance
-            </h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-red-50 rounded-xl">
-                <div className="text-2xl font-bold text-red-600">{reachSchools.length}</div>
-                <div className="text-sm text-red-600 font-medium">Reach</div>
+        /* Empty State */
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <div className="bg-white border border-border-subtle rounded-[20px] p-12 text-center shadow-card">
+              <div className="w-16 h-16 bg-accent-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <School className="w-8 h-8 text-accent-primary" />
               </div>
-              <div className="text-center p-4 bg-amber-50 rounded-xl">
-                <div className="text-2xl font-bold text-amber-600">{targetSchools.length}</div>
-                <div className="text-sm text-amber-600 font-medium">Target</div>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-xl">
-                <div className="text-2xl font-bold text-green-600">{safetySchools.length}</div>
-                <div className="text-sm text-green-600 font-medium">Safety</div>
+              <h2 className="font-display font-bold text-xl mb-2">No schools yet</h2>
+              <p className="text-text-muted mb-6 max-w-md mx-auto">
+                Start building your college list with reaches, targets, and safeties.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button onClick={() => setIsAddModalOpen(true)}>
+                  <Plus className="w-4 h-4" />
+                  Add Your First School
+                </Button>
+                <Link href="/advisor?mode=schools">
+                  <Button variant="secondary">
+                    <MessageCircle className="w-4 h-4" />
+                    Get Recommendations
+                  </Button>
+                </Link>
               </div>
             </div>
-          </Card>
+          </div>
+          
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <AdvisorCTA />
+          </div>
+        </div>
+      ) : (
+        /* Schools Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Balance Overview */}
+            <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card">
+              <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-accent-primary" />
+                List Balance
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="text-center p-3 bg-pink-50 rounded-xl">
+                  <div className="text-2xl font-bold text-pink-600">{dreamSchools.length}</div>
+                  <div className="text-xs text-pink-600 font-medium flex items-center justify-center gap-1">
+                    <Heart className="w-3 h-3 fill-current" /> Dream
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-xl">
+                  <div className="text-2xl font-bold text-red-600">{reachSchools.length}</div>
+                  <div className="text-xs text-red-600 font-medium">Reach</div>
+                </div>
+                <div className="text-center p-3 bg-amber-50 rounded-xl">
+                  <div className="text-2xl font-bold text-amber-600">{targetSchools.length}</div>
+                  <div className="text-xs text-amber-600 font-medium">Target</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-xl">
+                  <div className="text-2xl font-bold text-green-600">{safetySchools.length}</div>
+                  <div className="text-xs text-green-600 font-medium">Safety</div>
+                </div>
+              </div>
+            </div>
 
-          {/* Reach Schools */}
-          {reachSchools.length > 0 && (
-            <SchoolSection 
-              title="Reach" 
-              color="red"
-              schools={reachSchools} 
-              onDelete={handleDelete}
-            />
-          )}
+            {/* School Sections */}
+            {reachSchools.length > 0 && (
+              <SchoolSection 
+                title="Reach" 
+                color="red"
+                schools={reachSchools} 
+                onDelete={handleDelete}
+              />
+            )}
 
-          {/* Target Schools */}
-          {targetSchools.length > 0 && (
-            <SchoolSection 
-              title="Target" 
-              color="amber"
-              schools={targetSchools} 
-              onDelete={handleDelete}
-            />
-          )}
+            {targetSchools.length > 0 && (
+              <SchoolSection 
+                title="Target" 
+                color="amber"
+                schools={targetSchools} 
+                onDelete={handleDelete}
+              />
+            )}
 
-          {/* Safety Schools */}
-          {safetySchools.length > 0 && (
-            <SchoolSection 
-              title="Safety" 
-              color="green"
-              schools={safetySchools} 
-              onDelete={handleDelete}
-            />
-          )}
+            {safetySchools.length > 0 && (
+              <SchoolSection 
+                title="Safety" 
+                color="green"
+                schools={safetySchools} 
+                onDelete={handleDelete}
+              />
+            )}
+          </div>
 
-          {/* Other Schools */}
-          {otherSchools.length > 0 && (
-            <SchoolSection 
-              title="Exploring" 
-              color="gray"
-              schools={otherSchools} 
-              onDelete={handleDelete}
-            />
-          )}
+          {/* Right Sidebar */}
+          <div className="lg:col-span-1 space-y-5">
+            {/* Quick Stats */}
+            <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card">
+              <h3 className="font-display font-bold text-text-main mb-4">Your List</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Total Schools</span>
+                  <span className="font-bold text-text-main">{schools.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Dream Schools</span>
+                  <span className="font-bold text-pink-600">{dreamSchools.length}</span>
+                </div>
+                <div className="h-px bg-border-subtle my-2" />
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted">Reach</span>
+                  <span className="text-red-600">{reachSchools.length}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted">Target</span>
+                  <span className="text-amber-600">{targetSchools.length}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted">Safety</span>
+                  <span className="text-green-600">{safetySchools.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Advisor CTA */}
+            <AdvisorCTA />
+          </div>
         </div>
       )}
+
+      {/* Add School Modal */}
+      <AddSchoolModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSchoolAdded={() => {
+          setIsAddModalOpen(false);
+          refreshProfile();
+        }}
+      />
     </>
   );
 }
@@ -195,22 +256,20 @@ function SchoolSection({
   onDelete 
 }: { 
   title: string; 
-  color: "red" | "amber" | "green" | "gray";
+  color: "red" | "amber" | "green";
   schools: StudentSchool[]; 
   onDelete: (id: string) => void;
 }) {
-  const colorClasses = {
-    red: "border-red-200 bg-red-50/50",
-    amber: "border-amber-200 bg-amber-50/50",
-    green: "border-green-200 bg-green-50/50",
-    gray: "border-gray-200 bg-gray-50/50",
-  };
-
   const headerColors = {
     red: "text-red-600",
     amber: "text-amber-600",
     green: "text-green-600",
-    gray: "text-gray-600",
+  };
+
+  const cardColors = {
+    red: "border-red-100 hover:border-red-200",
+    amber: "border-amber-100 hover:border-amber-200",
+    green: "border-green-100 hover:border-green-200",
   };
 
   return (
@@ -218,41 +277,107 @@ function SchoolSection({
       <h2 className={cn("font-display font-bold text-lg mb-4", headerColors[color])}>
         {title} ({schools.length})
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {schools.map(school => (
-          <div 
+          <SchoolCard
             key={school.id}
-            className={cn(
-              "border rounded-xl p-4 transition-all hover:shadow-card group",
-              colorClasses[color]
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-lg font-bold text-accent-primary shadow-sm">
-                  {school.school.name.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-text-main">
-                    {school.school.name}
-                  </h3>
-                  {school.status && (
-                    <span className="text-xs text-text-muted capitalize">
-                      {school.status.replace("_", " ")}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => onDelete(school.id)}
-                className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+            school={school}
+            colorClass={cardColors[color]}
+            onDelete={() => onDelete(school.id)}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function SchoolCard({
+  school,
+  colorClass,
+  onDelete,
+}: {
+  school: StudentSchool;
+  colorClass: string;
+  onDelete: () => void;
+}) {
+  return (
+    <div className={cn(
+      "bg-white border rounded-xl p-4 transition-all hover:shadow-card group",
+      colorClass
+    )}>
+      <div className="flex items-start gap-3">
+        <SchoolLogo
+          name={school.school.name}
+          shortName={school.school.shortName}
+          websiteUrl={school.school.websiteUrl}
+          size="lg"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-display font-bold text-text-main truncate">
+              {school.school.shortName || school.school.name}
+            </h3>
+            {school.isDream && (
+              <Heart className="w-4 h-4 text-pink-500 fill-current shrink-0" />
+            )}
+          </div>
+          <div className="text-sm text-text-muted">
+            {school.school.city}, {school.school.state}
+          </div>
+          {school.school.acceptanceRate && (
+            <div className="text-xs text-text-muted mt-1">
+              {Math.round(school.school.acceptanceRate * 100)}% acceptance
+              {school.school.satRange25 && school.school.satRange75 && (
+                <span className="ml-2">
+                  • SAT {school.school.satRange25}–{school.school.satRange75}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {school.school.websiteUrl && (
+            <a
+              href={school.school.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 text-text-muted hover:text-accent-primary hover:bg-accent-surface rounded-lg transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+          <button
+            onClick={onDelete}
+            className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdvisorCTA() {
+  return (
+    <Link 
+      href="/advisor?mode=schools"
+      className="block bg-accent-surface/50 border border-accent-border rounded-[20px] p-5 hover:bg-accent-surface transition-colors group"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+          <Sparkles className="w-5 h-5 text-accent-primary" />
+        </div>
+        <div className="font-display font-bold text-text-main">Need help?</div>
+      </div>
+      <p className="text-sm text-text-muted mb-4">
+        Get personalized school recommendations based on your profile.
+      </p>
+      <div className="flex items-center gap-2 text-sm font-medium text-accent-primary group-hover:gap-3 transition-all">
+        <MessageCircle className="w-4 h-4" />
+        Chat with Advisor
+        <ChevronRight className="w-4 h-4" />
+      </div>
+    </Link>
   );
 }
