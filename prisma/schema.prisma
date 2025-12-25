@@ -569,6 +569,30 @@ model StudentSchool {
   @@unique([studentProfileId, schoolId])
   @@index([studentProfileId])
   @@index([status])
+  
+  // Relations - Rich notes (separate from simple 'notes' field above)
+  richNotes SchoolNote[]
+}
+
+// -----------------------------------------------------------------------------
+// SchoolNote - Rich text notes for a student's school
+// -----------------------------------------------------------------------------
+
+model SchoolNote {
+  id              String   @id @default(uuid())
+  studentSchoolId String
+  studentSchool   StudentSchool @relation(fields: [studentSchoolId], references: [id], onDelete: Cascade)
+  
+  // Note Content
+  title           String?           // Optional title for the note
+  content         Json              // Rich text content (TipTap/Novel JSON format)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([studentSchoolId])
+  @@index([createdAt])
 }
 
 // -----------------------------------------------------------------------------

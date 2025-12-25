@@ -302,10 +302,13 @@ function SchoolCard({
 }) {
   return (
     <div className={cn(
-      "bg-white border rounded-xl p-4 transition-all hover:shadow-card group",
+      "bg-white border rounded-xl p-4 transition-all hover:shadow-card group relative",
       colorClass
     )}>
-      <div className="flex items-start gap-3">
+      {/* Clickable overlay for navigation */}
+      <Link href={`/schools/${school.id}`} className="absolute inset-0 z-0" />
+      
+      <div className="flex items-start gap-3 relative z-10 pointer-events-none">
         <SchoolLogo
           name={school.school.name}
           shortName={school.school.shortName}
@@ -335,24 +338,30 @@ function SchoolCard({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
           {school.school.websiteUrl && (
             <a
               href={school.school.websiteUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="p-2 text-text-muted hover:text-accent-primary hover:bg-accent-surface rounded-lg transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
             </a>
           )}
           <button
-            onClick={onDelete}
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
+      </div>
+      
+      {/* View details hint */}
+      <div className="absolute bottom-2 right-3 text-xs text-text-light opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+        View details <ChevronRight className="w-3 h-3" />
       </div>
     </div>
   );
