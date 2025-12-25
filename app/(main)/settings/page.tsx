@@ -21,6 +21,8 @@ import {
   Receipt,
   Download,
   ArrowLeftRight,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -418,7 +420,7 @@ function PlanSelectorModal({
 
 export default function SettingsPage() {
   const { profile } = useProfile();
-  const [activeTab, setActiveTab] = useState<"profile" | "subscription">("subscription");
+  const [activeTab, setActiveTab] = useState<"profile" | "subscription">("profile");
   const [isYearly, setIsYearly] = useState(true);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -428,6 +430,16 @@ export default function SettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showUsage, setShowUsage] = useState(false);
   const [showPlanSelector, setShowPlanSelector] = useState(false);
+  
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editGrade, setEditGrade] = useState("");
+  const [editSchoolName, setEditSchoolName] = useState("");
+  const [editSchoolCity, setEditSchoolCity] = useState("");
+  const [editSchoolState, setEditSchoolState] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -737,6 +749,63 @@ export default function SettingsPage() {
     });
   };
 
+  // Profile editing handlers
+  const startEditingProfile = () => {
+    setEditFirstName(profile?.firstName || "");
+    setEditLastName(profile?.lastName || "");
+    setEditGrade(profile?.grade || "");
+    setEditSchoolName(profile?.highSchoolName || "");
+    setEditSchoolCity(profile?.highSchoolCity || "");
+    setEditSchoolState(profile?.highSchoolState || "");
+    setIsEditingProfile(true);
+  };
+
+  const cancelEditingProfile = () => {
+    setIsEditingProfile(false);
+  };
+
+  const saveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: editFirstName,
+          lastName: editLastName,
+          grade: editGrade,
+          highSchoolName: editSchoolName,
+          highSchoolCity: editSchoolCity,
+          highSchoolState: editSchoolState,
+        }),
+      });
+
+      if (res.ok) {
+        setSuccessMessage("Profile updated!");
+        setIsEditingProfile(false);
+        // Reload to get updated profile
+        window.location.reload();
+      } else {
+        alert("Failed to update profile");
+      }
+    } catch (error) {
+      console.error("Save profile error:", error);
+      alert("Failed to update profile");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const GRADE_OPTIONS = ["9th", "10th", "11th", "12th"];
+  
+  const US_STATES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC"
+  ];
+
   // ==========================================================================
   // RENDER
   // ==========================================================================
@@ -798,18 +867,6 @@ export default function SettingsPage() {
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-surface-secondary rounded-xl mb-8 w-fit">
           <button
-            onClick={() => setActiveTab("subscription")}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              activeTab === "subscription"
-                ? "bg-white text-text-primary shadow-sm"
-                : "text-text-muted hover:text-text-primary"
-            )}
-          >
-            <CreditCard className="w-4 h-4 inline mr-2" />
-            Subscription
-          </button>
-          <button
             onClick={() => setActiveTab("profile")}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-all",
@@ -821,6 +878,18 @@ export default function SettingsPage() {
             <User className="w-4 h-4 inline mr-2" />
             Profile
           </button>
+          <button
+            onClick={() => setActiveTab("subscription")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              activeTab === "subscription"
+                ? "bg-white text-text-primary shadow-sm"
+                : "text-text-muted hover:text-text-primary"
+            )}
+          >
+            <CreditCard className="w-4 h-4 inline mr-2" />
+            Subscription
+          </button>
         </div>
 
         {isLoading ? (
@@ -829,6 +898,173 @@ export default function SettingsPage() {
           </div>
         ) : (
           <>
+            {/* Profile Tab */}
+            {activeTab === "profile" && (
+              <div className="space-y-6">
+                <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-semibold text-text-primary">
+                      Your Information
+                    </h2>
+                    {!isEditingProfile ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={startEditingProfile}
+                      >
+                        <Pencil className="w-4 h-4 mr-1.5" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={cancelEditingProfile}
+                          disabled={isSavingProfile}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={saveProfile}
+                          disabled={isSavingProfile}
+                        >
+                          {isSavingProfile ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-1.5" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Name */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-text-muted mb-1">
+                          First Name
+                        </label>
+                        {isEditingProfile ? (
+                          <input
+                            type="text"
+                            value={editFirstName}
+                            onChange={(e) => setEditFirstName(e.target.value)}
+                            className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                          />
+                        ) : (
+                          <div className="text-text-primary py-2">
+                            {profile?.firstName || "—"}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-text-muted mb-1">
+                          Last Name
+                        </label>
+                        {isEditingProfile ? (
+                          <input
+                            type="text"
+                            value={editLastName}
+                            onChange={(e) => setEditLastName(e.target.value)}
+                            className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                          />
+                        ) : (
+                          <div className="text-text-primary py-2">
+                            {profile?.lastName || "—"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Email - Read only */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">
+                        Email
+                      </label>
+                      <div className="text-text-primary py-2">
+                        {settings?.email || "Not available"}
+                      </div>
+                    </div>
+                    
+                    {/* Grade */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">
+                        Grade
+                      </label>
+                      {isEditingProfile ? (
+                        <select
+                          value={editGrade}
+                          onChange={(e) => setEditGrade(e.target.value)}
+                          className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                        >
+                          <option value="">Select grade</option>
+                          {GRADE_OPTIONS.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-text-primary py-2">
+                          {profile?.grade || "Not set"}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* High School */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">
+                        High School
+                      </label>
+                      {isEditingProfile ? (
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={editSchoolName}
+                            onChange={(e) => setEditSchoolName(e.target.value)}
+                            placeholder="School name"
+                            className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <input
+                              type="text"
+                              value={editSchoolCity}
+                              onChange={(e) => setEditSchoolCity(e.target.value)}
+                              placeholder="City"
+                              className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                            />
+                            <select
+                              value={editSchoolState}
+                              onChange={(e) => setEditSchoolState(e.target.value)}
+                              className="w-full px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                            >
+                              <option value="">State</option>
+                              {US_STATES.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-text-primary py-2">
+                          {profile?.highSchoolName || "Not set"}
+                          {profile?.highSchoolCity && profile?.highSchoolState && (
+                            <span className="text-text-muted">
+                              {" "}• {profile.highSchoolCity}, {profile.highSchoolState}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Subscription Tab */}
             {activeTab === "subscription" && (
               <div className="space-y-6">
@@ -1064,70 +1300,6 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Profile Tab */}
-            {activeTab === "profile" && (
-              <div className="space-y-6">
-                <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-                  <h2 className="text-lg font-semibold text-text-primary mb-6">
-                    Your Information
-                  </h2>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-text-muted mb-1">
-                        Name
-                      </label>
-                      <div className="text-text-primary">
-                        {profile?.firstName} {profile?.lastName}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-text-muted mb-1">
-                        Email
-                      </label>
-                      <div className="text-text-primary">
-                        {settings?.email || "Not available"}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-text-muted mb-1">
-                        Grade
-                      </label>
-                      <div className="text-text-primary">
-                        {profile?.grade || "Not set"}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-text-muted mb-1">
-                        High School
-                      </label>
-                      <div className="text-text-primary">
-                        {profile?.highSchoolName || "Not set"}
-                        {profile?.highSchoolCity && profile?.highSchoolState && (
-                          <span className="text-text-muted">
-                            {" "}• {profile.highSchoolCity}, {profile.highSchoolState}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 pt-6 border-t border-border-subtle">
-                    <p className="text-sm text-text-muted">
-                      To update your profile information, go to the{" "}
-                      <a href="/profile" className="text-accent-primary hover:underline">
-                        Profile page
-                      </a>
-                      .
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
           </>
