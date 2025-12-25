@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Receipt,
   Download,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -243,6 +244,175 @@ function SuccessToast({ message, onClose }: { message: string; onClose: () => vo
 }
 
 // =============================================================================
+// PLAN SELECTOR MODAL
+// =============================================================================
+
+function PlanSelectorModal({
+  isOpen,
+  currentTier,
+  isYearly,
+  setIsYearly,
+  onSelect,
+  onClose,
+  actionLoading,
+}: {
+  isOpen: boolean;
+  currentTier: SubscriptionTier;
+  isYearly: boolean;
+  setIsYearly: (yearly: boolean) => void;
+  onSelect: (planId: SubscriptionTier, isUpgrade: boolean) => void;
+  onClose: () => void;
+  actionLoading: string | null;
+}) {
+  if (!isOpen) return null;
+
+  const currentLevel = TIER_LEVELS[currentTier];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-3xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        
+        <h2 className="text-xl font-semibold text-text-primary mb-2">
+          Switch Your Plan
+        </h2>
+        <p className="text-text-secondary mb-6">
+          Choose the plan that works best for you
+        </p>
+
+        {/* Billing Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <span className={cn("text-sm font-medium", !isYearly ? "text-text-primary" : "text-text-muted")}>
+            Monthly
+          </span>
+          <button
+            onClick={() => setIsYearly(!isYearly)}
+            className={cn(
+              "relative w-12 h-6 rounded-full transition-colors",
+              isYearly ? "bg-accent-primary" : "bg-gray-300"
+            )}
+          >
+            <div
+              className={cn(
+                "absolute top-1 w-4 h-4 bg-white rounded-full transition-transform",
+                isYearly ? "translate-x-7" : "translate-x-1"
+              )}
+            />
+          </button>
+          <span className={cn("text-sm font-medium", isYearly ? "text-text-primary" : "text-text-muted")}>
+            Yearly
+          </span>
+          <span className="text-xs text-accent-primary font-medium bg-accent-surface px-2 py-0.5 rounded-full">
+            Save 17%
+          </span>
+        </div>
+
+        {/* Plan Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {PLANS.map((plan) => {
+            const isCurrentPlan = currentTier === plan.id;
+            const planLevel = TIER_LEVELS[plan.id];
+            const isUpgrade = planLevel > currentLevel;
+            const isDowngrade = planLevel < currentLevel;
+            const price = isYearly ? plan.priceYearly : plan.price;
+            const Icon = plan.icon;
+            
+            return (
+              <div
+                key={plan.id}
+                className={cn(
+                  "relative bg-surface-secondary border rounded-2xl p-5 transition-all",
+                  plan.popular && !isCurrentPlan
+                    ? "border-accent-primary shadow-lg" 
+                    : "border-border-subtle",
+                  isCurrentPlan && "ring-2 ring-accent-primary ring-offset-2"
+                )}
+              >
+                {plan.popular && !isCurrentPlan && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-accent-primary text-white text-xs font-medium rounded-full">
+                    Most Popular
+                  </div>
+                )}
+                
+                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center mb-3", plan.bgColor)}>
+                  <Icon className={cn("w-4 h-4", plan.color)} />
+                </div>
+                
+                <h3 className="text-lg font-semibold text-text-primary mb-1">
+                  {plan.name}
+                </h3>
+                
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-2xl font-bold text-text-primary">
+                    ${price}
+                  </span>
+                  {plan.price > 0 && (
+                    <span className="text-text-muted text-sm">
+                      /{isYearly ? "year" : "month"}
+                    </span>
+                  )}
+                </div>
+                
+                <p className="text-sm text-text-muted mb-4 line-clamp-2">
+                  {plan.description}
+                </p>
+                
+                <ul className="space-y-1.5 mb-4">
+                  {plan.features.slice(0, 3).map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
+                      <span className="text-text-secondary">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                {isCurrentPlan ? (
+                  <Button variant="secondary" className="w-full" disabled size="sm">
+                    Current Plan
+                  </Button>
+                ) : plan.id === "free" ? (
+                  <Button 
+                    variant="secondary" 
+                    className="w-full" 
+                    size="sm"
+                    onClick={() => onClose()}
+                  >
+                    Cancel to switch
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    variant={isUpgrade ? "primary" : "secondary"}
+                    onClick={() => onSelect(plan.id, isUpgrade)}
+                    disabled={actionLoading === plan.id || actionLoading === `preview-${plan.id}`}
+                  >
+                    {actionLoading === plan.id || actionLoading === `preview-${plan.id}` ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : isUpgrade ? (
+                      <>Upgrade <ArrowRight className="w-3 h-3 ml-1" /></>
+                    ) : isDowngrade ? (
+                      "Switch to this"
+                    ) : (
+                      "Select"
+                    )}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -257,6 +427,7 @@ export default function SettingsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showUsage, setShowUsage] = useState(false);
+  const [showPlanSelector, setShowPlanSelector] = useState(false);
   
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -324,61 +495,129 @@ export default function SettingsPage() {
   const isCanceling = subscription?.status === "canceling";
   const hasSubscription = currentTier !== "free" && subscription?.status !== "none";
 
+  // Get current plan info
+  const currentPlan = PLANS.find(p => p.id === currentTier) || PLANS[0];
+  const CurrentPlanIcon = currentPlan.icon;
+
   // ==========================================================================
   // ACTION HANDLERS
   // ==========================================================================
 
-  const handleUpgrade = async (planId: SubscriptionTier) => {
+  const handlePlanSelect = async (planId: SubscriptionTier, isUpgrade: boolean) => {
     if (planId === "free") return;
     
-    // First, get proration preview
-    setActionLoading(`preview-${planId}`);
-    
-    try {
-      const previewRes = await fetch("/api/subscription/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId, yearly: isYearly }),
-      });
+    if (isUpgrade) {
+      // Get proration preview for upgrades
+      setActionLoading(`preview-${planId}`);
       
-      if (!previewRes.ok) {
-        throw new Error("Failed to get preview");
+      try {
+        const previewRes = await fetch("/api/subscription/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: planId, yearly: isYearly }),
+        });
+        
+        if (!previewRes.ok) {
+          throw new Error("Failed to get preview");
+        }
+        
+        const preview: ProrationPreview = await previewRes.json();
+        setActionLoading(null);
+        setShowPlanSelector(false);
+        
+        // Show confirmation modal with proration info
+        const planName = planId.charAt(0).toUpperCase() + planId.slice(1);
+        
+        setConfirmModal({
+          isOpen: true,
+          title: `Upgrade to ${planName}?`,
+          message: preview.isNewSubscription
+            ? `You'll get access to all ${planName} features immediately.`
+            : `Your upgrade will take effect immediately.`,
+          details: (
+            <div className="bg-surface-secondary rounded-xl p-4 space-y-2">
+              {!preview.isNewSubscription && preview.prorationAmount !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-muted">Proration adjustment</span>
+                  <span className="text-text-primary">
+                    {preview.prorationAmount >= 0 ? "+" : "-"}${Math.abs(preview.prorationAmount).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-medium pt-2 border-t border-border-subtle">
+                <span className="text-text-primary">Charge today</span>
+                <span className="text-text-primary">${preview.totalAmount.toFixed(2)}</span>
+              </div>
+              <p className="text-xs text-text-muted pt-2">
+                {preview.isNewSubscription
+                  ? `Then $${isYearly ? (planId === "premium" ? "249" : "99") : (planId === "premium" ? "24.99" : "9.99")}/${isYearly ? "year" : "month"} starting ${isYearly ? "next year" : "next month"}.`
+                  : `Your billing cycle remains unchanged.`}
+              </p>
+            </div>
+          ),
+          confirmLabel: `Pay $${preview.totalAmount.toFixed(2)}`,
+          confirmVariant: "primary",
+          action: async () => {
+            setActionLoading(planId);
+            try {
+              const res = await fetch("/api/subscription", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  action: "upgrade", 
+                  plan: planId, 
+                  yearly: isYearly 
+                }),
+              });
+              
+              const data = await res.json();
+              
+              if (res.ok) {
+                if (data.checkoutUrl) {
+                  window.location.href = data.checkoutUrl;
+                } else if (data.immediate) {
+                  setSuccessMessage(data.message);
+                  await loadData();
+                }
+              } else {
+                alert(data.error || "Failed to upgrade");
+              }
+            } catch (error) {
+              console.error("Upgrade error:", error);
+              alert("Failed to upgrade. Please try again.");
+            } finally {
+              setActionLoading(null);
+              setConfirmModal(null);
+            }
+          },
+        });
+      } catch (error) {
+        console.error("Preview error:", error);
+        setActionLoading(null);
+        alert("Failed to calculate upgrade cost. Please try again.");
       }
+    } else {
+      // Downgrade - schedule for end of period
+      const periodEnd = subscription?.currentPeriodEnd 
+        ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+        : "the end of your billing period";
       
-      const preview: ProrationPreview = await previewRes.json();
-      setActionLoading(null);
-      
-      // Show confirmation modal with proration info
-      const planName = planId.charAt(0).toUpperCase() + planId.slice(1);
+      setShowPlanSelector(false);
       
       setConfirmModal({
         isOpen: true,
-        title: `Upgrade to ${planName}?`,
-        message: preview.isNewSubscription
-          ? `You'll get access to all ${planName} features immediately.`
-          : `Your upgrade will take effect immediately.`,
+        title: "Switch to Standard?",
+        message: `You'll keep Premium access until ${periodEnd}. After that, you'll be switched to Standard.`,
         details: (
-          <div className="bg-surface-secondary rounded-xl p-4 space-y-2">
-            {!preview.isNewSubscription && preview.prorationAmount !== undefined && (
-              <div className="flex justify-between text-sm">
-                <span className="text-text-muted">Proration adjustment</span>
-                <span className="text-text-primary">
-                  {preview.prorationAmount >= 0 ? "+" : "-"}${Math.abs(preview.prorationAmount).toFixed(2)}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between text-sm font-medium pt-2 border-t border-border-subtle">
-              <span className="text-text-primary">Charge today</span>
-              <span className="text-text-primary">${preview.totalAmount.toFixed(2)}</span>
-            </div>
-            <p className="text-xs text-text-muted pt-2">
-              {preview.isNewSubscription
-                ? `Then $${isYearly ? (planId === "premium" ? "249" : "99") : (planId === "premium" ? "24.99" : "9.99")}/${isYearly ? "year" : "month"} starting ${isYearly ? "next year" : "next month"}.`
-                : `Your billing cycle remains unchanged.`}
+          <div className="bg-blue-50 text-blue-800 rounded-xl p-4 text-sm">
+            <p className="font-medium mb-1">No charge today</p>
+            <p className="text-blue-600">
+              The switch will happen automatically at your next billing date. 
+              You&apos;ll continue to enjoy Premium features until then.
             </p>
           </div>
         ),
-        confirmLabel: `Pay $${preview.totalAmount.toFixed(2)}`,
+        confirmLabel: "Schedule Switch",
         confirmVariant: "primary",
         action: async () => {
           setActionLoading(planId);
@@ -387,7 +626,7 @@ export default function SettingsPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
-                action: "upgrade", 
+                action: "downgrade", 
                 plan: planId, 
                 yearly: isYearly 
               }),
@@ -396,81 +635,21 @@ export default function SettingsPage() {
             const data = await res.json();
             
             if (res.ok) {
-              if (data.checkoutUrl) {
-                window.location.href = data.checkoutUrl;
-              } else if (data.immediate) {
-                setSuccessMessage(data.message);
-                await loadData();
-              }
+              setSuccessMessage(data.message);
+              await loadData();
             } else {
-              alert(data.error || "Failed to upgrade");
+              alert(data.error || "Failed to switch plan");
             }
           } catch (error) {
-            console.error("Upgrade error:", error);
-            alert("Failed to upgrade. Please try again.");
+            console.error("Downgrade error:", error);
+            alert("Failed to switch plan. Please try again.");
           } finally {
             setActionLoading(null);
             setConfirmModal(null);
           }
         },
       });
-    } catch (error) {
-      console.error("Preview error:", error);
-      setActionLoading(null);
-      alert("Failed to calculate upgrade cost. Please try again.");
     }
-  };
-
-  const handleDowngrade = async (planId: SubscriptionTier) => {
-    const periodEnd = subscription?.currentPeriodEnd 
-      ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
-      : "the end of your billing period";
-    
-    setConfirmModal({
-      isOpen: true,
-      title: "Switch to Standard?",
-      message: `You'll keep Premium access until ${periodEnd}. After that, you'll be switched to Standard.`,
-      details: (
-        <div className="bg-blue-50 text-blue-800 rounded-xl p-4 text-sm">
-          <p className="font-medium mb-1">No charge today</p>
-          <p className="text-blue-600">
-            The switch will happen automatically at your next billing date. 
-            You&apos;ll continue to enjoy Premium features until then.
-          </p>
-        </div>
-      ),
-      confirmLabel: "Schedule Switch",
-      confirmVariant: "primary",
-      action: async () => {
-        setActionLoading(planId);
-        try {
-          const res = await fetch("/api/subscription", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              action: "downgrade", 
-              plan: planId, 
-              yearly: isYearly 
-            }),
-          });
-          
-          const data = await res.json();
-          
-          if (res.ok) {
-            setSuccessMessage(data.message);
-            await loadData();
-          } else {
-            alert(data.error || "Failed to switch plan");
-          }
-        } catch (error) {
-          console.error("Downgrade error:", error);
-          alert("Failed to switch plan. Please try again.");
-        } finally {
-          setActionLoading(null);
-          setConfirmModal(null);
-        }
-      },
-    });
   };
 
   const handleCancel = async () => {
@@ -550,78 +729,6 @@ export default function SettingsPage() {
   // RENDER HELPERS
   // ==========================================================================
 
-  const renderPlanButton = (plan: typeof PLANS[0]) => {
-    const planLevel = TIER_LEVELS[plan.id];
-    const currentLevel = TIER_LEVELS[currentTier];
-    const isCurrentPlan = plan.id === currentTier;
-
-    if (isCurrentPlan) {
-      return (
-        <Button variant="secondary" className="w-full" disabled>
-          Current Plan
-        </Button>
-      );
-    }
-
-    if (plan.id === "free") {
-      if (hasSubscription) {
-        return null;
-      }
-      return (
-        <Button variant="secondary" className="w-full" disabled>
-          Free Forever
-        </Button>
-      );
-    }
-
-    if (isCanceling) {
-      return (
-        <Button variant="secondary" className="w-full" disabled>
-          {planLevel > currentLevel ? "Upgrade" : "Switch Plan"}
-        </Button>
-      );
-    }
-
-    if (planLevel > currentLevel) {
-      const isLoadingPreview = actionLoading === `preview-${plan.id}`;
-      return (
-        <Button
-          className="w-full"
-          onClick={() => handleUpgrade(plan.id)}
-          disabled={isLoadingPreview || actionLoading === plan.id}
-        >
-          {isLoadingPreview || actionLoading === plan.id ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              Upgrade
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </>
-          )}
-        </Button>
-      );
-    }
-
-    if (planLevel < currentLevel && plan.id !== "free") {
-      return (
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={() => handleDowngrade(plan.id)}
-          disabled={actionLoading === plan.id}
-        >
-          {actionLoading === plan.id ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            "Switch Plan"
-          )}
-        </Button>
-      );
-    }
-
-    return null;
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
@@ -658,6 +765,17 @@ export default function SettingsPage() {
           isLoading={actionLoading !== null}
         />
       )}
+
+      {/* Plan Selector Modal */}
+      <PlanSelectorModal
+        isOpen={showPlanSelector}
+        currentTier={currentTier}
+        isYearly={isYearly}
+        setIsYearly={setIsYearly}
+        onSelect={handlePlanSelect}
+        onClose={() => setShowPlanSelector(false)}
+        actionLoading={actionLoading}
+      />
 
       {/* Header */}
       <div className="border-b border-border-subtle bg-surface-secondary/50">
@@ -713,72 +831,67 @@ export default function SettingsPage() {
           <>
             {/* Subscription Tab */}
             {activeTab === "subscription" && (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {/* Current Plan Card */}
                 <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-                  <h2 className="text-lg font-semibold text-text-primary mb-4">
-                    Current Plan
-                  </h2>
-                  
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      {/* Plan Name & Status */}
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl font-bold text-text-primary capitalize">
-                          {currentTier}
-                        </span>
+                  <div className="flex items-start gap-4">
+                    {/* Plan Icon */}
+                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", currentPlan.bgColor)}>
+                      <CurrentPlanIcon className={cn("w-6 h-6", currentPlan.color)} />
+                    </div>
+                    
+                    {/* Plan Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h2 className="text-xl font-bold text-text-primary">
+                          {currentPlan.name}
+                        </h2>
                         {isActive && (
-                          <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                             Active
                           </span>
                         )}
                         {isCanceling && (
-                          <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
+                          <span className="px-2.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
                             Canceling
                           </span>
                         )}
                       </div>
                       
-                      {/* Plan Details for paid subscribers */}
+                      {/* Pricing info */}
                       {hasSubscription && subscription && (
-                        <div className="text-sm text-text-muted mb-3">
+                        <p className="text-sm text-text-muted mb-2">
                           {subscription.amount && subscription.interval && (
-                            <span>
+                            <>
                               ${subscription.amount.toFixed(2)}/{subscription.interval === "year" ? "year" : "month"}
-                              {subscription.interval === "year" && " (Annual)"}
-                              {subscription.interval === "month" && " (Monthly)"}
-                            </span>
+                              <span className="text-text-muted/60">
+                                {subscription.interval === "year" ? " (Annual)" : " (Monthly)"}
+                              </span>
+                            </>
                           )}
-                        </div>
+                        </p>
                       )}
                       
-                      {/* Cancellation notice */}
+                      {/* Billing info */}
                       {isCanceling && subscription?.currentPeriodEnd && (
-                        <div className="flex items-start gap-2 text-sm text-yellow-700 bg-yellow-50 rounded-lg px-4 py-3 mb-3">
+                        <div className="flex items-start gap-2 text-sm text-yellow-700 bg-yellow-50 rounded-lg px-3 py-2 mt-2">
                           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-medium">Subscription ending</p>
-                            <p>
-                              Your access will end on{" "}
-                              <strong>{formatDate(subscription.currentPeriodEnd)}</strong>.
-                              After that, you&apos;ll be switched to the Free plan.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Next billing for active subscribers */}
-                      {isActive && subscription?.currentPeriodEnd && (
-                        <div className="flex items-center gap-2 text-sm text-text-secondary">
-                          <Calendar className="w-4 h-4 text-text-muted" />
                           <span>
-                            Next charge: <strong>${subscription.amount?.toFixed(2)}</strong> on{" "}
-                            <strong>{formatDate(subscription.currentPeriodEnd)}</strong>
+                            Access ends on <strong>{formatDate(subscription.currentPeriodEnd)}</strong>
                           </span>
                         </div>
                       )}
                       
-                      {/* Free tier message */}
+                      {isActive && subscription?.currentPeriodEnd && (
+                        <div className="flex items-center gap-2 text-sm text-text-muted mt-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            Next charge: <strong className="text-text-secondary">${subscription.amount?.toFixed(2)}</strong> on{" "}
+                            <strong className="text-text-secondary">{formatDate(subscription.currentPeriodEnd)}</strong>
+                          </span>
+                        </div>
+                      )}
+                      
                       {currentTier === "free" && !hasSubscription && (
                         <p className="text-sm text-text-muted">
                           Upgrade to unlock more messages and advanced AI advisors.
@@ -786,9 +899,9 @@ export default function SettingsPage() {
                       )}
                     </div>
                     
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      {isCanceling && (
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2 shrink-0">
+                      {isCanceling ? (
                         <Button 
                           variant="secondary" 
                           size="sm"
@@ -804,22 +917,32 @@ export default function SettingsPage() {
                             </>
                           )}
                         </Button>
-                      )}
-                      
-                      {isActive && hasSubscription && (
-                        <Button 
-                          variant="secondary" 
-                          size="sm"
-                          onClick={handleCancel}
-                          disabled={actionLoading === "cancel"}
-                          className="text-text-muted hover:text-red-600 hover:bg-red-50"
-                        >
-                          {actionLoading === "cancel" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            "Cancel Subscription"
+                      ) : (
+                        <>
+                          <Button 
+                            size="sm"
+                            onClick={() => setShowPlanSelector(true)}
+                          >
+                            <ArrowLeftRight className="w-4 h-4 mr-1.5" />
+                            Switch Plan
+                          </Button>
+                          
+                          {isActive && hasSubscription && (
+                            <Button 
+                              variant="secondary" 
+                              size="sm"
+                              onClick={handleCancel}
+                              disabled={actionLoading === "cancel"}
+                              className="text-text-muted hover:text-red-600 hover:bg-red-50"
+                            >
+                              {actionLoading === "cancel" ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                "Cancel"
+                              )}
+                            </Button>
                           )}
-                        </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -869,95 +992,6 @@ export default function SettingsPage() {
                       )}
                     </div>
                   )}
-                </div>
-
-                {/* Pricing Toggle */}
-                <div className="flex items-center justify-center gap-3">
-                  <span className={cn("text-sm font-medium", !isYearly ? "text-text-primary" : "text-text-muted")}>
-                    Monthly
-                  </span>
-                  <button
-                    onClick={() => setIsYearly(!isYearly)}
-                    className={cn(
-                      "relative w-12 h-6 rounded-full transition-colors",
-                      isYearly ? "bg-accent-primary" : "bg-gray-300"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "absolute top-1 w-4 h-4 bg-white rounded-full transition-transform",
-                        isYearly ? "translate-x-7" : "translate-x-1"
-                      )}
-                    />
-                  </button>
-                  <span className={cn("text-sm font-medium", isYearly ? "text-text-primary" : "text-text-muted")}>
-                    Yearly
-                  </span>
-                  <span className="text-xs text-accent-primary font-medium bg-accent-surface px-2 py-0.5 rounded-full">
-                    Save 17%
-                  </span>
-                </div>
-
-                {/* Pricing Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {PLANS.map((plan) => {
-                    const isCurrentPlan = currentTier === plan.id;
-                    const price = isYearly ? plan.priceYearly : plan.price;
-                    const Icon = plan.icon;
-                    
-                    return (
-                      <div
-                        key={plan.id}
-                        className={cn(
-                          "relative bg-surface-secondary border rounded-2xl p-6 transition-all",
-                          plan.popular && !isCurrentPlan
-                            ? "border-accent-primary shadow-lg scale-[1.02]" 
-                            : "border-border-subtle",
-                          isCurrentPlan && "ring-2 ring-accent-primary ring-offset-2"
-                        )}
-                      >
-                        {plan.popular && !isCurrentPlan && (
-                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-accent-primary text-white text-xs font-medium rounded-full">
-                            Most Popular
-                          </div>
-                        )}
-                        
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4", plan.bgColor)}>
-                          <Icon className={cn("w-5 h-5", plan.color)} />
-                        </div>
-                        
-                        <h3 className="text-lg font-semibold text-text-primary mb-1">
-                          {plan.name}
-                        </h3>
-                        
-                        <div className="flex items-baseline gap-1 mb-2">
-                          <span className="text-3xl font-bold text-text-primary">
-                            ${price}
-                          </span>
-                          {plan.price > 0 && (
-                            <span className="text-text-muted text-sm">
-                              /{isYearly ? "year" : "month"}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <p className="text-sm text-text-muted mb-4">
-                          {plan.description}
-                        </p>
-                        
-                        <ul className="space-y-2 mb-6">
-                          {plan.features.map((feature, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm">
-                              <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
-                              <span className="text-text-secondary">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        
-                        {renderPlanButton(plan)}
-                      </div>
-                    );
-                  })}
                 </div>
 
                 {/* Billing History */}
