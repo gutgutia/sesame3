@@ -13,7 +13,6 @@ import {
   Sparkles,
   CheckCircle2,
   Circle,
-  User,
   BookOpen,
   Plus,
 } from "lucide-react";
@@ -32,7 +31,7 @@ interface StoryData {
 }
 
 export default function ProfileOverviewPage() {
-  const { profile, isLoading, error, refreshProfile } = useProfile();
+  const { profile, isLoading, error } = useProfile();
   const [storyData, setStoryData] = useState<StoryData | null>(null);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
 
@@ -45,6 +44,7 @@ export default function ProfileOverviewPage() {
   }, []);
 
   const storyCount = storyData?.storyEntries?.length || 0;
+  const storyThemes = storyData?.storyEntries?.flatMap(s => s.themes) || [];
 
   if (isLoading) {
     return (
@@ -77,11 +77,12 @@ export default function ProfileOverviewPage() {
 
   // Profile completeness
   const completenessItems = [
-    { label: "About Me", done: storyCount >= 1 },
+    { label: "Stories", done: storyCount >= 1 },
     { label: "Courses", done: courseCount >= 5 },
     { label: "Test Scores", done: satScores.length > 0 || actScores.length > 0 },
     { label: "Activities", done: activityCount >= 3 },
     { label: "Awards", done: awardCount >= 1 },
+    { label: "Programs", done: programCount >= 1 },
   ];
   const completedCount = completenessItems.filter(i => i.done).length;
   const completenessPercent = Math.round((completedCount / completenessItems.length) * 100);
@@ -89,11 +90,9 @@ export default function ProfileOverviewPage() {
   return (
     <>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-        <div>
-          <h1 className="font-display font-bold text-3xl text-text-main mb-2">Your Profile</h1>
-          <p className="text-text-muted">Your academic and extracurricular snapshot.</p>
-        </div>
+      <div className="mb-8">
+        <h1 className="font-display font-bold text-3xl text-text-main mb-2">Your Profile</h1>
+        <p className="text-text-muted">Your academic and extracurricular snapshot.</p>
       </div>
 
       {/* Top Row: Key Stats */}
@@ -122,138 +121,148 @@ export default function ProfileOverviewPage() {
         />
       </div>
 
-      {/* About Me + Completeness Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* About Me */}
-        <div className="lg:col-span-2">
-          <AboutMeCard 
-            storyCount={storyCount} 
-            themes={storyData?.storyEntries?.flatMap(s => s.themes) || []}
-            onAddStory={() => setIsStoryModalOpen(true)} 
-          />
-        </div>
+      {/* Main Content: 2x3 Grid + Right Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left: 2x3 Section Cards Grid */}
+        <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Stories (About Me) */}
+            <StoriesCard 
+              storyCount={storyCount}
+              themes={storyThemes}
+              onAddStory={() => setIsStoryModalOpen(true)}
+            />
 
-        {/* Profile Completeness */}
-        <div className="bg-white border border-border-subtle rounded-[20px] p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-bold text-lg text-text-main">Profile Completeness</h3>
-            <span className="text-2xl font-bold text-accent-primary">{completenessPercent}%</span>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="h-2 bg-bg-sidebar rounded-full mb-5 overflow-hidden">
-            <div 
-              className="h-full bg-accent-primary rounded-full transition-all duration-500"
-              style={{ width: `${completenessPercent}%` }}
+            {/* Courses */}
+            <SectionCard
+              icon={GraduationCap}
+              title="Courses"
+              description="Your coursework and GPA"
+              href="/profile/courses"
+              stats={[
+                { label: "Courses", value: courseCount },
+                { label: "AP/IB", value: gpaResult.apCount },
+                { label: "Honors", value: gpaResult.honorsCount },
+              ]}
+              isEmpty={courseCount === 0}
+              emptyMessage="Add your courses to calculate GPA"
+            />
+
+            {/* Testing */}
+            <SectionCard
+              icon={PenTool}
+              title="Testing"
+              description="SAT, ACT, and AP scores"
+              href="/profile/testing"
+              stats={[
+                { label: "SAT", value: satScores.length },
+                { label: "ACT", value: actScores.length },
+                { label: "AP", value: profile?.testing?.apScores?.length || 0 },
+              ]}
+              isEmpty={satScores.length === 0 && actScores.length === 0}
+              emptyMessage="Add your test scores"
+            />
+
+            {/* Activities */}
+            <SectionCard
+              icon={Users}
+              title="Activities"
+              description="Extracurriculars and involvement"
+              href="/profile/activities"
+              stats={[
+                { label: "Total", value: activityCount },
+                { label: "Leadership", value: profile?.activities?.filter(a => a.isLeadership).length || 0 },
+                { label: "Spike", value: profile?.activities?.filter(a => a.isSpike).length || 0 },
+              ]}
+              isEmpty={activityCount === 0}
+              emptyMessage="Add your activities"
+            />
+
+            {/* Awards */}
+            <SectionCard
+              icon={Trophy}
+              title="Awards"
+              description="Honors and recognitions"
+              href="/profile/awards"
+              stats={[
+                { label: "Total", value: awardCount },
+              ]}
+              isEmpty={awardCount === 0}
+              emptyMessage="Add your awards"
+            />
+
+            {/* Programs */}
+            <SectionCard
+              icon={FlaskConical}
+              title="Programs"
+              description="Summer programs and research"
+              href="/profile/programs"
+              stats={[
+                { label: "Total", value: programCount },
+              ]}
+              isEmpty={programCount === 0}
+              emptyMessage="Add programs you've done"
             />
           </div>
+        </div>
 
-          <div className="space-y-2.5">
-            {completenessItems.map((item, i) => (
-              <div key={i} className="flex items-center gap-2.5">
-                {item.done ? (
-                  <CheckCircle2 className="w-4 h-4 text-accent-primary" />
-                ) : (
-                  <Circle className="w-4 h-4 text-border-medium" />
-                )}
-                <span className={cn(
-                  "text-sm",
-                  item.done ? "text-text-main" : "text-text-muted"
-                )}>
-                  {item.label}
-                </span>
+        {/* Right Sidebar: Completeness + Chat CTA */}
+        <div className="lg:col-span-1 space-y-5">
+          {/* Profile Completeness */}
+          <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-text-main">Profile</h3>
+              <span className="text-2xl font-bold text-accent-primary">{completenessPercent}%</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="h-2 bg-bg-sidebar rounded-full mb-4 overflow-hidden">
+              <div 
+                className="h-full bg-accent-primary rounded-full transition-all duration-500"
+                style={{ width: `${completenessPercent}%` }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              {completenessItems.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  {item.done ? (
+                    <CheckCircle2 className="w-4 h-4 text-accent-primary shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-border-medium shrink-0" />
+                  )}
+                  <span className={cn(
+                    "text-sm",
+                    item.done ? "text-text-main" : "text-text-muted"
+                  )}>
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Chat with Advisor CTA */}
+          <Link 
+            href="/advisor?mode=profile"
+            className="block bg-accent-surface/50 border border-accent-border rounded-[20px] p-5 hover:bg-accent-surface transition-colors group"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                <Sparkles className="w-5 h-5 text-accent-primary" />
               </div>
-            ))}
-          </div>
+              <div className="font-display font-bold text-text-main">Need help?</div>
+            </div>
+            <p className="text-sm text-text-muted mb-4">
+              Chat with your advisor for personalized guidance on your profile.
+            </p>
+            <div className="flex items-center gap-2 text-sm font-medium text-accent-primary group-hover:gap-3 transition-all">
+              <MessageCircle className="w-4 h-4" />
+              Chat with Advisor
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </Link>
         </div>
-      </div>
-
-      {/* Section Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <SectionCard
-          icon={GraduationCap}
-          title="Courses"
-          description="Your coursework and GPA"
-          href="/profile/courses"
-          stats={[
-            { label: "Courses", value: courseCount },
-            { label: "AP/IB", value: gpaResult.apCount },
-            { label: "Honors", value: gpaResult.honorsCount },
-          ]}
-          isEmpty={courseCount === 0}
-          emptyMessage="Add your courses to calculate GPA"
-        />
-
-        <SectionCard
-          icon={PenTool}
-          title="Testing"
-          description="SAT, ACT, and AP scores"
-          href="/profile/testing"
-          stats={[
-            { label: "SAT", value: satScores.length },
-            { label: "ACT", value: actScores.length },
-            { label: "AP", value: profile?.testing?.apScores?.length || 0 },
-          ]}
-          isEmpty={satScores.length === 0 && actScores.length === 0}
-          emptyMessage="Add your test scores"
-        />
-
-        <SectionCard
-          icon={Users}
-          title="Activities"
-          description="Extracurriculars and involvement"
-          href="/profile/activities"
-          stats={[
-            { label: "Total", value: activityCount },
-            { label: "Leadership", value: profile?.activities?.filter(a => a.isLeadership).length || 0 },
-            { label: "Spike", value: profile?.activities?.filter(a => a.isSpike).length || 0 },
-          ]}
-          isEmpty={activityCount === 0}
-          emptyMessage="Add your activities"
-        />
-
-        <SectionCard
-          icon={Trophy}
-          title="Awards"
-          description="Honors and recognitions"
-          href="/profile/awards"
-          stats={[
-            { label: "Total", value: awardCount },
-          ]}
-          isEmpty={awardCount === 0}
-          emptyMessage="Add your awards"
-        />
-
-        <SectionCard
-          icon={FlaskConical}
-          title="Programs"
-          description="Summer programs and research"
-          href="/profile/programs"
-          stats={[
-            { label: "Total", value: programCount },
-          ]}
-          isEmpty={programCount === 0}
-          emptyMessage="Add programs you've done"
-        />
-      </div>
-
-      {/* Chat Prompt */}
-      <div className="mt-8 bg-bg-sidebar/50 border border-border-subtle rounded-xl p-5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-accent-surface text-accent-primary rounded-xl flex items-center justify-center">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-medium text-text-main">Need help with your profile?</div>
-            <div className="text-sm text-text-muted">Chat with your advisor for personalized guidance</div>
-          </div>
-        </div>
-        <Link href="/advisor?mode=profile">
-          <Button variant="secondary">
-            <MessageCircle className="w-4 h-4" />
-            Chat with Advisor
-          </Button>
-        </Link>
       </div>
 
       {/* Share Story Modal */}
@@ -323,7 +332,7 @@ const themeColors: Record<string, { bg: string; text: string }> = {
   Resilience: { bg: "bg-red-100", text: "text-red-700" },
 };
 
-function AboutMeCard({ 
+function StoriesCard({ 
   storyCount, 
   themes,
   onAddStory,
@@ -332,20 +341,28 @@ function AboutMeCard({
   themes: string[];
   onAddStory: () => void;
 }) {
-  // Get unique themes
-  const uniqueThemes = Array.from(new Set(themes)).slice(0, 4);
+  const uniqueThemes = Array.from(new Set(themes)).slice(0, 3);
 
+  // Empty state
   if (storyCount === 0) {
     return (
-      <div className="bg-bg-sidebar border border-border-subtle rounded-[20px] p-6 h-full flex items-center">
-        <div className="flex items-center gap-4 w-full">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-text-muted border border-border-subtle shrink-0">
-            <BookOpen className="w-6 h-6" />
+      <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card flex flex-col">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-text-main">My Stories</h3>
+              <p className="text-xs text-text-muted">Share who you are</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-display font-bold text-lg text-text-main mb-1">Tell us about yourself</h3>
-            <p className="text-sm text-text-muted">Beyond grades and scores — who are you?</p>
-          </div>
+        </div>
+        
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+          <p className="text-sm text-text-muted mb-4">
+            Beyond grades and scores — who are you?
+          </p>
           <Button size="sm" onClick={onAddStory}>
             <Plus className="w-4 h-4" />
             Share a Story
@@ -355,50 +372,53 @@ function AboutMeCard({
     );
   }
 
+  // With stories
   return (
     <Link 
       href="/profile/about-me"
-      className="block bg-white border border-border-subtle rounded-[20px] p-6 shadow-card h-full hover:border-accent-primary hover:shadow-lg transition-all group"
+      className="group bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-accent-surface rounded-xl flex items-center justify-center">
-            <User className="w-5 h-5 text-accent-primary" />
+          <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted group-hover:bg-accent-surface group-hover:text-accent-primary transition-colors">
+            <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-display font-bold text-lg text-text-main">About Me</h3>
-            <p className="text-sm text-text-muted">Your story journal</p>
+            <h3 className="font-display font-bold text-text-main">My Stories</h3>
+            <p className="text-xs text-text-muted">Your story journal</p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
       </div>
-      
-      <div className="flex items-center gap-6 mb-4">
-        <div>
-          <div className="text-3xl font-bold text-text-main">{storyCount}</div>
-          <div className="text-xs text-text-muted">Stories shared</div>
-        </div>
-      </div>
 
-      {uniqueThemes.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {uniqueThemes.map((theme) => {
-            const colors = themeColors[theme] || { bg: "bg-gray-100", text: "text-gray-700" };
-            return (
-              <span
-                key={theme}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full",
-                  colors.bg,
-                  colors.text
-                )}
-              >
-                {theme}
-              </span>
-            );
-          })}
+      <div className="flex-1">
+        <div className="flex gap-4 mb-3">
+          <div className="text-center">
+            <div className="text-xl font-bold text-text-main">{storyCount}</div>
+            <div className="text-xs text-text-muted">Stories</div>
+          </div>
         </div>
-      )}
+
+        {uniqueThemes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {uniqueThemes.map((theme) => {
+              const colors = themeColors[theme] || { bg: "bg-gray-100", text: "text-gray-700" };
+              return (
+                <span
+                  key={theme}
+                  className={cn(
+                    "px-2 py-0.5 text-xs font-medium rounded-full",
+                    colors.bg,
+                    colors.text
+                  )}
+                >
+                  {theme}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </Link>
   );
 }
@@ -423,7 +443,7 @@ function SectionCard({
   return (
     <Link 
       href={href}
-      className="group bg-white border border-border-subtle rounded-[20px] p-6 shadow-card hover:border-accent-primary hover:shadow-lg transition-all"
+      className="group bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -438,20 +458,22 @@ function SectionCard({
         <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
       </div>
 
-      {isEmpty ? (
-        <div className="text-sm text-text-muted py-4 text-center bg-bg-sidebar/50 rounded-xl">
-          {emptyMessage}
-        </div>
-      ) : (
-        <div className="flex gap-4">
-          {stats.map((stat, i) => (
-            <div key={i} className="text-center">
-              <div className="text-xl font-bold text-text-main">{stat.value}</div>
-              <div className="text-xs text-text-muted">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="flex-1">
+        {isEmpty ? (
+          <div className="text-sm text-text-muted py-3 text-center bg-bg-sidebar/50 rounded-xl">
+            {emptyMessage}
+          </div>
+        ) : (
+          <div className="flex gap-4">
+            {stats.map((stat, i) => (
+              <div key={i} className="text-center">
+                <div className="text-xl font-bold text-text-main">{stat.value}</div>
+                <div className="text-xs text-text-muted">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </Link>
   );
 }
