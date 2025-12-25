@@ -177,6 +177,22 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean) {
       return createCheckoutSession(user, plan, priceId, yearly);
     }
     
+    // If subscription is managed by a schedule, release it first
+    if (subscription.schedule) {
+      try {
+        await stripe.subscriptionSchedules.release(subscription.schedule as string);
+        console.log(`[Subscription] Released existing schedule ${subscription.schedule}`);
+      } catch (scheduleErr) {
+        // If release fails, try to cancel
+        try {
+          await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
+          console.log(`[Subscription] Canceled existing schedule ${subscription.schedule}`);
+        } catch {
+          console.log(`[Subscription] Could not release/cancel schedule, continuing...`);
+        }
+      }
+    }
+    
     // Update subscription with proration (immediate charge for difference)
     const updatedSubscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
@@ -224,8 +240,12 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean) {
 
 /**
  * Handle downgrade to a lower tier
- * - Schedules change for end of billing period
- * - User keeps current tier until then
+ * - For simplicity, we update the subscription immediately but with no proration
+ * - This means the user pays the new lower price at their next billing date
+ * - They get the new (lower) tier immediately
+ * 
+ * Alternative: Use subscription schedules for true "keep current tier until period end"
+ * but that's complex and error-prone with the Stripe API.
  */
 async function handleDowngrade(user: UserData, plan: string, yearly: boolean) {
   if (!stripe) throw new Error("Stripe not configured");
@@ -270,48 +290,85 @@ async function handleDowngrade(user: UserData, plan: string, yearly: boolean) {
   try {
     const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
     
-    // Schedule the downgrade for end of period using subscription schedules
-    // First, check if there's already a schedule
+    // If subscription is managed by a schedule, release it first
     if (subscription.schedule) {
-      // Cancel existing schedule
-      await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
+      try {
+        await stripe.subscriptionSchedules.release(subscription.schedule as string);
+        console.log(`[Subscription] Released existing schedule ${subscription.schedule}`);
+      } catch (scheduleErr) {
+        // If release fails, try to cancel
+        try {
+          await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
+          console.log(`[Subscription] Canceled existing schedule ${subscription.schedule}`);
+        } catch {
+          console.log(`[Subscription] Could not release/cancel schedule, continuing...`);
+        }
+      }
     }
     
-    // Create a schedule that downgrades at period end
-    const schedule = await stripe.subscriptionSchedules.create({
-      from_subscription: user.stripeSubscriptionId,
+    // Update subscription with no proration (change takes effect at next billing)
+    // Using proration_behavior: 'none' means no immediate charge/credit
+    const updatedSubscription = await stripe.subscriptions.update(
+      user.stripeSubscriptionId,
+      {
+        items: [
+          {
+            id: subscription.items.data[0].id,
+            price: priceId,
+          },
+        ],
+        proration_behavior: "none",
+        // Remove any pending cancellation
+        cancel_at_period_end: false,
+      }
+    );
+    
+    // Update database
+    const tier = plan as "standard" | "premium";
+    
+    // Calculate when the new price takes effect
+    const rawSub = updatedSubscription as unknown as Record<string, unknown>;
+    const periodEnd = rawSub.current_period_end as number | undefined;
+    
+    let subscriptionEndsAt: Date | null = null;
+    if (periodEnd) {
+      subscriptionEndsAt = new Date(periodEnd * 1000);
+    } else if (updatedSubscription.billing_cycle_anchor) {
+      // Calculate from billing anchor
+      const anchor = new Date(updatedSubscription.billing_cycle_anchor * 1000);
+      const interval = yearly ? "year" : "month";
+      const now = new Date();
+      let nextBilling = new Date(anchor);
+      while (nextBilling <= now) {
+        if (interval === "month") {
+          nextBilling.setMonth(nextBilling.getMonth() + 1);
+        } else {
+          nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+        }
+      }
+      subscriptionEndsAt = nextBilling;
+    }
+    
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        subscriptionTier: tier,
+        subscriptionEndsAt,
+      },
     });
     
-    // Update the schedule with the new phase
-    await stripe.subscriptionSchedules.update(schedule.id, {
-      end_behavior: "release",
-      phases: [
-        {
-          items: [{ price: subscription.items.data[0].price.id, quantity: 1 }],
-          start_date: subscription.current_period_start,
-          end_date: subscription.current_period_end,
-        },
-        {
-          items: [{ price: priceId, quantity: 1 }],
-          start_date: subscription.current_period_end,
-        },
-      ],
-    });
-    
-    console.log(`[Subscription] User ${user.id} scheduled downgrade to ${plan}`);
-    
-    const switchDate = new Date(subscription.current_period_end * 1000);
+    console.log(`[Subscription] User ${user.id} switched to ${plan}`);
     
     return NextResponse.json({
       success: true,
-      message: `Your plan will switch to ${plan} on ${switchDate.toLocaleDateString()}.`,
-      scheduledTier: plan,
-      switchDate: switchDate.toISOString(),
+      message: `Successfully switched to ${plan}!`,
+      tier,
+      immediate: true,
     });
   } catch (err) {
     console.error("[Subscription] Downgrade error:", err);
     return NextResponse.json(
-      { error: "Failed to schedule downgrade. Please try again." },
+      { error: "Failed to switch plan. Please try again." },
       { status: 500 }
     );
   }
