@@ -16,7 +16,7 @@ import {
   Lightbulb,
   BarChart3,
   Plus,
-  GraduationCap,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -41,10 +41,10 @@ interface School {
   satRange75: number | null;
 }
 
-interface AssessedSchool {
+interface SchoolEntry {
   schoolId: string;
   school: School;
-  result: ChancesResult;
+  result: ChancesResult | null; // null = not yet calculated
 }
 
 // =============================================================================
@@ -56,8 +56,8 @@ export default function ChancesPage() {
   const initialSchoolId = searchParams.get("school");
   const { profile } = useProfile();
   
-  // Assessed schools state
-  const [assessedSchools, setAssessedSchools] = useState<AssessedSchool[]>([]);
+  // Schools state (both assessed and pending)
+  const [schools, setSchools] = useState<SchoolEntry[]>([]);
   const [expandedSchoolId, setExpandedSchoolId] = useState<string | null>(null);
   
   // Add card state
@@ -68,7 +68,7 @@ export default function ChancesPage() {
   const [showResults, setShowResults] = useState(false);
   
   // Calculation state
-  const [calculatingSchool, setCalculatingSchool] = useState<School | null>(null);
+  const [calculatingSchoolId, setCalculatingSchoolId] = useState<string | null>(null);
   const [calculationProgress, setCalculationProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
   
@@ -82,7 +82,8 @@ export default function ChancesPage() {
       const res = await fetch(`/api/schools/${schoolId}`);
       if (res.ok) {
         const school = await res.json();
-        await calculateForSchool(school);
+        // Add without calculating - user can click to calculate
+        addSchoolToList(school);
       }
     } catch (error) {
       console.error("Failed to load school:", error);
@@ -127,14 +128,19 @@ export default function ChancesPage() {
       const res = await fetch(`/api/schools/search?q=${encodeURIComponent(query)}&limit=6`);
       if (res.ok) {
         const data = await res.json();
-        setSearchResults(data.schools || []);
+        // Filter out already added schools
+        const existingIds = new Set(schools.map(s => s.schoolId));
+        const filteredResults = (data.schools || []).filter(
+          (s: School) => !existingIds.has(s.id)
+        );
+        setSearchResults(filteredResults);
       }
     } catch (error) {
       console.error("Search error:", error);
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [schools]);
 
   // Handle search input change with debounce
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,20 +157,32 @@ export default function ChancesPage() {
     }, 300);
   };
 
-  // Calculate chances for a school
-  const calculateForSchool = async (school: School) => {
-    // Check if already assessed
-    const existing = assessedSchools.find(s => s.schoolId === school.id);
-    if (existing) {
+  // Add school to list (without calculating)
+  const addSchoolToList = (school: School) => {
+    // Check if already exists
+    if (schools.some(s => s.schoolId === school.id)) {
+      // Just highlight the existing one
       setExpandedSchoolId(school.id);
       cancelAddSchool();
       return;
     }
     
-    setCalculatingSchool(school);
+    // Add to list with null result (not calculated yet)
+    setSchools(prev => [
+      { schoolId: school.id, school, result: null },
+      ...prev,
+    ]);
+    cancelAddSchool();
+  };
+
+  // Calculate chances for a school
+  const calculateForSchool = async (schoolId: string) => {
+    const entry = schools.find(s => s.schoolId === schoolId);
+    if (!entry) return;
+    
+    setCalculatingSchoolId(schoolId);
     setError(null);
     setCalculationProgress("Analyzing your profile...");
-    cancelAddSchool();
     
     try {
       // Simulate progress steps
@@ -175,7 +193,7 @@ export default function ChancesPage() {
       const res = await fetch("/api/chances", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolId: school.id }),
+        body: JSON.stringify({ schoolId }),
       });
       
       if (!res.ok) {
@@ -185,17 +203,18 @@ export default function ChancesPage() {
       
       const result = await res.json();
       
-      // Add to assessed schools at the top
-      setAssessedSchools(prev => [
-        { schoolId: school.id, school, result },
-        ...prev,
-      ]);
-      setExpandedSchoolId(school.id);
+      // Update the school entry with the result
+      setSchools(prev => prev.map(s => 
+        s.schoolId === schoolId 
+          ? { ...s, result }
+          : s
+      ));
+      setExpandedSchoolId(schoolId);
     } catch (error) {
       console.error("Calculation error:", error);
       setError(error instanceof Error ? error.message : "Failed to calculate chances");
     } finally {
-      setCalculatingSchool(null);
+      setCalculatingSchoolId(null);
       setCalculationProgress("");
     }
   };
@@ -203,7 +222,7 @@ export default function ChancesPage() {
   // Handle school selection from search
   const handleSelectSchool = (school: School) => {
     setShowResults(false);
-    calculateForSchool(school);
+    addSchoolToList(school);
   };
 
   // Cancel adding school
@@ -219,12 +238,12 @@ export default function ChancesPage() {
     setExpandedSchoolId(expandedSchoolId === schoolId ? null : schoolId);
   };
 
-  // Recalculate for a school
-  const recalculate = async (school: School) => {
-    // Remove from list first
-    setAssessedSchools(prev => prev.filter(s => s.schoolId !== school.id));
-    // Then recalculate
-    await calculateForSchool(school);
+  // Remove school from list
+  const removeSchool = (schoolId: string) => {
+    setSchools(prev => prev.filter(s => s.schoolId !== schoolId));
+    if (expandedSchoolId === schoolId) {
+      setExpandedSchoolId(null);
+    }
   };
 
   // Format relative date
@@ -234,9 +253,9 @@ export default function ChancesPage() {
     const diffMs = now.getTime() - d.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays === 0) return "today";
+    if (diffDays === 1) return "yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
     
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
@@ -273,41 +292,7 @@ export default function ChancesPage() {
 
         {/* Schools List */}
         <div className="space-y-4">
-          {/* Calculating Card - Shows when calculating */}
-          {calculatingSchool && (
-            <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-5">
-              <div className="flex items-center gap-4">
-                <SchoolLogo name={calculatingSchool.name} size="md" />
-                <div className="flex-1">
-                  <h3 className="font-semibold text-text-primary">
-                    {calculatingSchool.name}
-                  </h3>
-                  <p className="text-sm text-text-muted">
-                    {calculatingSchool.city}, {calculatingSchool.state}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-accent-primary">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm">{calculationProgress}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Assessed Schools */}
-          {assessedSchools.map(({ schoolId, school, result }) => (
-            <SchoolChancesCard
-              key={schoolId}
-              school={school}
-              result={result}
-              isExpanded={expandedSchoolId === schoolId}
-              onToggle={() => toggleExpand(schoolId)}
-              onRecalculate={() => recalculate(school)}
-              formatCheckedDate={formatCheckedDate}
-            />
-          ))}
-
-          {/* Add School Card */}
+          {/* Add School Card - Always at top */}
           <div 
             ref={addCardRef}
             className={cn(
@@ -346,7 +331,7 @@ export default function ChancesPage() {
                 </div>
                 
                 {/* Search Results */}
-                {showResults && (searchResults.length > 0 || isSearching) && (
+                {showResults && (searchResults.length > 0 || isSearching || searchQuery.length >= 2) && (
                   <div className="mt-2 bg-surface-tertiary rounded-xl overflow-hidden">
                     {isSearching && searchResults.length === 0 && (
                       <div className="px-4 py-3 flex items-center gap-2 text-text-muted">
@@ -405,8 +390,24 @@ export default function ChancesPage() {
             )}
           </div>
 
+          {/* School Cards */}
+          {schools.map(({ schoolId, school, result }) => (
+            <SchoolCard
+              key={schoolId}
+              school={school}
+              result={result}
+              isExpanded={expandedSchoolId === schoolId}
+              isCalculating={calculatingSchoolId === schoolId}
+              calculationProgress={calculationProgress}
+              onToggle={() => toggleExpand(schoolId)}
+              onCalculate={() => calculateForSchool(schoolId)}
+              onRemove={() => removeSchool(schoolId)}
+              formatCheckedDate={formatCheckedDate}
+            />
+          ))}
+
           {/* Empty State Hint */}
-          {assessedSchools.length === 0 && !calculatingSchool && !isAddingSchool && (
+          {schools.length === 0 && !isAddingSchool && (
             <div className="text-center py-8">
               <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-surface-secondary flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-text-muted" />
@@ -423,26 +424,32 @@ export default function ChancesPage() {
 }
 
 // =============================================================================
-// SCHOOL CHANCES CARD
+// SCHOOL CARD
 // =============================================================================
 
-interface SchoolChancesCardProps {
+interface SchoolCardProps {
   school: School;
-  result: ChancesResult;
+  result: ChancesResult | null;
   isExpanded: boolean;
+  isCalculating: boolean;
+  calculationProgress: string;
   onToggle: () => void;
-  onRecalculate: () => void;
+  onCalculate: () => void;
+  onRemove: () => void;
   formatCheckedDate: (date: Date | string) => string;
 }
 
-function SchoolChancesCard({ 
+function SchoolCard({ 
   school, 
   result, 
   isExpanded, 
+  isCalculating,
+  calculationProgress,
   onToggle,
-  onRecalculate,
+  onCalculate,
+  onRemove,
   formatCheckedDate,
-}: SchoolChancesCardProps) {
+}: SchoolCardProps) {
   const tierColors: Record<string, string> = {
     safety: "bg-green-500/20 text-green-400",
     likely: "bg-emerald-500/20 text-emerald-400",
@@ -451,57 +458,99 @@ function SchoolChancesCard({
     unlikely: "bg-red-500/20 text-red-400",
   };
 
+  const hasResult = result !== null;
+
   return (
-    <div className="bg-surface-secondary border border-border-subtle rounded-2xl overflow-hidden">
-      {/* Collapsed Header - Always Visible */}
-      <button
-        onClick={onToggle}
-        className="w-full p-5 flex items-center gap-4 hover:bg-surface-tertiary/50 transition-colors text-left"
-      >
-        <SchoolLogo name={school.name} size="md" />
-        
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-text-primary truncate">
-            {school.name}
-          </h3>
-          <p className="text-sm text-text-muted">
-            {school.city}, {school.state}
-            {school.acceptanceRate && (
-              <span> • {(school.acceptanceRate * 100).toFixed(1)}% acceptance</span>
+    <div className={cn(
+      "bg-surface-secondary border rounded-2xl overflow-hidden transition-all",
+      isExpanded ? "border-accent-primary" : "border-border-subtle"
+    )}>
+      {/* Header - Always Visible */}
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          <SchoolLogo name={school.name} size="md" />
+          
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-text-primary truncate">
+              {school.name}
+            </h3>
+            <p className="text-sm text-text-muted">
+              {school.city}, {school.state}
+              {school.acceptanceRate && (
+                <span> • {(school.acceptanceRate * 100).toFixed(1)}% acceptance</span>
+              )}
+            </p>
+          </div>
+          
+          {/* Right side content */}
+          <div className="shrink-0 text-right">
+            {isCalculating ? (
+              // Calculating state
+              <div className="flex items-center gap-2 text-accent-primary">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">{calculationProgress}</span>
+              </div>
+            ) : hasResult ? (
+              // Has result - show probability
+              <div>
+                <div className="text-2xl font-bold text-accent-primary">
+                  {result.probability}%
+                </div>
+                <div className={cn(
+                  "inline-block px-2 py-0.5 rounded-full text-xs font-medium",
+                  tierColors[result.tier] || "bg-gray-500/20 text-gray-400"
+                )}>
+                  {result.tier.charAt(0).toUpperCase() + result.tier.slice(1)}
+                </div>
+              </div>
+            ) : (
+              // No result - show check button
+              <Button 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCalculate();
+                }}
+              >
+                Check Chances
+              </Button>
             )}
-          </p>
-        </div>
-        
-        {/* Probability Badge + Date */}
-        <div className="text-right shrink-0">
-          <div className="text-2xl font-bold text-accent-primary">
-            {result.probability}%
           </div>
-          <div className="flex items-center gap-2 justify-end">
-            <div className={cn(
-              "inline-block px-2 py-0.5 rounded-full text-xs font-medium",
-              tierColors[result.tier] || "bg-gray-500/20 text-gray-400"
-            )}>
-              {result.tier.charAt(0).toUpperCase() + result.tier.slice(1)}
-            </div>
-            <span className="text-xs text-text-muted">
-              • {formatCheckedDate(result.calculatedAt)}
-            </span>
-          </div>
-        </div>
-        
-        {/* Expand/Collapse Icon */}
-        <div className="text-text-muted shrink-0">
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5" />
-          ) : (
-            <ChevronDown className="w-5 h-5" />
+          
+          {/* Expand/Collapse Icon - only if has result */}
+          {hasResult && (
+            <button
+              onClick={onToggle}
+              className="shrink-0 p-1 text-text-muted hover:text-text-primary transition-colors"
+            >
+              {isExpanded ? (
+                <ChevronUp className="w-5 h-5" />
+              ) : (
+                <ChevronDown className="w-5 h-5" />
+              )}
+            </button>
           )}
         </div>
-      </button>
+        
+        {/* Recalculate row - only if has result */}
+        {hasResult && !isExpanded && (
+          <div className="mt-3 pt-3 border-t border-border-subtle flex items-center justify-end">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCalculate();
+              }}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-accent-primary transition-colors"
+            >
+              <span>Checked {formatCheckedDate(result.calculatedAt)}</span>
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+      </div>
       
       {/* Expanded Content */}
-      {isExpanded && (
+      {isExpanded && hasResult && (
         <div className="px-5 pb-5 border-t border-border-subtle">
           {/* Summary */}
           <p className="text-text-secondary mt-5 mb-6">
@@ -576,18 +625,27 @@ function SchoolChancesCard({
           )}
           
           {/* Footer */}
-          <div className="flex items-center justify-end">
-            <Button 
-              variant="secondary" 
-              size="sm"
+          <div className="flex items-center justify-between">
+            <button
               onClick={(e) => {
                 e.stopPropagation();
-                onRecalculate();
+                onRemove();
               }}
+              className="text-sm text-text-muted hover:text-red-400 transition-colors"
             >
-              <Sparkles className="w-4 h-4" />
-              Recalculate
-            </Button>
+              Remove
+            </button>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCalculate();
+              }}
+              className="flex items-center gap-1.5 text-sm text-text-muted hover:text-accent-primary transition-colors"
+            >
+              <span>Checked {formatCheckedDate(result.calculatedAt)}</span>
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}
