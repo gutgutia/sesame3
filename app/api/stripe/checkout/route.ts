@@ -23,6 +23,7 @@ const PRICE_IDS = {
 /**
  * POST /api/stripe/checkout
  * Create a Stripe Checkout Session for subscription upgrade
+ * OR update existing subscription if user already has one
  * 
  * Body: { plan: "standard" | "premium", yearly: boolean }
  */
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get user
+    // Get user with subscription info
     const profile = await prisma.studentProfile.findUnique({
       where: { id: profileId },
       select: {
@@ -66,6 +67,8 @@ export async function POST(request: NextRequest) {
             id: true,
             email: true,
             stripeCustomerId: true,
+            stripeSubscriptionId: true,
+            subscriptionTier: true,
           },
         },
       },
@@ -95,7 +98,65 @@ export async function POST(request: NextRequest) {
       customerId = customer.id;
     }
     
-    // Create checkout session
+    // If user already has an active subscription, update it instead of creating new
+    if (profile.user.stripeSubscriptionId && profile.user.subscriptionTier !== "free") {
+      try {
+        // Get current subscription
+        const currentSubscription = await stripe.subscriptions.retrieve(
+          profile.user.stripeSubscriptionId
+        );
+        
+        // Check if subscription is active
+        if (currentSubscription.status === "active" || currentSubscription.status === "trialing") {
+          // Update the subscription to the new price
+          const updatedSubscription = await stripe.subscriptions.update(
+            profile.user.stripeSubscriptionId,
+            {
+              items: [
+                {
+                  id: currentSubscription.items.data[0].id,
+                  price: priceId,
+                },
+              ],
+              proration_behavior: "create_prorations", // Prorate the charge
+              metadata: {
+                userId: profile.user.id,
+                plan,
+                yearly: yearly ? "true" : "false",
+              },
+            }
+          );
+          
+          // Update our database with new tier
+          const tier = plan === "premium" ? "premium" : "standard";
+          const subscriptionEndsAt = updatedSubscription.current_period_end 
+            ? new Date(updatedSubscription.current_period_end * 1000)
+            : null;
+          
+          await prisma.user.update({
+            where: { id: profile.user.id },
+            data: {
+              subscriptionTier: tier,
+              subscriptionEndsAt,
+            },
+          });
+          
+          console.log(`[Stripe] Updated subscription for user ${profile.user.id} to ${plan}`);
+          
+          // Return success without redirect (subscription updated inline)
+          return NextResponse.json({ 
+            success: true, 
+            message: "Subscription updated successfully",
+            tier,
+          });
+        }
+      } catch (err) {
+        // Subscription doesn't exist or is canceled, proceed with new checkout
+        console.log("[Stripe] Existing subscription not found or inactive, creating new checkout");
+      }
+    }
+    
+    // No existing subscription, create checkout session for new subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",

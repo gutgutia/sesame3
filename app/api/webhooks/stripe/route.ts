@@ -109,8 +109,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Get subscription details for end date
   let subscriptionEndsAt: Date | null = null;
   if (session.subscription && stripe) {
-    const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-    subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+    try {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+        subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+      }
+    } catch (err) {
+      console.error("[Stripe] Failed to retrieve subscription details:", err);
+    }
   }
 
   // Update user
@@ -157,7 +163,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   // Check subscription status
   const isActive = subscription.status === "active" || subscription.status === "trialing";
-  const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+  
+  // Safely parse subscription end date
+  let subscriptionEndsAt: Date | null = null;
+  if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+    subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+  }
 
   console.log(`[Stripe] Subscription updated for user ${user.id}: ${tier}, active: ${isActive}`);
 
@@ -166,7 +177,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     data: {
       subscriptionTier: isActive ? tier : "free",
       subscriptionEndsAt: isActive ? subscriptionEndsAt : null,
-      stripeSubscriptionId: subscription.id,
+      stripeSubscriptionId: isActive ? subscription.id : null,
     },
   });
 }
