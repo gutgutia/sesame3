@@ -45,7 +45,7 @@ export const modelFor = {
   // Fast parsing and acknowledgments (~50ms first token)
   fastParsing: models.groq.kimiK2,
   
-  // Deep reasoning and advice (main advisor)
+  // Deep reasoning and advice (main advisor) - DEFAULT, use getAdvisorForTier for tier-based
   advisor: models.claude.sonnet,
   
   // Highest quality reasoning (when needed)
@@ -69,6 +69,58 @@ export const modelFor = {
   // General purpose
   general: models.openai.gpt5,
 } as const;
+
+// =============================================================================
+// TIER-BASED MODEL SELECTION
+// =============================================================================
+
+export type SubscriptionTier = "free" | "standard" | "premium";
+
+/**
+ * Get the advisor model for a subscription tier.
+ * 
+ * - Free: Haiku 4.5 (fast, basic advice)
+ * - Standard ($10/mo): Sonnet 4.5 (deep reasoning)
+ * - Premium ($25/mo): Opus 4.5 (exceptional reasoning)
+ */
+export function getAdvisorForTier(tier: SubscriptionTier) {
+  switch (tier) {
+    case "free":
+      return models.claude.haiku;
+    case "standard":
+      return models.claude.sonnet;
+    case "premium":
+      return models.claude.opus;
+  }
+}
+
+/**
+ * Get the model name string for a tier (for logging/tracking).
+ */
+export function getAdvisorModelName(tier: SubscriptionTier): string {
+  switch (tier) {
+    case "free":
+      return "claude-haiku-4-5";
+    case "standard":
+      return "claude-sonnet-4-5";
+    case "premium":
+      return "claude-opus-4-5";
+  }
+}
+
+/**
+ * Map tier to usage tracking model type.
+ */
+export function getTierModelType(tier: SubscriptionTier): "haiku" | "sonnet" | "opus" {
+  switch (tier) {
+    case "free":
+      return "haiku";
+    case "standard":
+      return "sonnet";
+    case "premium":
+      return "opus";
+  }
+}
 
 // =============================================================================
 // PROVIDER CONFIGURATION

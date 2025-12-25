@@ -27,6 +27,23 @@ model User {
   // Preferences
   preferences Json?    // { theme, notifications, etc. }
   
+  // ==========================================================================
+  // SUBSCRIPTION & USAGE
+  // ==========================================================================
+  
+  // Subscription Tier
+  subscriptionTier    String    @default("free")  // "free" | "standard" | "premium"
+  subscriptionEndsAt  DateTime?                   // When current subscription expires
+  stripeCustomerId    String?                     // For payment processing (future)
+  stripeSubscriptionId String?                    // Active Stripe subscription (future)
+  
+  // Admin Overrides (set via admin panel)
+  // These override the global tier limits if set
+  overrideDailyCostLimit  Float?   // Max $ per day (null = use global default)
+  overrideWeeklyCostLimit Float?   // Max $ per week (null = use global default)
+  overrideMessageLimit    Int?     // Max messages per day (null = use global default)
+  isAdmin                 Boolean  @default(false)  // Admin flag for admin panel access
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -34,6 +51,7 @@ model User {
   studentProfile    StudentProfile?
   accessGrantsGiven AccessGrant[]    @relation("GrantedBy")
   accessGrantsReceived AccessGrant[] @relation("GrantedTo")
+  usageRecords      UsageRecord[]
   
   // Future: Organization membership
   organizationMemberships OrganizationMember[]
@@ -885,4 +903,101 @@ model OrganizationStudentLink {
   joinedAt DateTime @default(now())
   
   @@unique([organizationId, studentProfileId])
+}
+
+// =============================================================================
+// LAYER 6: USAGE TRACKING & BILLING
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// UsageRecord - Track AI Usage per User
+// One record per user per day. Aggregated for billing/limits.
+// -----------------------------------------------------------------------------
+
+model UsageRecord {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Date (one record per day per user)
+  date      DateTime @db.Date  // Just the date, no time
+  
+  // Usage counts
+  messageCount    Int     @default(0)  // Number of messages sent
+  tokensInput     Int     @default(0)  // Total input tokens
+  tokensOutput    Int     @default(0)  // Total output tokens
+  
+  // Cost tracking (in USD, calculated from tokens + model rates)
+  costAdvisor     Float   @default(0)  // Cost of advisor model usage
+  costParser      Float   @default(0)  // Cost of parser model usage
+  costOther       Float   @default(0)  // Cost of other models (chances, etc.)
+  costTotal       Float   @default(0)  // Total cost for the day
+  
+  // Model breakdown (for analytics)
+  modelUsage      Json?   // { "haiku": { tokens: 1000, cost: 0.01 }, ... }
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+// -----------------------------------------------------------------------------
+// GlobalConfig - System-wide Configuration
+// Single-row table for global settings (admin-configurable)
+// -----------------------------------------------------------------------------
+
+model GlobalConfig {
+  id        String   @id @default("default")  // Always "default" - single row
+  
+  // ==========================================================================
+  // TIER LIMITS
+  // ==========================================================================
+  
+  // Free Tier
+  freeDailyCostLimit    Float   @default(0.10)   // $0.10/day
+  freeWeeklyCostLimit   Float   @default(0.50)   // $0.50/week
+  freeMessageLimit      Int     @default(20)     // 20 messages/day
+  
+  // Standard Tier ($10/month)
+  standardDailyCostLimit  Float   @default(1.00)   // $1.00/day
+  standardWeeklyCostLimit Float   @default(5.00)   // $5.00/week
+  standardMessageLimit    Int     @default(100)    // 100 messages/day
+  
+  // Premium Tier ($25/month)
+  premiumDailyCostLimit   Float   @default(5.00)   // $5.00/day
+  premiumWeeklyCostLimit  Float   @default(25.00)  // $25.00/week
+  premiumMessageLimit     Int     @default(500)    // 500 messages/day
+  
+  // ==========================================================================
+  // MODEL COSTS (per 1M tokens)
+  // ==========================================================================
+  
+  // Anthropic Models (as of late 2025)
+  costHaikuInput      Float   @default(0.25)    // $/1M input tokens
+  costHaikuOutput     Float   @default(1.25)    // $/1M output tokens
+  costSonnetInput     Float   @default(3.00)    // $/1M input tokens
+  costSonnetOutput    Float   @default(15.00)   // $/1M output tokens
+  costOpusInput       Float   @default(15.00)   // $/1M input tokens
+  costOpusOutput      Float   @default(75.00)   // $/1M output tokens
+  
+  // Groq (for parser)
+  costKimiK2Input     Float   @default(0.15)    // $/1M input tokens
+  costKimiK2Output    Float   @default(0.40)    // $/1M output tokens
+  
+  // ==========================================================================
+  // FEATURE FLAGS
+  // ==========================================================================
+  
+  enableWidgets             Boolean @default(false)  // In-chat confirmation widgets
+  enableChancesCalculation  Boolean @default(true)
+  enableStoryMode           Boolean @default(true)
+  
+  // Maintenance mode
+  maintenanceMode     Boolean @default(false)
+  maintenanceMessage  String?
+  
+  updatedAt DateTime @updatedAt
 }

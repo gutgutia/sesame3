@@ -1,7 +1,16 @@
 // AI Module - Main exports
 
 // Model providers
-export { models, modelFor, getAvailableProviders, getModelWithFallback } from "./providers";
+export { 
+  models, 
+  modelFor, 
+  getAvailableProviders, 
+  getModelWithFallback,
+  getAdvisorForTier,
+  getAdvisorModelName,
+  getTierModelType,
+  type SubscriptionTier,
+} from "./providers";
 
 // Tools
 export { allTools, profileTools, planningTools } from "./tools";
