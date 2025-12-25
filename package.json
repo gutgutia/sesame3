@@ -13,7 +13,10 @@
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:seed": "dotenv -e .env -- tsx prisma/seed.ts",
     "db:seed-test-users": "dotenv -e .env -- tsx scripts/seed-test-users.ts",
-    "db:reset-test-user": "dotenv -e .env -- tsx scripts/reset-test-user.ts"
+    "db:reset-test-user": "dotenv -e .env -- tsx scripts/reset-test-user.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.56",
@@ -41,12 +44,15 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5.1.2",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
+    "jsdom": "^27.3.0",
     "prisma": "^6.8.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.16"
   }
 }
