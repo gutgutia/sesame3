@@ -22,14 +22,6 @@ export { calculateQuantitative } from "./calculate-quantitative";
 
 interface CalculateChancesOptions {
   /**
-   * Mode for calculation
-   * - current: Only completed achievements
-   * - projected: Include in-progress goals
-   * - simulated: Include all goals and hypotheticals
-   */
-  mode?: ChancesMode;
-  
-  /**
    * Whether to use LLM for assessment
    * If false, only quantitative calculation is used
    * Default: true
@@ -44,6 +36,10 @@ interface CalculateChancesOptions {
   useQuantitative?: boolean;
 }
 
+// Internal mode - always "trajectory" (actual + in-progress)
+// This is not exposed to the API - we always calculate the full picture
+const CALCULATION_MODE: ChancesMode = "projected";
+
 // =============================================================================
 // MAIN FUNCTION
 // =============================================================================
@@ -57,10 +53,12 @@ export async function calculateChances(
   options: CalculateChancesOptions = {}
 ): Promise<ChancesResult> {
   const {
-    mode = "current",
     useLLM = true,
     useQuantitative = true,
   } = options;
+  
+  // Always use trajectory mode (actual + in-progress goals)
+  const mode = CALCULATION_MODE;
   
   // Load profile snapshot
   const profileSnapshot = await buildProfileSnapshot(profileId, {

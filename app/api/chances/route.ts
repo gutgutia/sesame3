@@ -6,12 +6,15 @@
  * POST /api/chances
  * Calculate admission chances for a student at a specific school.
  * 
+ * Uses "trajectory" mode by default - includes actual achievements AND
+ * in-progress goals to give a realistic assessment of where the student
+ * is headed.
+ * 
  * Body:
  * {
  *   schoolId: string,
- *   mode?: "current" | "projected" | "simulated",
- *   useLLM?: boolean,
- *   useQuantitative?: boolean
+ *   useLLM?: boolean,        // Default: true
+ *   useQuantitative?: boolean // Default: true
  * }
  */
 
@@ -26,7 +29,7 @@ export async function POST(request: NextRequest) {
     const profileId = await requireProfile();
     const body = await request.json();
     
-    const { schoolId, mode = "current", useLLM = true, useQuantitative = true } = body;
+    const { schoolId, useLLM = true, useQuantitative = true } = body;
     
     if (!schoolId) {
       return NextResponse.json(
@@ -35,17 +38,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate mode
-    if (!["current", "projected", "simulated"].includes(mode)) {
-      return NextResponse.json(
-        { error: "mode must be 'current', 'projected', or 'simulated'" },
-        { status: 400 }
-      );
-    }
-    
-    // Calculate chances
+    // Calculate chances (always uses trajectory mode internally)
     const result = await calculateChances(profileId, schoolId, {
-      mode,
       useLLM,
       useQuantitative,
     });
@@ -75,4 +69,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
