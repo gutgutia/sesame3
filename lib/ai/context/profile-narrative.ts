@@ -14,14 +14,25 @@ import { Prisma } from "@prisma/client";
 // Type for the profile with all relations loaded
 type FullProfile = Prisma.StudentProfileGetPayload<{
   include: {
-    aboutMe: true;
+    aboutMe: {
+      include: {
+        storyEntries: true;
+      };
+    };
     academics: true;
-    testing: true;
+    testing: {
+      include: {
+        satScores: true;
+        actScores: true;
+        apScores: true;
+        subjectTests: true;
+      };
+    };
     activities: { orderBy: { displayOrder: "asc" } };
     awards: { orderBy: { displayOrder: "asc" } };
     courses: true;
     programs: true;
-    goals: true;
+    goals: { include: { tasks: true } };
     schoolList: { include: { school: true } };
   };
 }>;
@@ -39,21 +50,28 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
   const name = profile.preferredName || profile.firstName || "Student";
   const grade = profile.grade ? formatGrade(profile.grade) : null;
   const school = profile.highSchoolName || null;
+  const schoolType = profile.highSchoolType || null;
   
   let basicInfo = `${name}`;
   if (grade) basicInfo += `, ${grade}`;
-  if (school) basicInfo += ` at ${school}`;
+  if (school) {
+    basicInfo += ` at ${school}`;
+    if (schoolType) basicInfo += ` (${schoolType})`;
+  }
+  if (profile.highSchoolCity && profile.highSchoolState) {
+    basicInfo += ` in ${profile.highSchoolCity}, ${profile.highSchoolState}`;
+  }
   sections.push(basicInfo);
   
   // ==========================================================================
   // Academics
   // ==========================================================================
   if (profile.academics) {
-    const { gpaUnweighted, gpaWeighted, classRank, classSize } = profile.academics;
+    const { schoolReportedGpaUnweighted, schoolReportedGpaWeighted, classRank, classSize } = profile.academics;
     const gpaParts: string[] = [];
     
-    if (gpaUnweighted) gpaParts.push(`${gpaUnweighted} unweighted`);
-    if (gpaWeighted) gpaParts.push(`${gpaWeighted} weighted`);
+    if (schoolReportedGpaUnweighted) gpaParts.push(`${schoolReportedGpaUnweighted} unweighted`);
+    if (schoolReportedGpaWeighted) gpaParts.push(`${schoolReportedGpaWeighted} weighted`);
     
     if (gpaParts.length > 0) {
       let gpaStr = `GPA: ${gpaParts.join(", ")}`;
@@ -68,16 +86,39 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
   // Testing
   // ==========================================================================
   if (profile.testing) {
-    const { satTotal, satMath, satReading, actComposite, psatTotal } = profile.testing;
     const testParts: string[] = [];
     
-    if (satTotal) {
-      let satStr = `SAT: ${satTotal}`;
-      if (satMath && satReading) satStr += ` (${satMath}M/${satReading}RW)`;
+    // SAT - get best/primary score from satScores array
+    if (profile.testing.satScores && profile.testing.satScores.length > 0) {
+      // Find primary score, or use highest total
+      const primarySat = profile.testing.satScores.find(s => s.isPrimary) 
+        || profile.testing.satScores.reduce((best, curr) => curr.total > best.total ? curr : best);
+      
+      let satStr = `SAT: ${primarySat.total}`;
+      satStr += ` (${primarySat.math}M/${primarySat.reading}RW)`;
       testParts.push(satStr);
     }
-    if (actComposite) testParts.push(`ACT: ${actComposite}`);
-    if (psatTotal) testParts.push(`PSAT: ${psatTotal}`);
+    
+    // ACT - get best/primary score from actScores array
+    if (profile.testing.actScores && profile.testing.actScores.length > 0) {
+      const primaryAct = profile.testing.actScores.find(s => s.isPrimary)
+        || profile.testing.actScores.reduce((best, curr) => curr.composite > best.composite ? curr : best);
+      
+      testParts.push(`ACT: ${primaryAct.composite}`);
+    }
+    
+    // PSAT (still directly on Testing)
+    if (profile.testing.psatTotal) {
+      testParts.push(`PSAT: ${profile.testing.psatTotal}`);
+    }
+    
+    // AP Scores
+    if (profile.testing.apScores && profile.testing.apScores.length > 0) {
+      const highScores = profile.testing.apScores.filter(ap => ap.score >= 4);
+      if (highScores.length > 0) {
+        testParts.push(`${highScores.length} AP scores of 4+`);
+      }
+    }
     
     if (testParts.length > 0) {
       sections.push(testParts.join(", "));
@@ -144,49 +185,120 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
   }
   
   // ==========================================================================
-  // School List
+  // School List (with dream schools and application status)
   // ==========================================================================
   if (profile.schoolList && profile.schoolList.length > 0) {
-    const byTier: Record<string, string[]> = {};
+    // Highlight dream schools first
+    const dreamSchools = profile.schoolList.filter(s => s.isDream);
+    if (dreamSchools.length > 0) {
+      const dreamNames = dreamSchools.map(s => s.school.name).join(", ");
+      sections.push(`Dream schools: ${dreamNames}`);
+    }
     
+    // Then by tier
+    const byTier: Record<string, string[]> = {};
     for (const entry of profile.schoolList) {
       const tier = entry.tier || "exploring";
       if (!byTier[tier]) byTier[tier] = [];
-      byTier[tier].push(entry.school.name);
+      
+      let schoolStr = entry.school.name;
+      // Add application status if actively applying
+      if (entry.status && entry.status !== "researching") {
+        schoolStr += ` (${entry.status})`;
+      }
+      byTier[tier].push(schoolStr);
     }
     
-    const tierOrder = ["dream", "reach", "target", "safety", "exploring"];
+    const tierOrder = ["reach", "target", "safety", "exploring"];
     const schoolParts: string[] = [];
     
     for (const tier of tierOrder) {
       if (byTier[tier] && byTier[tier].length > 0) {
-        schoolParts.push(`${tier}: ${byTier[tier].slice(0, 3).join(", ")}`);
+        schoolParts.push(`${tier}: ${byTier[tier].slice(0, 4).join(", ")}`);
       }
     }
     
     if (schoolParts.length > 0) {
-      sections.push(`Schools: ${schoolParts.join("; ")}`);
+      sections.push(`School list: ${schoolParts.join("; ")}`);
     }
   }
   
   // ==========================================================================
-  // Goals
+  // Goals - What They're Working On
   // ==========================================================================
   if (profile.goals && profile.goals.length > 0) {
-    const activeGoals = profile.goals.filter(g => 
-      g.status === "in_progress" || g.status === "planning"
-    );
+    // In-progress goals (actively working on)
+    const inProgress = profile.goals.filter(g => g.status === "in_progress");
+    if (inProgress.length > 0) {
+      const goalList = inProgress.slice(0, 4).map(g => {
+        let goalStr = g.title;
+        if (g.category) goalStr += ` (${g.category})`;
+        // Show task progress if there are tasks
+        if (g.tasks && g.tasks.length > 0) {
+          const completed = g.tasks.filter(t => t.status === "completed").length;
+          goalStr += ` - ${completed}/${g.tasks.length} tasks done`;
+        }
+        return goalStr;
+      });
+      sections.push(`Currently working on: ${goalList.join("; ")}`);
+    }
     
-    if (activeGoals.length > 0) {
-      const goalList = activeGoals.slice(0, 3).map(g => g.title).join("; ");
-      sections.push(`Working on: ${goalList}`);
+    // Planning goals (upcoming)
+    const planning = profile.goals.filter(g => g.status === "planning");
+    if (planning.length > 0) {
+      const goalList = planning.slice(0, 3).map(g => {
+        let goalStr = g.title;
+        if (g.targetDate) {
+          goalStr += ` (target: ${new Date(g.targetDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })})`;
+        }
+        return goalStr;
+      });
+      sections.push(`Planning to do: ${goalList.join("; ")}`);
+    }
+    
+    // Recently completed goals (for context)
+    const completed = profile.goals.filter(g => g.status === "completed");
+    if (completed.length > 0) {
+      const recentCompleted = completed.slice(0, 2).map(g => g.title);
+      sections.push(`Recently completed: ${recentCompleted.join("; ")}`);
     }
   }
   
   // ==========================================================================
-  // About Me (brief)
+  // About Me - Personal Identity
   // ==========================================================================
-  // Note: Story is now stored in storyEntries, accessed separately
+  if (profile.aboutMe) {
+    const aboutParts: string[] = [];
+    
+    // Values and interests
+    if (profile.aboutMe.values && profile.aboutMe.values.length > 0) {
+      aboutParts.push(`Values: ${profile.aboutMe.values.join(", ")}`);
+    }
+    if (profile.aboutMe.interests && profile.aboutMe.interests.length > 0) {
+      aboutParts.push(`Interests: ${profile.aboutMe.interests.join(", ")}`);
+    }
+    if (profile.aboutMe.personality) {
+      aboutParts.push(`Personality: ${profile.aboutMe.personality}`);
+    }
+    if (profile.aboutMe.aspirations) {
+      aboutParts.push(`Aspirations: ${profile.aboutMe.aspirations}`);
+    }
+    if (profile.aboutMe.background) {
+      aboutParts.push(`Background: ${profile.aboutMe.background}`);
+    }
+    
+    if (aboutParts.length > 0) {
+      sections.push(aboutParts.join("\n"));
+    }
+    
+    // Story entries - personal narratives
+    if (profile.aboutMe.storyEntries && profile.aboutMe.storyEntries.length > 0) {
+      const recentStories = profile.aboutMe.storyEntries
+        .slice(0, 3)
+        .map(s => `"${s.title}" - ${s.summary}`);
+      sections.push(`Personal stories:\n${recentStories.join("\n")}`);
+    }
+  }
   
   // ==========================================================================
   // Profile Gaps
@@ -201,21 +313,33 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
 
 /**
  * Identifies what's missing from the profile.
+ * These are facts we'd like to know for a complete picture.
  */
 function getProfileGaps(profile: FullProfile): string[] {
   const gaps: string[] = [];
   
-  if (!profile.academics?.gpaUnweighted && !profile.academics?.gpaWeighted) {
+  if (!profile.academics?.schoolReportedGpaUnweighted && !profile.academics?.schoolReportedGpaWeighted) {
     gaps.push("GPA");
   }
-  if (!profile.testing?.satTotal && !profile.testing?.actComposite) {
+  
+  const hasSat = profile.testing?.satScores && profile.testing.satScores.length > 0;
+  const hasAct = profile.testing?.actScores && profile.testing.actScores.length > 0;
+  if (!hasSat && !hasAct) {
     gaps.push("test scores");
   }
+  
   if (!profile.activities || profile.activities.length === 0) {
     gaps.push("activities");
   }
+  
   if (!profile.schoolList || profile.schoolList.length === 0) {
     gaps.push("school list");
+  }
+  
+  // Personal identity gaps
+  if (!profile.aboutMe || 
+      (!profile.aboutMe.values?.length && !profile.aboutMe.interests?.length)) {
+    gaps.push("personal story/interests");
   }
   
   return gaps;

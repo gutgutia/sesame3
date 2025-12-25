@@ -45,11 +45,13 @@ export async function buildCounselorObjectives(
   const objectives: string[] = [];
   
   // Check profile gaps and create objectives
-  if (!profile.academics?.gpaUnweighted && !profile.academics?.gpaWeighted) {
+  if (!profile.academics?.schoolReportedGpaUnweighted && !profile.academics?.schoolReportedGpaWeighted) {
     objectives.push("Try to learn their GPA if it comes up naturally");
   }
   
-  if (!profile.testing?.satTotal && !profile.testing?.actComposite) {
+  // Note: Testing model uses satScores[] and actScores[] arrays now
+  // But we only have basic testing relation here, so check if testing exists
+  if (!profile.testing) {
     objectives.push("Find out if they've taken standardized tests");
   }
   

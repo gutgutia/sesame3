@@ -252,6 +252,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
           <ChancesWidget 
             chance={data.calculatedChance}
             updatedAt={data.chanceUpdatedAt}
+            schoolId={school.id}
           />
 
           {/* Quick Facts */}
@@ -381,9 +382,11 @@ function NoteCard({
 function ChancesWidget({ 
   chance, 
   updatedAt,
+  schoolId,
 }: { 
   chance: number | null;
   updatedAt: string | null;
+  schoolId: string;
 }) {
   const hasChance = chance !== null;
   
@@ -405,26 +408,26 @@ function ChancesWidget({
               day: "numeric" 
             })}
           </p>
-          <Button variant="secondary" className="w-full" disabled>
-            <RefreshCw className="w-4 h-4" />
-            Update Chances
-          </Button>
+          <Link href={`/chances?school=${schoolId}`}>
+            <Button variant="secondary" className="w-full">
+              <RefreshCw className="w-4 h-4" />
+              Update Chances
+            </Button>
+          </Link>
         </>
       ) : (
         <>
           <p className="text-text-muted text-sm mb-4">
             Calculate your admission chances based on your profile.
           </p>
-          <Button className="w-full" disabled>
-            <TrendingUp className="w-4 h-4" />
-            Calculate Chances
-          </Button>
+          <Link href={`/chances?school=${schoolId}`}>
+            <Button className="w-full">
+              <TrendingUp className="w-4 h-4" />
+              Check My Chances
+            </Button>
+          </Link>
         </>
       )}
-      
-      <p className="text-xs text-text-light text-center mt-3">
-        Coming soon
-      </p>
     </Card>
   );
 }

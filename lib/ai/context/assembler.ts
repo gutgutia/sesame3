@@ -136,10 +136,19 @@ async function loadFullProfile(profileId: string) {
   return prisma.studentProfile.findUnique({
     where: { id: profileId },
     include: {
-      aboutMe: true,
+      aboutMe: {
+        include: {
+          storyEntries: {
+            orderBy: { capturedAt: "desc" },
+            take: 5,
+          },
+        },
+      },
       academics: true,
       testing: {
         include: {
+          satScores: true,
+          actScores: true,
           apScores: true,
           subjectTests: true,
         },
@@ -164,11 +173,9 @@ async function loadFullProfile(profileId: string) {
         take: 5,
       },
       goals: {
-        where: {
-          status: { in: ["planning", "in_progress"] },
-        },
+        include: { tasks: true },
         orderBy: { displayOrder: "asc" },
-        take: 5,
+        take: 10,
       },
       schoolList: {
         include: { school: true },
