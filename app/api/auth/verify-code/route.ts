@@ -162,6 +162,67 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
+    // Check for pending invitations for this email and auto-accept them
+    const pendingInvitations = await prisma.invitation.findMany({
+      where: {
+        inviteeEmail: normalizedEmail,
+        status: "pending",
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    for (const invitation of pendingInvitations) {
+      // Check if grant already exists
+      const existingGrant = await prisma.accessGrant.findFirst({
+        where: {
+          studentProfileId: invitation.studentProfileId,
+          grantedToUserId: user.id,
+          revokedAt: null,
+        },
+      });
+
+      if (!existingGrant) {
+        await prisma.accessGrant.create({
+          data: {
+            studentProfileId: invitation.studentProfileId,
+            grantedByUserId: invitation.inviterUserId,
+            grantedToUserId: user.id,
+            permission: "view",
+            scope: "full",
+          },
+        });
+      }
+
+      // Mark invitation as accepted
+      await prisma.invitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: "accepted",
+          acceptedAt: new Date(),
+        },
+      });
+    }
+
+    // Determine redirect
+    let redirectTo = "/";
+    if (isNewUser) {
+      // Check if user has any access grants (meaning they were invited)
+      const hasAccessGrants = await prisma.accessGrant.findFirst({
+        where: {
+          grantedToUserId: user.id,
+          revokedAt: null,
+        },
+      });
+
+      // If they have access grants but are new, skip onboarding
+      // They're likely a parent/viewer who doesn't need their own profile
+      if (hasAccessGrants) {
+        redirectTo = "/";
+      } else {
+        redirectTo = "/onboarding";
+      }
+    }
+
     return NextResponse.json({
       success: true,
       isNewUser,
@@ -169,7 +230,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
       },
-      redirectTo: isNewUser ? "/onboarding" : "/",
+      redirectTo,
     });
   } catch (error) {
     console.error("[Auth] Error verifying code:", error);
