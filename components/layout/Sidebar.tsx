@@ -35,6 +35,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { name: "Home", href: "/", icon: LayoutGrid },
+  { name: "Advisor", href: "/advisor", icon: MessageSquare },
   { name: "Plan", href: "/plan", icon: Compass },
   {
     name: "Profile",
@@ -42,7 +43,7 @@ const navItems: NavItem[] = [
     icon: User,
     children: [
       { name: "Overview", href: "/profile", icon: User },
-      { name: "Story", href: "/profile/about-me", icon: MessageSquare },
+      { name: "Story", href: "/profile/about-me", icon: Lightbulb },
       { name: "Testing", href: "/profile/testing", icon: FlaskConical },
       { name: "Courses", href: "/profile/courses", icon: BookOpenCheck },
       { name: "Activities", href: "/profile/activities", icon: Briefcase },

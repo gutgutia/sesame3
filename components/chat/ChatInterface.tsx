@@ -21,6 +21,15 @@ type PendingWidget = {
   status: "pending" | "confirmed" | "dismissed";
 };
 
+// Loaded conversation from API
+type LoadedConversation = {
+  id: string;
+  mode: string | null;
+  isNew: boolean;
+  messageCount: number;
+  messages: Array<{ id: string; role: string; content: string }>;
+};
+
 interface ChatInterfaceProps {
   initialMessage?: string;
   mode?: "general" | "onboarding" | "chances" | "schools" | "planning" | "profile" | "story";
@@ -28,8 +37,8 @@ interface ChatInterfaceProps {
   preloadedWelcome?: string | null; // Pre-fetched welcome message from parent
 }
 
-export function ChatInterface({ 
-  initialMessage, 
+export function ChatInterface({
+  initialMessage,
   mode = "general",
   onProfileUpdate,
   preloadedWelcome,
@@ -38,29 +47,125 @@ export function ChatInterface({
   const inputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
   const welcomeSet = useRef(false);
-  
+  const conversationLoaded = useRef(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(!preloadedWelcome); // Not loading if we have preloaded
+  const [isLoading, setIsLoading] = useState(true); // Start loading until conversation loads
   const [pendingWidgets, setPendingWidgets] = useState<PendingWidget[]>([]);
-  
-  // Use preloaded welcome message if available, otherwise show loading
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isResumedConversation, setIsResumedConversation] = useState(false);
+
+  // Load or resume conversation on mount
   useEffect(() => {
-    if (welcomeSet.current) return;
-    
-    if (preloadedWelcome) {
-      // Use the pre-fetched welcome message immediately
+    if (conversationLoaded.current) return;
+    conversationLoaded.current = true;
+
+    const loadConversation = async () => {
+      try {
+        const startTime = Date.now();
+        const response = await fetch(`/api/conversations?mode=${mode}`);
+
+        if (!response.ok) {
+          console.error("[Chat] Failed to load conversation");
+          setIsLoading(false);
+          return;
+        }
+
+        const { conversation } = (await response.json()) as {
+          conversation: LoadedConversation;
+        };
+        setConversationId(conversation.id);
+
+        // If resuming an existing conversation with messages, load them
+        if (!conversation.isNew && conversation.messages.length > 0) {
+          setIsResumedConversation(true);
+          setMessages(
+            conversation.messages.map((m) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }))
+          );
+          console.log(
+            `[Chat] Resumed conversation ${conversation.id} with ${conversation.messages.length} messages in ${Date.now() - startTime}ms`
+          );
+          setIsLoading(false);
+        } else {
+          // New conversation - use preloaded welcome or fetch it
+          console.log(
+            `[Chat] New conversation ${conversation.id} in ${Date.now() - startTime}ms`
+          );
+          if (preloadedWelcome) {
+            welcomeSet.current = true;
+            setMessages([
+              {
+                id: "welcome",
+                role: "assistant",
+                content: preloadedWelcome,
+              },
+            ]);
+            setIsLoading(false);
+          }
+          // If no preloadedWelcome yet, the useEffect below will handle it
+        }
+      } catch (error) {
+        console.error("[Chat] Error loading conversation:", error);
+        setIsLoading(false);
+      }
+    };
+
+    loadConversation();
+  }, [mode, preloadedWelcome]);
+
+  // Handle preloaded welcome message for new conversations
+  useEffect(() => {
+    if (welcomeSet.current || isResumedConversation) return;
+
+    if (preloadedWelcome && conversationId) {
       welcomeSet.current = true;
-      setMessages([{
-        id: "welcome",
-        role: "assistant",
-        content: preloadedWelcome,
-      }]);
+      setMessages([
+        {
+          id: "welcome",
+          role: "assistant",
+          content: preloadedWelcome,
+        },
+      ]);
       setIsLoading(false);
       console.log("[Chat] Using pre-loaded welcome message");
     }
-  }, [preloadedWelcome]);
-  
+  }, [preloadedWelcome, conversationId, isResumedConversation]);
+
+  // Session end beacon - notify server when user leaves
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && conversationId) {
+        // Use sendBeacon for reliable delivery even when page is closing
+        const data = JSON.stringify({ conversationId });
+        navigator.sendBeacon("/api/conversations/end", data);
+        console.log("[Chat] Sent session end beacon");
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (conversationId) {
+        const data = JSON.stringify({ conversationId });
+        navigator.sendBeacon("/api/conversations/end", data);
+      }
+    };
+
+    // Listen for tab visibility change and page unload
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [conversationId]);
+
   // Send message to API with Parser + Advisor dual-model architecture
   const sendMessage = useCallback(async (content: string) => {
     const userMessage: Message = {
@@ -77,10 +182,11 @@ export function ChatInterface({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
+          messages: [...messages, userMessage].map((m) => ({
             role: m.role,
             content: m.content,
           })),
+          conversationId,
           mode,
         }),
       });
@@ -176,7 +282,7 @@ export function ChatInterface({
     } finally {
       setIsLoading(false);
     }
-  }, [messages, mode]);
+  }, [messages, mode, conversationId]);
   
   // Auto-scroll to bottom
   useEffect(() => {
@@ -335,7 +441,7 @@ export function ChatInterface({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Share your GPA, test scores, activities..."
+            placeholder="What's on your mind?"
             className="w-full bg-bg-sidebar border border-border-medium rounded-xl pl-5 pr-14 py-4 text-[15px] focus:outline-none focus:border-accent-primary focus:ring-4 focus:ring-accent-surface transition-all"
             disabled={isLoading || !!currentWidget}
             autoFocus
@@ -348,28 +454,8 @@ export function ChatInterface({
             <Send className="w-4 h-4" />
           </button>
         </form>
-        
-        {/* Quick suggestions */}
-        {!currentWidget && !isLoading && (
-          <div className="flex flex-wrap gap-2 mt-3 max-w-3xl mx-auto">
-            <QuickSuggestion onClick={() => setInput("My GPA is ")} label="Add GPA" />
-            <QuickSuggestion onClick={() => setInput("I got a ")} label="Add test score" />
-            <QuickSuggestion onClick={() => setInput("I'm involved in ")} label="Add activity" />
-          </div>
-        )}
       </div>
     </div>
-  );
-}
-
-function QuickSuggestion({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-3 py-1.5 bg-bg-sidebar border border-border-subtle rounded-full text-xs text-text-muted hover:text-text-main hover:border-accent-primary transition-colors"
-    >
-      + {label}
-    </button>
   );
 }
 

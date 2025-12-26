@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Compass, User, BookOpen, Search } from "lucide-react";
+import { LayoutGrid, Compass, User, BookOpen, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { name: "Home", href: "/", icon: LayoutGrid, matchPaths: ["/"] },
+  { name: "Advisor", href: "/advisor", icon: MessageSquare, matchPaths: ["/advisor"] },
   { name: "Plan", href: "/plan", icon: Compass, matchPaths: ["/plan"] },
   { name: "Profile", href: "/profile", icon: User, matchPaths: ["/profile"] },
   { name: "Schools", href: "/schools", icon: BookOpen, matchPaths: ["/schools", "/chances"] },
-  { name: "Discover", href: "/discover", icon: Search, matchPaths: ["/discover"] },
 ];
 
 export function BottomNav() {

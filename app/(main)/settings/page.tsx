@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Settings, 
-  User, 
-  CreditCard, 
+import {
+  Settings,
+  User,
+  CreditCard,
   Sparkles,
   Check,
   Crown,
@@ -23,6 +23,7 @@ import {
   ArrowLeftRight,
   Pencil,
   Save,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -420,7 +421,7 @@ function PlanSelectorModal({
 
 export default function SettingsPage() {
   const { profile } = useProfile();
-  const [activeTab, setActiveTab] = useState<"profile" | "subscription">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "subscription" | "advisor">("profile");
   const [isYearly, setIsYearly] = useState(true);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -430,7 +431,13 @@ export default function SettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showUsage, setShowUsage] = useState(false);
   const [showPlanSelector, setShowPlanSelector] = useState(false);
-  
+
+  // Advisor preferences state
+  const [accountabilityLevel, setAccountabilityLevel] = useState<"light" | "moderate" | "high">("moderate");
+  const [advisorPreferences, setAdvisorPreferences] = useState("");
+  const [isSavingAdvisor, setIsSavingAdvisor] = useState(false);
+  const [advisorLoaded, setAdvisorLoaded] = useState(false);
+
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFirstName, setEditFirstName] = useState("");
@@ -903,6 +910,18 @@ export default function SettingsPage() {
             <CreditCard className="w-4 h-4 inline mr-2" />
             Subscription
           </button>
+          <button
+            onClick={() => setActiveTab("advisor")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              activeTab === "advisor"
+                ? "bg-white text-text-primary shadow-sm"
+                : "text-text-muted hover:text-text-primary"
+            )}
+          >
+            <MessageSquare className="w-4 h-4 inline mr-2" />
+            Advisor
+          </button>
         </div>
 
         {isLoading ? (
@@ -1365,8 +1384,204 @@ export default function SettingsPage() {
                 )}
               </div>
             )}
+
+            {/* Advisor Tab */}
+            {activeTab === "advisor" && (
+              <AdvisorPreferencesTab
+                accountabilityLevel={accountabilityLevel}
+                setAccountabilityLevel={setAccountabilityLevel}
+                advisorPreferences={advisorPreferences}
+                setAdvisorPreferences={setAdvisorPreferences}
+                isSaving={isSavingAdvisor}
+                setIsSaving={setIsSavingAdvisor}
+                advisorLoaded={advisorLoaded}
+                setAdvisorLoaded={setAdvisorLoaded}
+                setSuccessMessage={setSuccessMessage}
+              />
+            )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ADVISOR PREFERENCES TAB
+// =============================================================================
+
+function AdvisorPreferencesTab({
+  accountabilityLevel,
+  setAccountabilityLevel,
+  advisorPreferences,
+  setAdvisorPreferences,
+  isSaving,
+  setIsSaving,
+  advisorLoaded,
+  setAdvisorLoaded,
+  setSuccessMessage,
+}: {
+  accountabilityLevel: "light" | "moderate" | "high";
+  setAccountabilityLevel: (level: "light" | "moderate" | "high") => void;
+  advisorPreferences: string;
+  setAdvisorPreferences: (prefs: string) => void;
+  isSaving: boolean;
+  setIsSaving: (saving: boolean) => void;
+  advisorLoaded: boolean;
+  setAdvisorLoaded: (loaded: boolean) => void;
+  setSuccessMessage: (msg: string | null) => void;
+}) {
+  const [isLoading, setIsLoading] = useState(!advisorLoaded);
+
+  // Load preferences on mount
+  useEffect(() => {
+    if (advisorLoaded) return;
+
+    const loadPreferences = async () => {
+      try {
+        const res = await fetch("/api/advisor-preferences");
+        if (res.ok) {
+          const data = await res.json();
+          setAccountabilityLevel(data.accountabilityLevel || "moderate");
+          setAdvisorPreferences(data.advisorPreferences || "");
+        }
+      } catch (error) {
+        console.error("Failed to load advisor preferences:", error);
+      } finally {
+        setIsLoading(false);
+        setAdvisorLoaded(true);
+      }
+    };
+
+    loadPreferences();
+  }, [advisorLoaded, setAccountabilityLevel, setAdvisorPreferences, setAdvisorLoaded]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/advisor-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountabilityLevel,
+          advisorPreferences,
+        }),
+      });
+
+      if (res.ok) {
+        setSuccessMessage("Advisor preferences saved!");
+      } else {
+        alert("Failed to save preferences");
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      alert("Failed to save preferences");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-accent-primary animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Accountability Level */}
+      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
+          Coaching Style
+        </h2>
+        <p className="text-sm text-text-muted mb-6">
+          Choose how proactive you want your advisor to be about follow-ups and accountability.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              level: "light" as const,
+              title: "Light Touch",
+              description: "Gentle suggestions without pushing. Good for independent students who prefer to set their own pace.",
+              emoji: "🌱",
+            },
+            {
+              level: "moderate" as const,
+              title: "Balanced",
+              description: "Helpful reminders and encouragement. A good mix of support and autonomy.",
+              emoji: "⚖️",
+            },
+            {
+              level: "high" as const,
+              title: "High Accountability",
+              description: "Proactive follow-ups and direct challenges. Best for students who want to be pushed toward their goals.",
+              emoji: "🔥",
+            },
+          ].map((option) => (
+            <button
+              key={option.level}
+              onClick={() => setAccountabilityLevel(option.level)}
+              className={cn(
+                "text-left p-4 rounded-xl border-2 transition-all",
+                accountabilityLevel === option.level
+                  ? "border-accent-primary bg-accent-surface"
+                  : "border-border-subtle bg-surface-primary hover:border-border-medium"
+              )}
+            >
+              <div className="text-2xl mb-2">{option.emoji}</div>
+              <h3 className="font-medium text-text-primary mb-1">
+                {option.title}
+              </h3>
+              <p className="text-sm text-text-muted">
+                {option.description}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom Preferences */}
+      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
+          Custom Instructions
+        </h2>
+        <p className="text-sm text-text-muted mb-4">
+          Tell your advisor anything specific about how you like to work or communicate.
+        </p>
+
+        <textarea
+          value={advisorPreferences}
+          onChange={(e) => setAdvisorPreferences(e.target.value)}
+          placeholder="Example: I'm an early bird so morning check-ins work best. I prefer direct feedback over sugarcoating..."
+          className="w-full h-32 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none"
+        />
+
+        <div className="mt-4 flex justify-end">
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save Preferences
+          </Button>
+        </div>
+      </div>
+
+      {/* Info Card */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+        <h3 className="font-medium text-blue-900 mb-2">
+          How this affects your advisor
+        </h3>
+        <ul className="text-sm text-blue-800 space-y-1.5">
+          <li>• Your preferences are included in every conversation</li>
+          <li>• The advisor will adapt its communication style accordingly</li>
+          <li>• High accountability enables proactive check-ins on commitments</li>
+          <li>• You can change these settings anytime</li>
+        </ul>
       </div>
     </div>
   );

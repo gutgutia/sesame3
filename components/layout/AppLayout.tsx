@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
-import { MessageCircle } from "lucide-react";
-import Link from "next/link";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,14 +21,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
          <main className="flex-1 w-full max-w-[1400px] mx-auto p-4 md:p-10 pb-24 md:pb-10">
             {children}
          </main>
-
-         {/* Floating Chat Trigger (Now links to Advisor) */}
-         <Link 
-            href="/advisor"
-            className="fixed bottom-20 md:bottom-10 right-6 md:right-10 w-14 h-14 bg-text-main text-white rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform z-40"
-         >
-            <MessageCircle className="w-6 h-6" />
-         </Link>
       </div>
       <BottomNav />
     </div>

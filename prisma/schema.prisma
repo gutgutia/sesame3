@@ -881,34 +881,47 @@ model Conversation {
   id               String @id @default(uuid())
   studentProfileId String
   studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
-  
+
   // Metadata
   title            String?   // Auto-generated or user-set
   mode             String?   // "general" | "chances" | "planning" | "schools" | "story" | "courses"
-  
-  // Summary (rolling, updated periodically)
-  summary          String?
+
+  // ==========================================================================
+  // CONVERSATION SUMMARY (generated when conversation ends)
+  // ==========================================================================
+
+  // AI-facing summary (prose, injected into advisor context)
+  summary          String?   @db.Text
+
+  // User-facing summary (structured, for display in app or email)
+  // Format: { headline, topicsDiscussed[], decisionsReached[], actionItems[] }
+  summaryForUser   Json?
+
   summaryUpdatedAt DateTime?
-  
-  // Lifecycle
+
+  // ==========================================================================
+  // LIFECYCLE
+  // ==========================================================================
+
   startedAt        DateTime  @default(now())
-  endedAt          DateTime?
-  lastMessageAt    DateTime?
-  
+  endedAt          DateTime?           // Set when conversation is closed
+  lastMessageAt    DateTime?           // Updated on each message
+
   // Stats
   messageCount     Int       @default(0)
-  
+
   // Metadata
   metadata         Json?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   messages Message[]
-  
+
   @@index([studentProfileId])
   @@index([startedAt])
+  @@index([lastMessageAt])  // For finding active conversations
 }
 
 // -----------------------------------------------------------------------------
@@ -957,28 +970,74 @@ model StudentContext {
   id               String @id @default(uuid())
   studentProfileId String @unique
   studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
-  
-  // Rolling summary across ALL conversations
-  masterSummary         String?
+
+  // ==========================================================================
+  // MASTER SUMMARY (updated after each conversation ends)
+  // ==========================================================================
+
+  // Quick context (~100 tokens) - used for welcome, fast operations
+  // "Sarah Chen, junior at Lincoln High. 3.9 GPA, 1520 SAT. Targeting Stanford (ED), MIT."
+  quickContext          String?   @db.Text
+
+  // Recent sessions (~300 tokens) - detailed recent memory
+  // "Last session (Jan 15): Made Stanford essay plan..."
+  recentSessions        String?   @db.Text
+
+  // Established understanding (~200 tokens) - stable facts about student
+  // "Strengths: Strong STEM, robotics leadership. Concerns: Essay confidence."
+  studentUnderstanding  String?   @db.Text
+
+  // Active commitments (~100 tokens) - things to follow up on
+  // "Stanford essay draft due Friday. MIT supplemental research in progress."
+  openCommitments       String?   @db.Text
+
   masterSummaryUpdatedAt DateTime?
-  
+
+  // ==========================================================================
+  // AI-GENERATED SESSION OBJECTIVES
+  // ==========================================================================
+
+  // Pre-generated objectives for the next conversation (AI-generated)
+  // Updated on login, after conversation ends, or when profile changes significantly
+  generatedObjectives   String?   @db.Text
+  objectivesGeneratedAt DateTime?
+
+  // Upcoming deadlines awareness (cached for quick access)
+  // JSON array of { type, label, date, priority }
+  upcomingDeadlines     Json?
+
+  // ==========================================================================
+  // ADVISOR PREFERENCES (student-configured)
+  // ==========================================================================
+
+  // Free-form description of how they want advisor to behave
+  // "Be direct, don't sugarcoat. Push me on deadlines."
+  advisorPreferences    String?   @db.Text
+
+  // Accountability level: "gentle" | "moderate" | "intense"
+  accountabilityLevel   String    @default("moderate")
+
+  // ==========================================================================
+  // LEGACY FIELDS (kept for compatibility, may deprecate)
+  // ==========================================================================
+
   // Quick-access profile snapshot (for fast context loading)
   profileSnapshot       Json?     // Key facts: { gpa, sat, topActivities, etc. }
   snapshotUpdatedAt     DateTime?
-  
-  // Learned preferences
+
+  // Learned preferences (now partially replaced by advisorPreferences)
   communicationStyle    String?   // How they prefer to be talked to
   emotionalTendencies   String?   // "anxious" | "confident" | "needs_encouragement"
   preferredCheckInTime  String?   // "morning" | "evening"
-  
+
   // Interaction stats
   totalConversations    Int       @default(0)
   totalMessages         Int       @default(0)
   lastConversationAt    DateTime?
-  
+
   // Topics discussed
   topicsDiscussed       Json?     // Track what's been covered
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
