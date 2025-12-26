@@ -28,7 +28,7 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Welcome to Sesame - Your college prep journey starts here</Preview>
+      <Preview>Welcome to Sesame3 - Your college prep journey starts here</Preview>
       <Body style={main}>
         <Container style={container}>
           {/* Logo */}
@@ -37,11 +37,11 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
           </Section>
 
           {/* Header */}
-          <Heading style={heading}>Welcome to Sesame, {displayName}!</Heading>
+          <Heading style={heading}>Welcome to Sesame3, {displayName}!</Heading>
 
           {/* Main content */}
           <Text style={paragraph}>
-            We're thrilled to have you on board. Sesame is designed to make
+            We're thrilled to have you on board. Sesame3 is designed to make
             college prep feel manageable, not overwhelming.
           </Text>
 
@@ -93,14 +93,14 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
           </Text>
 
           <Text style={signature}>
-            — The Sesame Team
+            — The Sesame3 Team
           </Text>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
               <Link href="https://sesame3.com" style={link}>
-                Sesame
+                Sesame3
               </Link>{" "}
               — College prep, without the panic.
             </Text>
@@ -108,6 +108,15 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
               Questions? Just reply to this email or reach out to{" "}
               <Link href="mailto:support@sesame3.com" style={link}>
                 support@sesame3.com
+              </Link>
+            </Text>
+            <Text style={footerText}>
+              <Link href="https://sesame3.com/privacy" style={link}>
+                Privacy
+              </Link>
+              {" · "}
+              <Link href="https://sesame3.com/terms" style={link}>
+                Terms
               </Link>
             </Text>
           </Section>

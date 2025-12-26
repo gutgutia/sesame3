@@ -319,7 +319,15 @@ export default function AuthPage() {
           )}
 
           <p className="mt-8 text-center text-xs text-text-light">
-            By continuing, you agree to our Terms of Service and Privacy Policy.
+            By continuing, you agree to our{" "}
+            <a href="https://sesame3.com/terms" className="underline hover:text-text-muted">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="https://sesame3.com/privacy" className="underline hover:text-text-muted">
+              Privacy Policy
+            </a>
+            .
           </p>
         </div>
       </div>

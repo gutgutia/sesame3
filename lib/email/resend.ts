@@ -19,7 +19,7 @@ if (!resendApiKey) {
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Email sender configuration
-export const EMAIL_FROM = "Sesame <noreply@sesame3.com>";
+export const EMAIL_FROM = "Sesame3 <noreply@sesame3.com>";
 export const EMAIL_REPLY_TO = "support@sesame3.com";
 
 /**

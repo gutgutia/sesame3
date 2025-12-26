@@ -33,7 +33,7 @@ export function VerificationCodeEmail({
     <Html>
       <Head />
       <Preview>
-        Your Sesame verification code is {code}
+        Your Sesame3 verification code is {code}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -44,14 +44,14 @@ export function VerificationCodeEmail({
 
           {/* Header */}
           <Heading style={heading}>
-            {isNewUser ? "Welcome to Sesame!" : "Your login code"}
+            {isNewUser ? "Welcome to Sesame3!" : "Your login code"}
           </Heading>
 
           {/* Intro text */}
           <Text style={paragraph}>
             {isNewUser
               ? "We're excited to have you on board. Enter this code to create your account:"
-              : "Enter this code to sign in to your Sesame account:"}
+              : "Enter this code to sign in to your Sesame3 account:"}
           </Text>
 
           {/* Code box */}
@@ -72,9 +72,18 @@ export function VerificationCodeEmail({
             </Text>
             <Text style={footerText}>
               <Link href="https://sesame3.com" style={link}>
-                Sesame
+                Sesame3
               </Link>{" "}
               — College prep, without the panic.
+            </Text>
+            <Text style={footerText}>
+              <Link href="https://sesame3.com/privacy" style={link}>
+                Privacy
+              </Link>
+              {" · "}
+              <Link href="https://sesame3.com/terms" style={link}>
+                Terms
+              </Link>
             </Text>
           </Section>
         </Container>
