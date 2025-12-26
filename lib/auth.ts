@@ -132,42 +132,130 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
 /**
  * Get or create the current user's student profile
+ *
+ * Priority:
+ * 1. User's own profile (if exists)
+ * 2. First shared profile via AccessGrant (if user has access to others)
+ * 3. Create a new profile for the user
  */
 export async function getCurrentProfileId(): Promise<string | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Try to find existing profile
+  // Try to find user's own profile first
   let profile = await prisma.studentProfile.findFirst({
     where: { userId: user.id },
     select: { id: true },
   });
 
-  // If no profile exists, create one
-  if (!profile) {
-    // First ensure user exists in database
-    await prisma.user.upsert({
-      where: { id: user.id },
-      update: {},
-      create: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-    });
-
-    // Create profile
-    profile = await prisma.studentProfile.create({
-      data: {
-        userId: user.id,
-        firstName: user.name?.split(" ")[0] || "Student",
-        lastName: user.name?.split(" ").slice(1).join(" ") || undefined,
-      },
-      select: { id: true },
-    });
+  if (profile) {
+    return profile.id;
   }
 
+  // Check if user has access to any shared profiles
+  const accessGrant = await prisma.accessGrant.findFirst({
+    where: {
+      grantedToUserId: user.id,
+      revokedAt: null,
+    },
+    select: {
+      studentProfileId: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (accessGrant) {
+    // User has access to a shared profile - use that
+    return accessGrant.studentProfileId;
+  }
+
+  // No profile and no shared access - create one
+  // First ensure user exists in database
+  await prisma.user.upsert({
+    where: { id: user.id },
+    update: {},
+    create: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    },
+  });
+
+  // Create profile
+  profile = await prisma.studentProfile.create({
+    data: {
+      userId: user.id,
+      firstName: user.name?.split(" ")[0] || "Student",
+      lastName: user.name?.split(" ").slice(1).join(" ") || undefined,
+    },
+    select: { id: true },
+  });
+
   return profile.id;
+}
+
+/**
+ * Check if the current user is viewing their own profile or a shared one
+ */
+export async function getProfileOwnership(): Promise<{
+  profileId: string;
+  isOwner: boolean;
+  ownerName?: string;
+} | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  // Check for user's own profile
+  const ownProfile = await prisma.studentProfile.findFirst({
+    where: { userId: user.id },
+    select: { id: true, firstName: true, lastName: true },
+  });
+
+  if (ownProfile) {
+    return {
+      profileId: ownProfile.id,
+      isOwner: true,
+    };
+  }
+
+  // Check for shared access
+  const accessGrant = await prisma.accessGrant.findFirst({
+    where: {
+      grantedToUserId: user.id,
+      revokedAt: null,
+    },
+    select: {
+      studentProfile: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (accessGrant) {
+    const ownerName = [
+      accessGrant.studentProfile.firstName,
+      accessGrant.studentProfile.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return {
+      profileId: accessGrant.studentProfile.id,
+      isOwner: false,
+      ownerName,
+    };
+  }
+
+  return null;
 }
 
 /**

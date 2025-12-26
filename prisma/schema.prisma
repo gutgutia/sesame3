@@ -78,7 +78,8 @@ model User {
   accessGrantsGiven AccessGrant[]    @relation("GrantedBy")
   accessGrantsReceived AccessGrant[] @relation("GrantedTo")
   usageRecords      UsageRecord[]
-  
+  invitationsSent   Invitation[]
+
   // Future: Organization membership
   organizationMemberships OrganizationMember[]
 }
@@ -136,7 +137,8 @@ model StudentProfile {
   
   // Relations - Access Control
   accessGrants AccessGrant[]
-  
+  invitations  Invitation[]
+
   @@index([userId])
 }
 
@@ -1106,6 +1108,40 @@ model AccessGrant {
   
   @@unique([studentProfileId, grantedToUserId])
   @@index([grantedToUserId])
+}
+
+// -----------------------------------------------------------------------------
+// Invitation - Pending Access Invitations
+// -----------------------------------------------------------------------------
+
+model Invitation {
+  id               String @id @default(uuid())
+
+  // Who sent the invitation
+  inviterUserId    String
+  inviter          User   @relation(fields: [inviterUserId], references: [id])
+
+  // Which profile is being shared
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  // Who is being invited (by email, since they may not have an account yet)
+  inviteeEmail     String
+
+  // Unique token for the invitation link
+  token            String @unique
+
+  // Status
+  status           String @default("pending")  // "pending" | "accepted" | "expired" | "revoked"
+
+  // Timestamps
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@unique([studentProfileId, inviteeEmail])
+  @@index([inviteeEmail])
+  @@index([token])
 }
 
 // -----------------------------------------------------------------------------

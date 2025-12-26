@@ -21,6 +21,11 @@ import {
   Pencil,
   Save,
   MessageSquare,
+  Users,
+  Mail,
+  Trash2,
+  Clock,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -1095,6 +1100,9 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Account Access Section */}
+                <AccountAccessSection />
               </div>
             )}
 
@@ -1534,6 +1542,225 @@ function AdvisorPreferencesTab({
           <li>• You can change these settings anytime</li>
         </ul>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ACCOUNT ACCESS SECTION
+// =============================================================================
+
+type AccessEntry = {
+  id: string;
+  type: "active" | "pending";
+  email: string;
+  name: string | null;
+  permission: string;
+  createdAt: string;
+  expiresAt?: string;
+};
+
+function AccountAccessSection() {
+  const [accessList, setAccessList] = useState<AccessEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const loadAccessList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/account-access");
+      if (res.ok) {
+        const data = await res.json();
+        setAccessList(data.accessList || []);
+      }
+    } catch (err) {
+      console.error("Failed to load access list:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAccessList();
+  }, [loadAccessList]);
+
+  const handleAddEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.trim() || isAdding) return;
+
+    setIsAdding(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/account-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newEmail.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to add email");
+      }
+
+      setSuccessMessage(data.message || "Invitation sent!");
+      setNewEmail("");
+      loadAccessList();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleRemove = async (id: string, type: "active" | "pending") => {
+    if (removingId) return;
+
+    setRemovingId(id);
+
+    try {
+      const res = await fetch(`/api/account-access?id=${id}&type=${type}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to remove");
+      }
+
+      loadAccessList();
+    } catch (err) {
+      console.error("Remove error:", err);
+      setError(err instanceof Error ? err.message : "Failed to remove");
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Users className="w-5 h-5 text-text-muted" />
+        <h2 className="text-lg font-semibold text-text-primary">
+          Account Access
+        </h2>
+      </div>
+      <p className="text-sm text-text-muted mb-6">
+        Allow others to view your profile. They&apos;ll be able to see your progress, goals, and school list.
+      </p>
+
+      {/* Success message */}
+      {successMessage && (
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 mb-4">
+          <Check className="w-4 h-4" />
+          {successMessage}
+        </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-4">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Add email form */}
+      <form onSubmit={handleAddEmail} className="flex gap-2 mb-6">
+        <div className="relative flex-1">
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="Enter email address"
+            className="w-full pl-10 pr-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+          />
+        </div>
+        <Button type="submit" disabled={isAdding || !newEmail.trim()}>
+          {isAdding ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add
+            </>
+          )}
+        </Button>
+      </form>
+
+      {/* Access list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
+        </div>
+      ) : accessList.length === 0 ? (
+        <div className="text-center py-8 text-text-muted">
+          <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No one else has access to your account yet.</p>
+          <p className="text-xs mt-1">Add an email above to share access with a parent, counselor, or tutor.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {accessList.map((entry) => (
+            <div
+              key={entry.id}
+              className="flex items-center justify-between py-3 px-4 bg-surface-primary rounded-xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center",
+                  entry.type === "active" ? "bg-green-100" : "bg-yellow-100"
+                )}>
+                  {entry.type === "active" ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-yellow-600" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-text-primary">
+                    {entry.email}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {entry.type === "active" ? (
+                      <span className="text-green-600">Has access</span>
+                    ) : (
+                      <span className="text-yellow-600">Invitation pending</span>
+                    )}
+                    {entry.name && ` • ${entry.name}`}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleRemove(entry.id, entry.type)}
+                disabled={removingId === entry.id}
+                className="p-2 text-text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                title={entry.type === "active" ? "Revoke access" : "Cancel invitation"}
+              >
+                {removingId === entry.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
