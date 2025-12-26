@@ -129,6 +129,9 @@ function PlanSelectorModal({
     setActionLoading(planId);
 
     try {
+      // Pass current URL for redirect after checkout
+      const currentUrl = window.location.pathname;
+
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,6 +139,7 @@ function PlanSelectorModal({
           action: "upgrade",
           plan: planId,
           yearly: isYearly,
+          returnUrl: currentUrl,
         }),
       });
 
@@ -228,7 +232,7 @@ function PlanSelectorModal({
               <div
                 key={plan.id}
                 className={cn(
-                  "relative bg-surface-secondary border rounded-2xl p-5 transition-all",
+                  "relative bg-surface-secondary border rounded-2xl p-5 transition-all flex flex-col",
                   plan.popular && !isCurrentPlan
                     ? "border-accent-primary shadow-lg"
                     : "border-border-subtle",
@@ -264,38 +268,44 @@ function PlanSelectorModal({
                   {plan.description}
                 </p>
 
-                <ul className="space-y-1.5 mb-4">
-                  {plan.features.slice(0, 3).map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
-                      <span className="text-text-secondary">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Flex-grow to push button to bottom */}
+                <div className="flex-1">
+                  <ul className="space-y-1.5 mb-4">
+                    {plan.features.slice(0, 3).map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
+                        <span className="text-text-secondary">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-                {isCurrentPlan ? (
-                  <Button variant="secondary" className="w-full" disabled size="sm">
-                    Current Plan
-                  </Button>
-                ) : plan.id === "free" ? (
-                  <Button variant="secondary" className="w-full" size="sm" disabled>
-                    Free tier
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full"
-                    size="sm"
-                    variant={isUpgrade ? "primary" : "secondary"}
-                    onClick={() => handleSelect(plan.id)}
-                    disabled={actionLoading === plan.id}
-                  >
-                    {actionLoading === plan.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>Upgrade <ArrowRight className="w-3 h-3 ml-1" /></>
-                    )}
-                  </Button>
-                )}
+                {/* Button always at bottom */}
+                <div className="mt-auto pt-2">
+                  {isCurrentPlan ? (
+                    <Button variant="secondary" className="w-full" disabled size="sm">
+                      Current Plan
+                    </Button>
+                  ) : plan.id === "free" ? (
+                    <Button variant="secondary" className="w-full" size="sm" disabled>
+                      Free tier
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      variant={isUpgrade ? "primary" : "secondary"}
+                      onClick={() => handleSelect(plan.id)}
+                      disabled={actionLoading === plan.id}
+                    >
+                      {actionLoading === plan.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>Upgrade <ArrowRight className="w-3 h-3 ml-1" /></>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })}

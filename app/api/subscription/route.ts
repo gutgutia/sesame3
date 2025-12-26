@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     
     const profileId = await requireProfile();
     const body = await request.json();
-    const { action, plan, yearly = true } = body;
+    const { action, plan, yearly = true, returnUrl = "/" } = body;
     
     // Validate action
     if (!["upgrade", "downgrade", "cancel", "reactivate"].includes(action)) {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     // Route to appropriate handler
     switch (action) {
       case "upgrade":
-        return handleUpgrade(user, plan, yearly);
+        return handleUpgrade(user, plan, yearly, returnUrl);
       case "downgrade":
         return handleDowngrade(user, plan, yearly);
       case "cancel":
@@ -130,7 +130,7 @@ type UserData = {
  * - If no subscription: Return checkout URL
  * - If has subscription: Update inline with proration
  */
-async function handleUpgrade(user: UserData, plan: string, yearly: boolean) {
+async function handleUpgrade(user: UserData, plan: string, yearly: boolean, returnUrl: string = "/") {
   if (!stripe) throw new Error("Stripe not configured");
   
   // Validate plan
@@ -165,7 +165,7 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean) {
   
   // If user has no subscription, create checkout session
   if (!user.stripeSubscriptionId || user.subscriptionTier === "free") {
-    return createCheckoutSession(user, plan, priceId, yearly);
+    return createCheckoutSession(user, plan, priceId, yearly, returnUrl);
   }
   
   // User has subscription - update it inline
@@ -234,7 +234,7 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean) {
   } catch (err) {
     console.error("[Subscription] Upgrade error:", err);
     // Fallback to checkout
-    return createCheckoutSession(user, plan, priceId, yearly);
+    return createCheckoutSession(user, plan, priceId, yearly, returnUrl);
   }
 }
 
@@ -468,42 +468,44 @@ async function createCheckoutSession(
   user: UserData,
   plan: string,
   priceId: string,
-  yearly: boolean
+  yearly: boolean,
+  returnUrl: string = "/"
 ) {
   if (!stripe) throw new Error("Stripe not configured");
-  
+
   // Create or get customer
   let customerId = user.stripeCustomerId;
-  
+
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email,
       metadata: { userId: user.id },
     });
-    
+
     await prisma.user.update({
       where: { id: user.id },
       data: { stripeCustomerId: customer.id },
     });
-    
+
     customerId = customer.id;
   }
-  
-  // Create checkout session
+
+  // Create checkout session with dynamic return URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?success=true&plan=${plan}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?canceled=true`,
+    success_url: `${baseUrl}${returnUrl}?upgraded=true&plan=${plan}`,
+    cancel_url: `${baseUrl}${returnUrl}?canceled=true`,
     metadata: {
       userId: user.id,
       plan,
       yearly: yearly ? "true" : "false",
     },
   });
-  
+
   return NextResponse.json({
     success: true,
     checkoutUrl: session.url,
