@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { createClient } from "@/lib/supabase/client";
+import { PlanBadge } from "@/components/subscription/PlanBadge";
 
 type NavItem = {
   name: string;
@@ -205,8 +206,11 @@ export function Sidebar() {
         {navItems.map((item) => renderNavItem(item))}
       </nav>
 
+      {/* Plan Badge */}
+      <PlanBadge />
+
       {/* User Dropdown */}
-      <div className="mt-auto relative" ref={dropdownRef}>
+      <div className="relative" ref={dropdownRef}>
         {/* Dropdown Menu */}
         {isDropdownOpen && (
           <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-border-subtle rounded-xl shadow-lg overflow-hidden z-50">
