@@ -6,33 +6,41 @@ import { LayoutGrid, Compass, User, BookOpen, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { name: "Home", href: "/", icon: LayoutGrid },
-  { name: "Plan", href: "/plan", icon: Compass },
-  { name: "Profile", href: "/profile", icon: User },
-  { name: "Schools", href: "/schools", icon: BookOpen },
-  { name: "Discover", href: "/discover", icon: Search },
+  { name: "Home", href: "/", icon: LayoutGrid, matchPaths: ["/"] },
+  { name: "Plan", href: "/plan", icon: Compass, matchPaths: ["/plan"] },
+  { name: "Profile", href: "/profile", icon: User, matchPaths: ["/profile"] },
+  { name: "Schools", href: "/schools", icon: BookOpen, matchPaths: ["/schools", "/chances"] },
+  { name: "Discover", href: "/discover", icon: Search, matchPaths: ["/discover"] },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
+  const isActive = (item: typeof navItems[0]) => {
+    return item.matchPaths.some(path =>
+      pathname === path ||
+      (path !== "/" && pathname.startsWith(path + "/")) ||
+      pathname.startsWith(path)
+    );
+  };
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border-subtle pb-safe pt-2 px-6 z-50">
       <div className="flex justify-between items-center h-16">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const active = isActive(item);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 text-[10px] font-medium text-text-muted transition-colors",
-                isActive && "text-accent-primary"
+                active && "text-accent-primary"
               )}
             >
               <div className={cn(
                   "p-1.5 rounded-lg transition-all",
-                  isActive && "bg-accent-surface"
+                  active && "bg-accent-surface"
               )}>
                 <item.icon className="w-6 h-6 stroke-[2px]" />
               </div>
