@@ -243,49 +243,61 @@ async function computeUpcomingDeadlines(
     }
   }
 
-  // Load school application deadlines
+  // Load school application deadlines (deadlines are on School model)
   const schools = await prisma.studentSchool.findMany({
     where: {
       studentProfileId: profileId,
       status: { in: ["researching", "planning", "in_progress"] },
     },
     select: {
-      school: { select: { name: true } },
-      applicationDeadline: true,
-      earlyDeadline: true,
+      applicationType: true,
+      school: {
+        select: {
+          name: true,
+          deadlineEd: true,
+          deadlineEd2: true,
+          deadlineEa: true,
+          deadlineRea: true,
+          deadlineRd: true,
+        },
+      },
     },
   });
 
   for (const entry of schools) {
-    // Early deadline
-    if (entry.earlyDeadline) {
-      const daysUntil = Math.ceil(
-        (entry.earlyDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-      );
+    // Get relevant deadline based on application type
+    const appType = entry.applicationType;
+    let deadline: Date | null = null;
+    let label = entry.school.name;
 
-      if (daysUntil >= 0 && daysUntil <= 90) {
-        deadlines.push({
-          type: "application",
-          label: `${entry.school.name} (Early)`,
-          date: entry.earlyDeadline.toISOString(),
-          daysUntil,
-          priority: getPriority(daysUntil),
-        });
-      }
+    if (appType === "ed" && entry.school.deadlineEd) {
+      deadline = entry.school.deadlineEd;
+      label = `${entry.school.name} (ED)`;
+    } else if (appType === "ed2" && entry.school.deadlineEd2) {
+      deadline = entry.school.deadlineEd2;
+      label = `${entry.school.name} (ED2)`;
+    } else if (appType === "ea" && entry.school.deadlineEa) {
+      deadline = entry.school.deadlineEa;
+      label = `${entry.school.name} (EA)`;
+    } else if (appType === "rea" && entry.school.deadlineRea) {
+      deadline = entry.school.deadlineRea;
+      label = `${entry.school.name} (REA)`;
+    } else if (entry.school.deadlineRd) {
+      // Default to RD deadline
+      deadline = entry.school.deadlineRd;
+      label = `${entry.school.name} (RD)`;
     }
 
-    // Regular deadline
-    if (entry.applicationDeadline) {
+    if (deadline) {
       const daysUntil = Math.ceil(
-        (entry.applicationDeadline.getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24)
+        (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       if (daysUntil >= 0 && daysUntil <= 90) {
         deadlines.push({
           type: "application",
-          label: `${entry.school.name}`,
-          date: entry.applicationDeadline.toISOString(),
+          label,
+          date: deadline.toISOString(),
           daysUntil,
           priority: getPriority(daysUntil),
         });
