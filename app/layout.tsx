@@ -1,19 +1,33 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { DevSwitcher } from "@/components/dev/DevSwitcher";
 import { ProfileProvider } from "@/lib/context/ProfileContext";
 
-const inter = Inter({
-  subsets: ["latin"],
+// Use system fonts with CSS fallbacks (more reliable for CI/build environments)
+// The CSS variables are set but fonts load via CSS @font-face or system stack
+const inter = localFont({
+  src: [
+    {
+      path: "../public/fonts/Inter-Variable.woff2",
+      style: "normal",
+    },
+  ],
   variable: "--font-inter",
   display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: [
+    {
+      path: "../public/fonts/JetBrainsMono-Variable.woff2",
+      style: "normal",
+    },
+  ],
   variable: "--font-jetbrains-mono",
   display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "Liberation Mono", "monospace"],
 });
 
 export const metadata: Metadata = {
