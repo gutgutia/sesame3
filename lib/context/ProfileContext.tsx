@@ -147,6 +147,7 @@ export interface ProfileData {
 interface ProfileContextType {
   profile: ProfileData | null;
   isLoading: boolean;
+  isFullyLoaded: boolean; // True when full profile (not just summary) is loaded
   error: string | null;
   refreshProfile: (showLoading?: boolean) => Promise<void>;
   updateProfile: (updates: Partial<ProfileData>) => void;
@@ -170,37 +171,89 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch full profile from API
-  const fetchProfile = useCallback(async () => {
+  const fetchFullProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
       const startTime = Date.now();
       const response = await fetch("/api/profile");
-      
+
       if (!response.ok) {
         if (response.status === 401) {
-          // Not authenticated - that's okay, just no profile
           setProfile(null);
           return;
         }
         throw new Error("Failed to fetch profile");
       }
-      
+
       const data = await response.json();
       setProfile(data);
-      
-      console.log(`[ProfileContext] Loaded in ${Date.now() - startTime}ms`);
+      setIsFullyLoaded(true);
+
+      console.log(`[ProfileContext] Full profile loaded in ${Date.now() - startTime}ms`);
+    } catch (err) {
+      console.error("[ProfileContext] Error loading full profile:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }, []);
+
+  // Progressive loading: fetch summary first, then full profile
+  const fetchProfile = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const startTime = Date.now();
+
+      // Step 1: Fetch lightweight summary first (fast ~200ms)
+      const summaryResponse = await fetch("/api/profile/summary");
+
+      if (!summaryResponse.ok) {
+        if (summaryResponse.status === 401) {
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
+        // If summary fails, fall back to full profile
+        await fetchFullProfile();
+        setIsLoading(false);
+        return;
+      }
+
+      const summary = await summaryResponse.json();
+
+      // Set minimal profile data for fast initial render
+      setProfile({
+        id: summary.id,
+        firstName: summary.firstName,
+        lastName: summary.lastName,
+        preferredName: summary.preferredName,
+        grade: summary.grade,
+        graduationYear: summary.graduationYear,
+        highSchoolName: summary.highSchoolName,
+        // Initialize empty arrays - will be populated by full load
+        courses: [],
+        activities: [],
+        awards: [],
+        goals: [],
+        schoolList: [],
+      });
+
+      console.log(`[ProfileContext] Summary loaded in ${Date.now() - startTime}ms`);
+
+      // Mark as not loading so UI can render immediately
+      setIsLoading(false);
+
+      // Step 2: Fetch full profile in background
+      fetchFullProfile();
     } catch (err) {
       console.error("[ProfileContext] Error:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchFullProfile]);
 
   // Load profile on mount
   useEffect(() => {
@@ -308,6 +361,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       value={{
         profile,
         isLoading,
+        isFullyLoaded,
         error,
         refreshProfile,
         updateProfile,

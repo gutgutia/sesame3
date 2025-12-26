@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   Plus, 
@@ -66,11 +66,13 @@ export default function SchoolsPage() {
     refreshProfile();
   };
 
-  // Group by tier
-  const reachSchools = schools.filter(s => s.tier === "reach");
-  const targetSchools = schools.filter(s => s.tier === "target");
-  const safetySchools = schools.filter(s => s.tier === "safety");
-  const dreamSchools = schools.filter(s => s.isDream);
+  // Group by tier - memoized to avoid re-filtering on every render
+  const { reachSchools, targetSchools, safetySchools, dreamSchools } = useMemo(() => ({
+    reachSchools: schools.filter(s => s.tier === "reach"),
+    targetSchools: schools.filter(s => s.tier === "target"),
+    safetySchools: schools.filter(s => s.tier === "safety"),
+    dreamSchools: schools.filter(s => s.isDream),
+  }), [schools]);
 
   if (isLoading) {
     return (

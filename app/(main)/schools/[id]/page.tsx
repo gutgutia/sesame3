@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { 
+import dynamic from "next/dynamic";
+import {
   ArrowLeft,
   Heart,
   ExternalLink,
@@ -16,12 +17,28 @@ import {
   GraduationCap,
   Trash2,
   Edit3,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SchoolLogo } from "@/components/ui/SchoolLogo";
 import { cn } from "@/lib/utils";
-import { NoteEditorModal } from "@/components/schools/NoteEditorModal";
+
+// Lazy-load Novel editor modal - only loads when user opens note editor
+const NoteEditorModal = dynamic(
+  () => import("@/components/schools/NoteEditorModal").then(mod => mod.NoteEditorModal),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
+          <p className="text-sm text-text-muted">Loading editor...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 // =============================================================================
 // TYPES

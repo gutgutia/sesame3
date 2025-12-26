@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { 
   GraduationCap, 
@@ -63,29 +63,47 @@ export default function ProfileOverviewPage() {
     );
   }
 
-  // Calculate stats
-  const gpaResult = calculateGPA(profile?.courses || []);
+  // Memoize expensive calculations to avoid re-computing on every render
+  const gpaResult = useMemo(
+    () => calculateGPA(profile?.courses || []),
+    [profile?.courses]
+  );
+
   const satScores = profile?.testing?.satScores || [];
   const actScores = profile?.testing?.actScores || [];
-  const bestSAT = satScores.length > 0 ? Math.max(...satScores.map(s => s.total)) : null;
-  const bestACT = actScores.length > 0 ? Math.max(...actScores.map(s => s.composite)) : null;
-  
+
+  const bestSAT = useMemo(
+    () => satScores.length > 0 ? Math.max(...satScores.map(s => s.total)) : null,
+    [satScores]
+  );
+
+  const bestACT = useMemo(
+    () => actScores.length > 0 ? Math.max(...actScores.map(s => s.composite)) : null,
+    [actScores]
+  );
+
   const courseCount = profile?.courses?.length || 0;
   const activityCount = profile?.activities?.length || 0;
   const awardCount = profile?.awards?.length || 0;
   const programCount = profile?.programs?.length || 0;
 
-  // Profile completeness
-  const completenessItems = [
-    { label: "Stories", done: storyCount >= 1 },
-    { label: "Courses", done: courseCount >= 5 },
-    { label: "Test Scores", done: satScores.length > 0 || actScores.length > 0 },
-    { label: "Activities", done: activityCount >= 3 },
-    { label: "Awards", done: awardCount >= 1 },
-    { label: "Programs", done: programCount >= 1 },
-  ];
-  const completedCount = completenessItems.filter(i => i.done).length;
-  const completenessPercent = Math.round((completedCount / completenessItems.length) * 100);
+  // Profile completeness - memoized
+  const { completenessItems, completedCount, completenessPercent } = useMemo(() => {
+    const items = [
+      { label: "Stories", done: storyCount >= 1 },
+      { label: "Courses", done: courseCount >= 5 },
+      { label: "Test Scores", done: satScores.length > 0 || actScores.length > 0 },
+      { label: "Activities", done: activityCount >= 3 },
+      { label: "Awards", done: awardCount >= 1 },
+      { label: "Programs", done: programCount >= 1 },
+    ];
+    const completed = items.filter(i => i.done).length;
+    return {
+      completenessItems: items,
+      completedCount: completed,
+      completenessPercent: Math.round((completed / items.length) * 100),
+    };
+  }, [storyCount, courseCount, satScores.length, actScores.length, activityCount, awardCount, programCount]);
 
   return (
     <>

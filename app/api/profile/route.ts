@@ -76,8 +76,13 @@ export async function GET() {
         { status: 404 }
       );
     }
-    
-    return NextResponse.json(profile);
+
+    return NextResponse.json(profile, {
+      headers: {
+        // Cache for 30 seconds, allow stale for 5 minutes while revalidating
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+      },
+    });
   } catch (error) {
     console.error("Error fetching profile:", error);
     return NextResponse.json(
