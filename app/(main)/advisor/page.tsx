@@ -62,7 +62,7 @@ function AdvisorContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] bg-bg-app -m-4 md:-m-10">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] md:h-[calc(100vh-5rem)] bg-bg-app -mx-4 md:-mx-10 mt-2">
       {/* Left: Chat Interface */}
       <div className="flex-1 flex flex-col min-h-0 relative">
         <ChatInterface
