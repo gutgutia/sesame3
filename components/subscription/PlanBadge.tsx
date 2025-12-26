@@ -4,78 +4,12 @@
  * PlanBadge - Shows current plan and upgrade link in sidebar
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Zap, Sparkles, Crown, ArrowRight, X, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-
-type SubscriptionTier = "free" | "standard" | "premium";
-
-// =============================================================================
-// PRICING DATA (shared with settings page)
-// =============================================================================
-
-const PLANS = [
-  {
-    id: "free" as const,
-    name: "Free",
-    price: 0,
-    priceYearly: 0,
-    description: "Get started with AI-powered college counseling",
-    features: [
-      "20 messages per day",
-      "Basic advisor (Haiku)",
-      "Profile building",
-      "School list management",
-      "Goal tracking",
-    ],
-    icon: Zap,
-    color: "text-gray-500",
-    bgColor: "bg-gray-100",
-  },
-  {
-    id: "standard" as const,
-    name: "Standard",
-    price: 9.99,
-    priceYearly: 99,
-    description: "Smarter advice for serious students",
-    features: [
-      "100 messages per day",
-      "Advanced advisor (Sonnet)",
-      "Deeper reasoning",
-      "Priority support",
-      "Everything in Free",
-    ],
-    icon: Sparkles,
-    color: "text-accent-primary",
-    bgColor: "bg-accent-surface",
-    popular: true,
-  },
-  {
-    id: "premium" as const,
-    name: "Premium",
-    price: 24.99,
-    priceYearly: 249,
-    description: "The most powerful AI counselor",
-    features: [
-      "500 messages per day",
-      "Expert advisor (Opus)",
-      "Best-in-class reasoning",
-      "Essay feedback (coming soon)",
-      "Everything in Standard",
-    ],
-    icon: Crown,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
-  },
-];
-
-const TIER_LEVELS: Record<SubscriptionTier, number> = {
-  free: 0,
-  standard: 1,
-  premium: 2,
-};
+import { PLANS, TIER_LEVELS, type SubscriptionTier } from "@/lib/subscription/plans";
 
 // =============================================================================
 // PLAN SELECTOR MODAL
@@ -271,7 +205,7 @@ function PlanSelectorModal({
                 {/* Flex-grow to push button to bottom */}
                 <div className="flex-1">
                   <ul className="space-y-1.5 mb-4">
-                    {plan.features.slice(0, 3).map((feature, i) => (
+                    {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
                         <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
                         <span className="text-text-secondary">{feature}</span>

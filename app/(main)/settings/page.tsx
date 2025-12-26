@@ -5,10 +5,7 @@ import {
   Settings,
   User,
   CreditCard,
-  Sparkles,
   Check,
-  Crown,
-  Zap,
   ArrowRight,
   Loader2,
   AlertCircle,
@@ -28,12 +25,11 @@ import {
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
+import { PLANS, TIER_LEVELS, type SubscriptionTier } from "@/lib/subscription/plans";
 
 // =============================================================================
 // TYPES
 // =============================================================================
-
-type SubscriptionTier = "free" | "standard" | "premium";
 type SubscriptionStatus = "none" | "active" | "canceling" | "past_due";
 
 type SubscriptionData = {
@@ -79,70 +75,6 @@ type ProrationPreview = {
   periodEnd?: string;
 };
 
-// =============================================================================
-// PRICING DATA
-// =============================================================================
-
-const PLANS = [
-  {
-    id: "free" as const,
-    name: "Free",
-    price: 0,
-    priceYearly: 0,
-    description: "Get started with AI-powered college counseling",
-    features: [
-      "20 messages per day",
-      "Basic advisor (Haiku)",
-      "Profile building",
-      "School list management",
-      "Goal tracking",
-    ],
-    icon: Zap,
-    color: "text-gray-500",
-    bgColor: "bg-gray-100",
-  },
-  {
-    id: "standard" as const,
-    name: "Standard",
-    price: 9.99,
-    priceYearly: 99,
-    description: "Deep, personalized guidance for serious students",
-    features: [
-      "100 messages per day",
-      "Advanced advisor (Sonnet)",
-      "Detailed chances analysis",
-      "Priority support",
-      "Everything in Free",
-    ],
-    icon: Sparkles,
-    color: "text-accent-primary",
-    bgColor: "bg-accent-surface",
-    popular: true,
-  },
-  {
-    id: "premium" as const,
-    name: "Premium",
-    price: 24.99,
-    priceYearly: 249,
-    description: "The most powerful AI counselor available",
-    features: [
-      "500 messages per day",
-      "Expert advisor (Opus)",
-      "Comprehensive strategy sessions",
-      "Essay feedback (coming soon)",
-      "Everything in Standard",
-    ],
-    icon: Crown,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
-  },
-];
-
-const TIER_LEVELS: Record<SubscriptionTier, number> = {
-  free: 0,
-  standard: 1,
-  premium: 2,
-};
 
 // =============================================================================
 // CONFIRMATION MODAL
@@ -271,9 +203,22 @@ function PlanSelectorModal({
 
   const currentLevel = TIER_LEVELS[currentTier];
 
+  // Handle backdrop click to close
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-3xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-3xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition-colors"
@@ -329,9 +274,9 @@ function PlanSelectorModal({
               <div
                 key={plan.id}
                 className={cn(
-                  "relative bg-surface-secondary border rounded-2xl p-5 transition-all",
+                  "relative bg-surface-secondary border rounded-2xl p-5 transition-all flex flex-col",
                   plan.popular && !isCurrentPlan
-                    ? "border-accent-primary shadow-lg" 
+                    ? "border-accent-primary shadow-lg"
                     : "border-border-subtle",
                   isCurrentPlan && "ring-2 ring-accent-primary ring-offset-2"
                 )}
@@ -365,15 +310,20 @@ function PlanSelectorModal({
                   {plan.description}
                 </p>
                 
-                <ul className="space-y-1.5 mb-4">
-                  {plan.features.slice(0, 3).map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
-                      <span className="text-text-secondary">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                
+                {/* Flex-grow to push button to bottom */}
+                <div className="flex-1">
+                  <ul className="space-y-1.5 mb-4">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
+                        <span className="text-text-secondary">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Button always at bottom */}
+                <div className="mt-auto pt-2">
                 {isCurrentPlan ? (
                   <Button variant="secondary" className="w-full" disabled size="sm">
                     Current Plan
@@ -406,6 +356,7 @@ function PlanSelectorModal({
                     )}
                   </Button>
                 )}
+                </div>
               </div>
             );
           })}
