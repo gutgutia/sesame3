@@ -36,7 +36,7 @@ export async function parseUserMessage(
       system: systemPrompt,
       prompt: userMessage,
       temperature: 0.1, // Low temperature for consistent parsing
-      maxTokens: 500,   // Keep responses short
+      maxOutputTokens: 500,   // Keep responses short
     });
     
     // Parse the JSON response

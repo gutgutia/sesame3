@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set(DEV_USER_COOKIE, userId, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: (process.env.NODE_ENV as string) === "production",
       maxAge: 60 * 60 * 24 * 365, // 1 year
     });
   } else {

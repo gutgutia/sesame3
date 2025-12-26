@@ -8,9 +8,13 @@ import { requireProfile } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
+// Helper types for Stripe SDK v20 compatibility
+type StripeSubscription = { current_period_end?: number; [key: string]: unknown };
+type StripeInvoiceLineItem = { proration?: boolean; amount?: number; [key: string]: unknown };
+
 // Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" })
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 // Price IDs
@@ -105,11 +109,12 @@ export async function POST(request: NextRequest) {
     
     // Calculate amounts
     const prorationAmount = preview.lines.data
-      .filter(line => line.proration)
-      .reduce((sum, line) => sum + line.amount, 0);
-    
+      .filter(line => (line as unknown as StripeInvoiceLineItem).proration)
+      .reduce((sum, line) => sum + (line as unknown as StripeInvoiceLineItem).amount!, 0);
+
     const totalAmount = preview.amount_due;
-    
+    const sub = subscription as unknown as StripeSubscription;
+
     return NextResponse.json({
       isNewSubscription: false,
       prorationAmount: prorationAmount / 100, // Convert from cents
@@ -118,8 +123,8 @@ export async function POST(request: NextRequest) {
       message: totalAmount > 0
         ? `You'll be charged $${(totalAmount / 100).toFixed(2)} now for the upgrade.`
         : "No charge - you have credit from your current plan.",
-      periodEnd: subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000).toISOString()
+      periodEnd: sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
         : null,
     });
   } catch (error) {

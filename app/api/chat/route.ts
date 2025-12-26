@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     
     // Estimate input tokens for advisor
     const estimatedInputTokens = Math.ceil(
-      (advisorPrompt.length + validMessages.reduce((acc, m) => acc + m.content.length, 0)) / 4
+      (advisorPrompt.length + validMessages.reduce((acc: number, m: { content: string }) => acc + m.content.length, 0)) / 4
     );
     
     // === PHASE 3: Create SSE Stream with Widget + Advisor Response ===
@@ -167,8 +167,8 @@ export async function POST(request: NextRequest) {
             tools: allTools,
             onFinish: async ({ text, toolCalls, toolResults, usage }) => {
               // Estimate output tokens
-              totalOutputTokens = usage?.completionTokens || Math.ceil(text.length / 4);
-              const actualInputTokens = usage?.promptTokens || estimatedInputTokens;
+              totalOutputTokens = usage?.outputTokens || Math.ceil(text.length / 4);
+              const actualInputTokens = usage?.inputTokens || estimatedInputTokens;
               
               // Record usage for advisor
               await recordUsage({

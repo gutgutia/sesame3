@@ -18,14 +18,14 @@ export async function handleSaveGpa(
   const academics = await prisma.academics.upsert({
     where: { studentProfileId: profileId },
     update: {
-      gpaUnweighted: params.gpaUnweighted,
-      gpaWeighted: params.gpaWeighted,
+      schoolReportedGpaUnweighted: params.gpaUnweighted,
+      schoolReportedGpaWeighted: params.gpaWeighted,
       gpaScale: params.gpaScale,
     },
     create: {
       studentProfileId: profileId,
-      gpaUnweighted: params.gpaUnweighted,
-      gpaWeighted: params.gpaWeighted,
+      schoolReportedGpaUnweighted: params.gpaUnweighted,
+      schoolReportedGpaWeighted: params.gpaWeighted,
       gpaScale: params.gpaScale,
     },
   });

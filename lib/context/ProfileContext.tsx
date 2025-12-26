@@ -76,6 +76,9 @@ export interface ProfileData {
     isSpike?: boolean;
     hoursPerWeek?: number | null;
     weeksPerYear?: number | null;
+    yearsActive?: string | null;
+    startGrade?: string | null;
+    endGrade?: string | null;
   }>;
   awards?: Array<{
     id: string;
@@ -91,6 +94,10 @@ export interface ProfileData {
     level?: string | null;
     status?: string | null;
     grade?: string | null;
+    gradeLevel?: string | null;
+    academicYear?: string | null;
+    semester?: string | null;
+    credits?: number | null;
   }>;
   programs?: Array<{
     id: string;
@@ -98,6 +105,13 @@ export interface ProfileData {
     organization?: string | null;
     type?: string | null;
     status?: string | null;
+    year?: number | null;
+    selectivity?: string | null;
+    description?: string | null;
+    url?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    duration?: string | null;
   }>;
   goals?: Array<{
     id: string;
@@ -110,16 +124,20 @@ export interface ProfileData {
     tasks?: Array<{
       id: string;
       title: string;
+      description?: string | null;
       status?: string | null;
       completed: boolean;
       dueDate?: string | null;
+      startDate?: string | null;
       priority?: string | null;
       subtasks?: Array<{
         id: string;
         title: string;
+        description?: string | null;
         status?: string | null;
         completed: boolean;
         dueDate?: string | null;
+        startDate?: string | null;
         priority?: string | null;
       }>;
     }>;
@@ -153,8 +171,8 @@ interface ProfileContextType {
   updateProfile: (updates: Partial<ProfileData>) => void;
   // Optimistic update helpers
   toggleTask: (goalId: string, taskId: string, completed: boolean) => void;
-  addTask: (goalId: string, task: NonNullable<ProfileData["goals"]>[number]["tasks"][number]) => void;
-  addSubtask: (goalId: string, parentTaskId: string, subtask: NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"][number]["subtasks"]>[number]) => void;
+  addTask: (goalId: string, task: NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"]>[number]) => void;
+  addSubtask: (goalId: string, parentTaskId: string, subtask: NonNullable<NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"]>[number]["subtasks"]>[number]) => void;
   addGoal: (goal: NonNullable<ProfileData["goals"]>[number]) => void;
 }
 
@@ -312,7 +330,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Optimistic add task
-  const addTask = useCallback((goalId: string, task: NonNullable<ProfileData["goals"]>[number]["tasks"][number]) => {
+  const addTask = useCallback((goalId: string, task: NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"]>[number]) => {
     setProfile(prev => {
       if (!prev?.goals) return prev;
       return {
@@ -329,7 +347,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Optimistic add subtask
-  const addSubtask = useCallback((goalId: string, parentTaskId: string, subtask: NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"][number]["subtasks"]>[number]) => {
+  const addSubtask = useCallback((goalId: string, parentTaskId: string, subtask: NonNullable<NonNullable<NonNullable<ProfileData["goals"]>[number]["tasks"]>[number]["subtasks"]>[number]) => {
     setProfile(prev => {
       if (!prev?.goals) return prev;
       return {

@@ -14,9 +14,19 @@ import { requireProfile } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
+// Helper to safely access Stripe subscription properties (SDK v20 compatibility)
+type StripeSubscription = {
+  id: string;
+  status: string;
+  current_period_end?: number;
+  cancel_at_period_end?: boolean;
+  items?: { data: Array<{ id: string; price?: { id: string } }> };
+  [key: string]: unknown;
+};
+
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 // Price IDs
@@ -211,8 +221,9 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean, retu
     
     // Update database
     const tier = plan as "standard" | "premium";
-    const subscriptionEndsAt = updatedSubscription.current_period_end
-      ? new Date(updatedSubscription.current_period_end * 1000)
+    const sub = updatedSubscription as unknown as StripeSubscription;
+    const subscriptionEndsAt = sub.current_period_end
+      ? new Date(sub.current_period_end * 1000)
       : null;
     
     await prisma.user.update({
@@ -396,9 +407,10 @@ async function handleCancel(user: UserData) {
     );
     
     console.log(`[Subscription] User ${user.id} scheduled cancellation`);
-    
-    const accessUntil = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+
+    const cancelledSub = subscription as unknown as StripeSubscription;
+    const accessUntil = cancelledSub.current_period_end
+      ? new Date(cancelledSub.current_period_end * 1000)
       : null;
     
     return NextResponse.json({
@@ -438,9 +450,10 @@ async function handleReactivate(user: UserData) {
     );
     
     console.log(`[Subscription] User ${user.id} reactivated subscription`);
-    
-    const nextBilling = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+
+    const reactivatedSub = subscription as unknown as StripeSubscription;
+    const nextBilling = reactivatedSub.current_period_end
+      ? new Date(reactivatedSub.current_period_end * 1000)
       : null;
     
     return NextResponse.json({

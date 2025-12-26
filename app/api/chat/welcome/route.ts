@@ -40,12 +40,21 @@ export async function POST(request: NextRequest) {
     }
     
     // Check cache first
-    let profile = getCachedProfile(profileId);
+    const cachedProfile = getCachedProfile(profileId);
     let dbTime = 0;
     let cacheHit = false;
-    
-    if (profile) {
+
+    // Profile data (without cachedAt metadata)
+    let profileData: {
+      firstName: string | null;
+      preferredName: string | null;
+      grade: string | null;
+      activities: Array<{ title: string; isLeadership: boolean }>;
+    } | null = null;
+
+    if (cachedProfile) {
       cacheHit = true;
+      profileData = cachedProfile;
     } else {
       // Lightweight profile fetch - only what we need for welcome
       const dbStart = Date.now();
@@ -63,23 +72,23 @@ export async function POST(request: NextRequest) {
         },
       });
       dbTime = Date.now() - dbStart;
-      
+
       if (dbProfile) {
-        profile = {
+        profileData = {
           firstName: dbProfile.firstName,
           preferredName: dbProfile.preferredName,
           grade: dbProfile.grade,
           activities: dbProfile.activities,
         };
         // Cache for next time
-        setCachedProfile(profileId, profile);
+        setCachedProfile(profileId, profileData);
       }
     }
     
     // Build minimal context
-    const name = profile?.preferredName || profile?.firstName || null;
-    const grade = profile?.grade || null;
-    const activities = profile?.activities || [];
+    const name = profileData?.preferredName || profileData?.firstName || null;
+    const grade = profileData?.grade || null;
+    const activities = profileData?.activities || [];
     
     let profileSummary = "";
     if (name) {
@@ -114,7 +123,7 @@ Rules:
       system: systemPrompt,
       prompt: "Generate the opening message.",
       temperature: 0.7,
-      maxTokens: 150,
+      maxOutputTokens: 150,
     });
     
     const genTime = Date.now() - genStart;

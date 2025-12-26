@@ -267,8 +267,8 @@ async function seedTestUsers() {
         await prisma.academics.create({
           data: {
             studentProfileId: profile.id,
-            gpaUnweighted: profileData.academics.gpaUnweighted,
-            gpaWeighted: profileData.academics.gpaWeighted,
+            schoolReportedGpaUnweighted: profileData.academics.gpaUnweighted,
+            schoolReportedGpaWeighted: profileData.academics.gpaWeighted,
             classRank: profileData.academics.classRank,
             classSize: profileData.academics.classSize,
           },
@@ -276,17 +276,41 @@ async function seedTestUsers() {
         console.log(`  📚 Added Academics`);
       }
 
-      // Testing
+      // Testing - Note: SAT/ACT scores should go to SATScore/ACTScore models
       if (profileData.testing) {
-        await prisma.testing.create({
+        const testing = await prisma.testing.create({
           data: {
             studentProfileId: profile.id,
-            satTotal: profileData.testing.satTotal,
-            satMath: profileData.testing.satMath,
-            satReading: profileData.testing.satReading,
-            actComposite: profileData.testing.actComposite,
           },
         });
+        // Create SAT score if provided
+        if (profileData.testing.satTotal) {
+          await prisma.sATScore.create({
+            data: {
+              testingId: testing.id,
+              total: profileData.testing.satTotal,
+              math: profileData.testing.satMath || Math.floor(profileData.testing.satTotal / 2),
+              reading: profileData.testing.satReading || Math.ceil(profileData.testing.satTotal / 2),
+              testDate: new Date(),
+              isPrimary: true,
+            },
+          });
+        }
+        // Create ACT score if provided
+        if (profileData.testing.actComposite) {
+          await prisma.aCTScore.create({
+            data: {
+              testingId: testing.id,
+              composite: profileData.testing.actComposite,
+              english: profileData.testing.actComposite,
+              math: profileData.testing.actComposite,
+              reading: profileData.testing.actComposite,
+              science: profileData.testing.actComposite,
+              testDate: new Date(),
+              isPrimary: true,
+            },
+          });
+        }
         console.log(`  📝 Added Testing`);
       }
 
@@ -303,7 +327,7 @@ async function seedTestUsers() {
               isLeadership: activity.isLeadership,
               description: activity.description,
               hoursPerWeek: activity.hoursPerWeek,
-              isSpike: activity.isSpike,
+              isSpike: 'isSpike' in activity ? activity.isSpike : false,
               displayOrder: i,
             },
           });

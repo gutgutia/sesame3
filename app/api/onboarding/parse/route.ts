@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       model: modelFor.onboardingParsing,
       system: prompt,
       prompt: `Parse this input: "${input}"`,
-      maxTokens: 100,
+      maxOutputTokens: 100,
       temperature: 0, // Deterministic for parsing
     });
 

@@ -160,8 +160,8 @@ export default function AwardsPage() {
                       </span>
                       <div className="min-w-0">
                         <div className="font-medium text-text-main truncate">{award.title}</div>
-                        {award.issuer && (
-                          <div className="text-xs text-text-muted">{award.issuer}</div>
+                        {award.organization && (
+                          <div className="text-xs text-text-muted">{award.organization}</div>
                         )}
                       </div>
                     </div>

@@ -13,8 +13,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
+// Helper types for Stripe SDK v20 compatibility
+type StripeSubscription = { current_period_end?: number; status?: string; items?: { data: Array<{ price?: { id: string } }> }; [key: string]: unknown };
+type StripeInvoice = { subscription?: string | null; customer?: string | null; [key: string]: unknown };
+
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -144,8 +148,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   // Update subscription dates
-  const subscriptionEndsAt = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
+  const sub = subscription as unknown as StripeSubscription;
+  const subscriptionEndsAt = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000)
     : null;
 
   await prisma.user.update({
@@ -190,7 +195,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   // Subscription renewals are handled by subscription.updated
   // This is mainly for logging/tracking
-  const subscriptionId = invoice.subscription as string;
+  const inv = invoice as unknown as StripeInvoice;
+  const subscriptionId = inv.subscription as string;
 
   if (!subscriptionId) return;
 
@@ -206,7 +212,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   console.log("[Webhook] Invoice payment failed:", invoice.id);
 
-  const subscriptionId = invoice.subscription as string;
+  const inv = invoice as unknown as StripeInvoice;
+  const subscriptionId = inv.subscription as string;
 
   if (!subscriptionId) return;
 

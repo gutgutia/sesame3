@@ -32,13 +32,13 @@ interface StudentSchool {
   school: {
     id: string;
     name: string;
-    shortName: string | null;
-    city: string | null;
-    state: string | null;
-    acceptanceRate: number | null;
-    satRange25: number | null;
-    satRange75: number | null;
-    websiteUrl: string | null;
+    shortName?: string | null;
+    city?: string | null;
+    state?: string | null;
+    acceptanceRate?: number | null;
+    satRange25?: number | null;
+    satRange75?: number | null;
+    websiteUrl?: string | null;
   };
 }
 

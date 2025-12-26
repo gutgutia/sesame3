@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
         return {
           ...course,
           isDuplicate: true,
+          isPotentialDuplicate: false,
           matchType: "exact" as const,
           existingId: exactMatch.id,
         };

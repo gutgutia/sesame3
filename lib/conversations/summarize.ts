@@ -150,7 +150,7 @@ Respond in JSON format:
       model: SUMMARIZATION_MODEL,
       prompt,
       temperature: 0.3,
-      maxTokens: 800,
+      maxOutputTokens: 800,
     });
 
     const parsed = JSON.parse(result.text);
@@ -365,7 +365,7 @@ Respond in JSON:
       model: SUMMARIZATION_MODEL,
       prompt,
       temperature: 0.3,
-      maxTokens: 600,
+      maxOutputTokens: 600,
     });
 
     const parsed = JSON.parse(result.text);

@@ -14,7 +14,7 @@ export interface CourseForGPA {
   gradeNumeric?: number | null;
   level?: string | null;
   credits?: number | null;
-  status?: string;
+  status?: string | null;
 }
 
 // Grade to numeric value mapping

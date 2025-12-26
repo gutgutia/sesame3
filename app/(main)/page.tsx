@@ -46,16 +46,16 @@ function calculateZone(profile: ProfileData | null): ZoneStatus {
     return { zone: 0, hasSchools: false, hasProfile: false, hasGoals: false, hasStory: false };
   }
 
-  const hasSchools = profile.schoolList.length > 0;
+  const hasSchools = (profile.schoolList?.length ?? 0) > 0;
   const hasAcademics = !!(
     profile.academics?.gpaUnweighted ||
     profile.academics?.gpaWeighted ||
-    profile.testing?.satTotal ||
-    profile.testing?.actComposite
+    profile.testing?.satScores?.[0]?.total ||
+    profile.testing?.actScores?.[0]?.composite
   );
-  const hasActivities = profile.activities.length > 0;
-  const hasProfile = hasAcademics || hasActivities || profile.awards.length > 0;
-  const hasGoals = profile.goals.length > 0;
+  const hasActivities = (profile.activities?.length ?? 0) > 0;
+  const hasProfile = hasAcademics || hasActivities || (profile.awards?.length ?? 0) > 0;
+  const hasGoals = (profile.goals?.length ?? 0) > 0;
   // Story is now tracked via storyEntries - this is a simplified check
   const hasStory = false; // Will be updated when we fetch storyEntries separately
 
@@ -407,7 +407,7 @@ function MiniCTACard({
 function FilledSchoolsCard({
   schoolList,
 }: {
-  schoolList: Array<{ id: string; tier: string | null; school: { name: string } }>;
+  schoolList: NonNullable<ProfileData["schoolList"]>;
 }) {
   return (
     <Card className="p-5">
@@ -424,9 +424,9 @@ function FilledSchoolsCard({
         {schoolList.slice(0, 4).map((item) => (
           <div key={item.id} className="flex items-center gap-3 p-2 bg-bg-sidebar rounded-lg">
             <div className="w-8 h-8 bg-accent-surface text-accent-primary rounded-lg flex items-center justify-center text-sm font-bold">
-              {item.school.name.charAt(0)}
+              {item.school?.name?.charAt(0) ?? "?"}
             </div>
-            <span className="font-medium text-sm flex-1">{item.school.name}</span>
+            <span className="font-medium text-sm flex-1">{item.school?.name ?? "Unknown"}</span>
             {item.tier && (
               <span className="text-xs bg-bg-sidebar text-text-muted px-2 py-0.5 rounded-full capitalize">
                 {item.tier}
@@ -463,28 +463,28 @@ function FilledProfileCard({ profile }: { profile: ProfileData | null }) {
             <div className="font-mono font-bold text-lg">{profile.academics.gpaUnweighted}</div>
           </div>
         )}
-        {profile.testing?.satTotal && (
+        {profile.testing?.satScores?.[0]?.total && (
           <div className="bg-bg-sidebar rounded-lg p-3">
             <div className="text-xs text-text-muted">SAT</div>
-            <div className="font-mono font-bold text-lg">{profile.testing.satTotal}</div>
+            <div className="font-mono font-bold text-lg">{profile.testing.satScores[0].total}</div>
           </div>
         )}
-        {profile.testing?.actComposite && (
+        {profile.testing?.actScores?.[0]?.composite && (
           <div className="bg-bg-sidebar rounded-lg p-3">
             <div className="text-xs text-text-muted">ACT</div>
-            <div className="font-mono font-bold text-lg">{profile.testing.actComposite}</div>
+            <div className="font-mono font-bold text-lg">{profile.testing.actScores[0].composite}</div>
           </div>
         )}
-        {profile.activities.length > 0 && (
+        {(profile.activities?.length ?? 0) > 0 && (
           <div className="bg-bg-sidebar rounded-lg p-3">
             <div className="text-xs text-text-muted">Activities</div>
-            <div className="font-mono font-bold text-lg">{profile.activities.length}</div>
+            <div className="font-mono font-bold text-lg">{profile.activities?.length}</div>
           </div>
         )}
-        {profile.awards.length > 0 && (
+        {(profile.awards?.length ?? 0) > 0 && (
           <div className="bg-bg-sidebar rounded-lg p-3">
             <div className="text-xs text-text-muted">Awards</div>
-            <div className="font-mono font-bold text-lg">{profile.awards.length}</div>
+            <div className="font-mono font-bold text-lg">{profile.awards?.length}</div>
           </div>
         )}
       </div>
@@ -492,7 +492,7 @@ function FilledProfileCard({ profile }: { profile: ProfileData | null }) {
   );
 }
 
-function FilledGoalsCard({ goals }: { goals: Array<{ id: string; title: string; status: string }> }) {
+function FilledGoalsCard({ goals }: { goals: NonNullable<ProfileData["goals"]> }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
@@ -511,7 +511,7 @@ function FilledGoalsCard({ goals }: { goals: Array<{ id: string; title: string; 
               <Target className="w-4 h-4" />
             </div>
             <span className="font-medium text-sm flex-1 truncate">{goal.title}</span>
-            <span className="text-xs text-text-muted capitalize">{goal.status.replace("_", " ")}</span>
+            <span className="text-xs text-text-muted capitalize">{(goal.status ?? "planning").replace("_", " ")}</span>
           </div>
         ))}
         {goals.length === 0 && (

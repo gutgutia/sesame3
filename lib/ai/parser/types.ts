@@ -28,7 +28,7 @@ export const ExtractedEntitySchema = z.object({
   type: EntityTypeSchema,
   subtype: z.string().optional(), // e.g., "sat", "act" for test type
   value: z.union([z.string(), z.number(), z.boolean()]),
-  details: z.record(z.unknown()).optional(), // Additional parsed details
+  details: z.record(z.string(), z.unknown()).optional(), // Additional parsed details
 });
 
 export type ExtractedEntity = z.infer<typeof ExtractedEntitySchema>;
@@ -66,7 +66,7 @@ export const ToolCallSchema = z.object({
     "saveProfileInfo",
     "addGoal",
   ]),
-  args: z.record(z.unknown()),
+  args: z.record(z.string(), z.unknown()),
 });
 
 export type ToolCall = z.infer<typeof ToolCallSchema>;
@@ -108,7 +108,7 @@ export const ParserResponseSchema = z.object({
   // Widget to show for confirmation
   widget: z.object({
     type: WidgetTypeSchema,
-    data: z.record(z.unknown()),
+    data: z.record(z.string(), z.unknown()),
   }).optional(),
   
   // Any questions extracted from the user's message

@@ -6,9 +6,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
+// Helper types for Stripe SDK v20 compatibility
+type StripeSubscription = { current_period_end?: number; status?: string; items?: { data: Array<{ price?: { id: string } }> }; [key: string]: unknown };
+
 // Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" })
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -110,9 +113,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   let subscriptionEndsAt: Date | null = null;
   if (session.subscription && stripe) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
-        subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+      const subscriptionData = await stripe.subscriptions.retrieve(session.subscription as string);
+      const sub = subscriptionData as unknown as StripeSubscription;
+      if (sub.current_period_end && typeof sub.current_period_end === 'number') {
+        subscriptionEndsAt = new Date(sub.current_period_end * 1000);
       }
     } catch (err) {
       console.error("[Stripe] Failed to retrieve subscription details:", err);
@@ -162,12 +166,13 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   // Check subscription status
-  const isActive = subscription.status === "active" || subscription.status === "trialing";
-  
+  const sub = subscription as unknown as StripeSubscription;
+  const isActive = sub.status === "active" || sub.status === "trialing";
+
   // Safely parse subscription end date
   let subscriptionEndsAt: Date | null = null;
-  if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
-    subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+  if (sub.current_period_end && typeof sub.current_period_end === 'number') {
+    subscriptionEndsAt = new Date(sub.current_period_end * 1000);
   }
 
   console.log(`[Stripe] Subscription updated for user ${user.id}: ${tier}, active: ${isActive}`);

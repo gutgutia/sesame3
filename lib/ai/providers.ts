@@ -160,11 +160,13 @@ export function getModelWithFallback(
   // Check preferred model's provider
   const modelProviders: Record<keyof typeof modelFor, string> = {
     fastParsing: "groq",
+    onboardingParsing: "groq",
     advisor: "anthropic",
     deep: "anthropic",
     quick: "groq",
     fast: "anthropic",
     longContext: "google",
+    vision: "google",
     summarization: "openai",
     general: "openai",
   };

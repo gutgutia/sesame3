@@ -9,7 +9,7 @@
  */
 
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -155,7 +155,7 @@ async function resetTestUser(userKey: string) {
       highSchoolState: null,
       highSchoolType: null,
       onboardingCompletedAt: null,
-      onboardingData: null,
+      onboardingData: Prisma.JsonNull,
     },
   });
   console.log(`  🔄 Reset profile to minimal state`);

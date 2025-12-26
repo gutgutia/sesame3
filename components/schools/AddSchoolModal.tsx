@@ -43,7 +43,7 @@ export function AddSchoolModal({ isOpen, onClose, onSchoolAdded }: AddSchoolModa
   const [isSaving, setIsSaving] = useState(false);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset state when modal closes
   useEffect(() => {

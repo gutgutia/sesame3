@@ -7,9 +7,12 @@ import { requireProfile } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
+// Helper type for Stripe subscription (SDK v20 compatibility)
+type StripeSubscription = { current_period_end?: number; [key: string]: unknown };
+
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 // Price IDs from Stripe Dashboard (set these after creating products)
@@ -129,8 +132,9 @@ export async function POST(request: NextRequest) {
           
           // Update our database with new tier
           const tier = plan === "premium" ? "premium" : "standard";
-          const subscriptionEndsAt = updatedSubscription.current_period_end 
-            ? new Date(updatedSubscription.current_period_end * 1000)
+          const sub = updatedSubscription as unknown as StripeSubscription;
+          const subscriptionEndsAt = sub.current_period_end
+            ? new Date(sub.current_period_end * 1000)
             : null;
           
           await prisma.user.update({
