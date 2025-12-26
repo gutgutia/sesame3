@@ -96,19 +96,22 @@ export async function GET() {
     const sat = profile?.testing?.satScores?.[0]?.total;
     const act = profile?.testing?.actScores?.[0]?.composite;
 
-    // Parse objectives into array (they're stored as numbered list)
+    // Parse objectives into array (handle numbered, bulleted, or plain lines)
     const objectivesText = context?.generatedObjectives || "";
     const objectives = objectivesText
       .split("\n")
-      .filter((line: string) => line.match(/^\d+\./))
-      .map((line: string) => line.replace(/^\d+\.\s*/, "").trim())
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0)
+      .map((line: string) => line.replace(/^(\d+\.|[-•*])\s*/, "").trim())
+      .filter((line: string) => line.length > 0)
       .slice(0, 4);
 
-    // Parse commitments into array
+    // Parse commitments into array (strip leading "- " if present)
     const commitmentsText = context?.openCommitments || "";
     const commitments = commitmentsText
       .split("\n")
       .filter((line: string) => line.trim().length > 0)
+      .map((line: string) => line.replace(/^-\s*/, "").trim())
       .slice(0, 3);
 
     // Format deadlines
