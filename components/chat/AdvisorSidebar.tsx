@@ -2,32 +2,20 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  User,
   Target,
   Clock,
   CheckCircle2,
   AlertTriangle,
-  ChevronRight,
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 type AdvisorContext = {
-  profileSnapshot: {
-    name: string;
-    grade: string | null;
-    school: string | null;
-    gpa: number | null;
-    sat: number | null;
-    act: number | null;
-  };
   objectives: string[];
-  objectivesGeneratedAt: string | null;
   deadlines: Array<{
     label: string;
     daysUntil: number;
@@ -35,15 +23,6 @@ type AdvisorContext = {
     type: string;
   }>;
   commitments: string[];
-  goals: Array<{
-    id: string;
-    title: string;
-    status: string;
-    category: string | null;
-    progress: number | null;
-    taskCount: number;
-    completedCount: number;
-  }>;
   sessionInfo: {
     daysSinceLastSession: number | null;
     totalConversations: number;
@@ -93,10 +72,7 @@ export function AdvisorSidebar() {
   }
 
   return (
-    <div className="flex flex-col gap-5 h-full overflow-y-auto">
-      {/* Profile Snapshot */}
-      <ProfileSnapshot snapshot={context.profileSnapshot} />
-
+    <div className="flex flex-col gap-5 h-full">
       {/* Session Objectives */}
       {context.objectives.length > 0 && (
         <ObjectivesSection objectives={context.objectives} />
@@ -112,9 +88,6 @@ export function AdvisorSidebar() {
         <CommitmentsSection commitments={context.commitments} />
       )}
 
-      {/* Active Goals */}
-      {context.goals.length > 0 && <GoalsSection goals={context.goals} />}
-
       {/* Session Info (subtle footer) */}
       <SessionInfo info={context.sessionInfo} />
     </div>
@@ -124,48 +97,6 @@ export function AdvisorSidebar() {
 // =============================================================================
 // SECTION COMPONENTS
 // =============================================================================
-
-function ProfileSnapshot({
-  snapshot,
-}: {
-  snapshot: AdvisorContext["profileSnapshot"];
-}) {
-  const stats = [
-    snapshot.gpa && { label: "GPA", value: snapshot.gpa.toFixed(2) },
-    snapshot.sat && { label: "SAT", value: snapshot.sat.toString() },
-    snapshot.act && { label: "ACT", value: snapshot.act.toString() },
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
-
-  return (
-    <div className="bg-white rounded-xl p-4 border border-border-subtle">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-accent-surface text-accent-primary rounded-full flex items-center justify-center font-semibold">
-          {snapshot.name[0]?.toUpperCase() || "S"}
-        </div>
-        <div>
-          <h3 className="font-semibold text-text-primary">{snapshot.name}</h3>
-          <p className="text-sm text-text-muted">
-            {snapshot.grade && formatGrade(snapshot.grade)}
-            {snapshot.school && ` at ${snapshot.school}`}
-          </p>
-        </div>
-      </div>
-
-      {stats.length > 0 && (
-        <div className="flex gap-4 pt-3 border-t border-border-subtle">
-          {stats.map((stat) => (
-            <div key={stat.label} className="text-center flex-1">
-              <div className="text-lg font-semibold text-text-primary">
-                {stat.value}
-              </div>
-              <div className="text-xs text-text-muted">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ObjectivesSection({ objectives }: { objectives: string[] }) {
   return (
@@ -245,43 +176,6 @@ function CommitmentsSection({ commitments }: { commitments: string[] }) {
   );
 }
 
-function GoalsSection({ goals }: { goals: AdvisorContext["goals"] }) {
-  return (
-    <SidebarSection title="Active Goals" icon={Target}>
-      <ul className="space-y-3">
-        {goals.slice(0, 3).map((goal) => (
-          <li key={goal.id}>
-            <Link
-              href={`/plan?goal=${goal.id}`}
-              className="block p-2 rounded-lg hover:bg-surface-secondary transition-colors group"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-text-primary truncate max-w-[200px]">
-                  {goal.title}
-                </span>
-                <ChevronRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              {goal.taskCount > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-accent-primary rounded-full transition-all"
-                      style={{ width: `${goal.progress || 0}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-text-muted">
-                    {goal.completedCount}/{goal.taskCount}
-                  </span>
-                </div>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </SidebarSection>
-  );
-}
-
 function SessionInfo({
   info,
 }: {
@@ -340,13 +234,3 @@ function SidebarSection({
   );
 }
 
-function formatGrade(grade: string): string {
-  const gradeMap: Record<string, string> = {
-    "9th": "Freshman",
-    "10th": "Sophomore",
-    "11th": "Junior",
-    "12th": "Senior",
-    gap_year: "Gap Year",
-  };
-  return gradeMap[grade] || grade;
-}

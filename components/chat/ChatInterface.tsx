@@ -441,7 +441,7 @@ export function ChatInterface({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Share your GPA, test scores, activities..."
+            placeholder="What's on your mind?"
             className="w-full bg-bg-sidebar border border-border-medium rounded-xl pl-5 pr-14 py-4 text-[15px] focus:outline-none focus:border-accent-primary focus:ring-4 focus:ring-accent-surface transition-all"
             disabled={isLoading || !!currentWidget}
             autoFocus
@@ -454,28 +454,8 @@ export function ChatInterface({
             <Send className="w-4 h-4" />
           </button>
         </form>
-        
-        {/* Quick suggestions */}
-        {!currentWidget && !isLoading && (
-          <div className="flex flex-wrap gap-2 mt-3 max-w-3xl mx-auto">
-            <QuickSuggestion onClick={() => setInput("My GPA is ")} label="Add GPA" />
-            <QuickSuggestion onClick={() => setInput("I got a ")} label="Add test score" />
-            <QuickSuggestion onClick={() => setInput("I'm involved in ")} label="Add activity" />
-          </div>
-        )}
       </div>
     </div>
-  );
-}
-
-function QuickSuggestion({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-3 py-1.5 bg-bg-sidebar border border-border-subtle rounded-full text-xs text-text-muted hover:text-text-main hover:border-accent-primary transition-colors"
-    >
-      + {label}
-    </button>
   );
 }
 

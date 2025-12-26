@@ -62,9 +62,9 @@ function AdvisorContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-bg-app">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] bg-bg-app -m-4 md:-m-10">
       {/* Left: Chat Interface */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-col min-h-0 relative">
         <ChatInterface
           mode={mode}
           initialMessage={initialQuery || undefined}
@@ -74,7 +74,7 @@ function AdvisorContent() {
       </div>
 
       {/* Right: Advisor Context Sidebar */}
-      <div className="hidden md:flex w-[380px] bg-[#FAFAF9] flex-col border-l border-border-subtle p-5 overflow-y-auto">
+      <div className="hidden md:flex w-[320px] bg-[#FAFAF9] flex-col border-l border-border-subtle p-5 overflow-y-auto">
         <AdvisorSidebar />
       </div>
     </div>

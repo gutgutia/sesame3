@@ -97,13 +97,16 @@ export async function GET() {
     const act = profile?.testing?.actScores?.[0]?.composite;
 
     // Parse objectives into array (handle numbered, bulleted, or plain lines)
+    // Filter out header lines like "Objectives for Next AI College Counselor Session with Alex:"
     const objectivesText = context?.generatedObjectives || "";
     const objectives = objectivesText
       .split("\n")
       .map((line: string) => line.trim())
       .filter((line: string) => line.length > 0)
+      .filter((line: string) => !line.toLowerCase().includes("objectives for"))
+      .filter((line: string) => !line.toLowerCase().includes("session with"))
       .map((line: string) => line.replace(/^(\d+\.|[-•*])\s*/, "").trim())
-      .filter((line: string) => line.length > 0)
+      .filter((line: string) => line.length > 0 && !line.endsWith(":"))
       .slice(0, 4);
 
     // Parse commitments into array (strip leading "- " if present)
