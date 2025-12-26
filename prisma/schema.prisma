@@ -80,7 +80,8 @@ model StudentProfile {
   highSchoolType  String?   // "public" | "private" | "charter" | "homeschool"
 
   // Personal Info (for eligibility calculations)
-  birthDate       DateTime?   // For age-based program eligibility
+  birthDate         DateTime?   // For age-based program eligibility
+  residencyStatus   String?     // "us_citizen" | "us_permanent_resident" | "international"
 
   // Onboarding State
   onboardingCompletedAt DateTime?
