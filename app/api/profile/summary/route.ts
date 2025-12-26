@@ -100,6 +100,10 @@ export async function GET() {
       gpaWeighted: profile.academics?.schoolReportedGpaWeighted || null,
     };
 
+    // Lazy objective generation (background, non-blocking)
+    // Only regenerate if objectives are stale (> 12 hours) or don't exist
+    refreshObjectivesIfStale(profileId);
+
     return NextResponse.json(summary, {
       headers: {
         // Cache for 60 seconds, allow stale for 5 minutes while revalidating
@@ -112,5 +116,38 @@ export async function GET() {
       { error: "Failed to fetch profile summary" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Check if objectives are stale and regenerate if needed.
+ * Fire-and-forget - doesn't block the response.
+ */
+async function refreshObjectivesIfStale(profileId: string): Promise<void> {
+  try {
+    // Check when objectives were last generated
+    const context = await prisma.studentContext.findUnique({
+      where: { studentProfileId: profileId },
+      select: { objectivesGeneratedAt: true },
+    });
+
+    const objectivesAge = context?.objectivesGeneratedAt
+      ? Date.now() - new Date(context.objectivesGeneratedAt).getTime()
+      : Infinity;
+
+    // Regenerate if older than 12 hours or never generated
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
+    if (objectivesAge > TWELVE_HOURS_MS) {
+      // Dynamic import to avoid circular dependencies
+      const { triggerObjectiveGeneration } = await import(
+        "@/lib/objectives/generate"
+      );
+      triggerObjectiveGeneration(profileId);
+      console.log(`[ProfileSummary] Triggered objective refresh for ${profileId}`);
+    }
+  } catch (error) {
+    // Non-critical - log and continue
+    console.error("[ProfileSummary] Error checking objectives:", error);
   }
 }

@@ -96,6 +96,10 @@ async function summarizeConversationInBackground(
   // 5. Update master summary
   await updateMasterSummary(profileId, summary, conversation.startedAt);
 
+  // 6. Regenerate objectives for next session (background)
+  const { triggerObjectiveGeneration } = await import("@/lib/objectives/generate");
+  triggerObjectiveGeneration(profileId);
+
   console.log(
     `[Summarize] Full summarization complete in ${Date.now() - startTime}ms`
   );

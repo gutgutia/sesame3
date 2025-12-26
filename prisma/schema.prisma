@@ -994,6 +994,19 @@ model StudentContext {
   masterSummaryUpdatedAt DateTime?
 
   // ==========================================================================
+  // AI-GENERATED SESSION OBJECTIVES
+  // ==========================================================================
+
+  // Pre-generated objectives for the next conversation (AI-generated)
+  // Updated on login, after conversation ends, or when profile changes significantly
+  generatedObjectives   String?   @db.Text
+  objectivesGeneratedAt DateTime?
+
+  // Upcoming deadlines awareness (cached for quick access)
+  // JSON array of { type, label, date, priority }
+  upcomingDeadlines     Json?
+
+  // ==========================================================================
   // ADVISOR PREFERENCES (student-configured)
   // ==========================================================================
 
