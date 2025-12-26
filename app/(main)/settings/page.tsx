@@ -297,7 +297,7 @@ function PlanSelectorModal({
                 </p>
                 
                 <ul className="space-y-1.5 mb-4">
-                  {plan.features.slice(0, 3).map((feature, i) => (
+                  {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
                       <Check className={cn("w-4 h-4 mt-0.5 shrink-0", plan.color)} />
                       <span className="text-text-secondary">{feature}</span>
