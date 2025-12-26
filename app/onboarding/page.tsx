@@ -40,8 +40,18 @@ export default function OnboardingPage() {
   const [textInput, setTextInput] = useState("");
   const [step, setStep] = useState(STEPS.INTRO);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
+  const onboardingDataRef = useRef<OnboardingData>({}); // Ref for synchronous access
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep ref in sync with state (ref updates synchronously, state is async)
+  const updateOnboardingData = (updater: (prev: OnboardingData) => OnboardingData) => {
+    setOnboardingData(prev => {
+      const newData = updater(prev);
+      onboardingDataRef.current = newData; // Update ref synchronously
+      return newData;
+    });
+  };
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
@@ -128,40 +138,40 @@ export default function OnboardingPage() {
     setTimeout(() => {
       if (step === STEPS.NAME) {
         // Save name
-        setOnboardingData(prev => ({ ...prev, name: response }));
-        
+        updateOnboardingData(prev => ({ ...prev, name: response }));
+
         addAssistantMessages([
           { text: `Great to meet you, ${response}! 👋` },
-          { 
-            text: "What grade are you in?", 
-            options: ["9th Grade", "10th Grade", "11th Grade", "12th Grade"] 
+          {
+            text: "What grade are you in?",
+            options: ["9th Grade", "10th Grade", "11th Grade", "12th Grade"]
           }
         ]);
         setStep(STEPS.GRADE);
       }
       else if (step === STEPS.GRADE) {
         // Save grade
-        setOnboardingData(prev => ({ ...prev, grade: response }));
-        
-        const gradeMessage = response === "12th Grade" 
-          ? "Senior year — exciting times ahead!" 
+        updateOnboardingData(prev => ({ ...prev, grade: response }));
+
+        const gradeMessage = response === "12th Grade"
+          ? "Senior year — exciting times ahead!"
           : response === "11th Grade"
           ? "Junior year is a big one. You're right on time."
           : "Great time to start building your story.";
-        
+
         addAssistantMessages([
           { text: gradeMessage },
-          { 
-            text: "How are you feeling about college prep right now?", 
-            options: ["Overwhelmed", "Confident", "Behind", "Just Starting"] 
+          {
+            text: "How are you feeling about college prep right now?",
+            options: ["Overwhelmed", "Confident", "Behind", "Just Starting"]
           }
         ]);
         setStep(STEPS.FEELING);
       }
       else if (step === STEPS.FEELING) {
         // Save feeling
-        setOnboardingData(prev => ({ ...prev, feeling: response }));
-        
+        updateOnboardingData(prev => ({ ...prev, feeling: response }));
+
         let feelingResponse = "";
         if (response === "Overwhelmed") {
           feelingResponse = "That's completely normal. We're going to break everything down into small, manageable steps.";
@@ -172,21 +182,21 @@ export default function OnboardingPage() {
         } else {
           feelingResponse = "Perfect starting point. We'll build this together from scratch.";
         }
-        
+
         addAssistantMessages([
           { text: feelingResponse },
-          { 
-            text: "Do you have a dream school in mind?", 
-            options: ["Yes, I do", "Still exploring"] 
+          {
+            text: "Do you have a dream school in mind?",
+            options: ["Yes, I do", "Still exploring"]
           }
         ]);
         setStep(STEPS.DREAM_SCHOOL_ASK);
       }
       else if (step === STEPS.DREAM_SCHOOL_ASK) {
         if (response === "Yes, I do") {
-          setOnboardingData(prev => ({ ...prev, hasDreamSchool: true }));
+          updateOnboardingData(prev => ({ ...prev, hasDreamSchool: true }));
           addAssistantMessages([
-            { 
+            {
               text: "Which school is at the top of your list?",
               inputType: "text-optional",
               inputPlaceholder: "e.g., Stanford, MIT, UCLA..."
@@ -194,12 +204,12 @@ export default function OnboardingPage() {
           ]);
           setStep(STEPS.DREAM_SCHOOL_WHICH);
         } else {
-          setOnboardingData(prev => ({ ...prev, hasDreamSchool: false }));
+          updateOnboardingData(prev => ({ ...prev, hasDreamSchool: false }));
           completeOnboarding();
         }
       }
       else if (step === STEPS.DREAM_SCHOOL_WHICH) {
-        setOnboardingData(prev => ({ ...prev, dreamSchool: response }));
+        updateOnboardingData(prev => ({ ...prev, dreamSchool: response }));
         completeOnboarding(response);
       }
 
@@ -214,8 +224,10 @@ export default function OnboardingPage() {
   };
 
   // Save onboarding data to the server
-  const saveOnboardingData = async (data: OnboardingData, dreamSchool?: string) => {
+  const saveOnboardingData = async (dreamSchool?: string) => {
     try {
+      // Use ref for current data (state may be stale due to React async updates)
+      const data = onboardingDataRef.current;
       const finalData = dreamSchool
         ? { ...data, dreamSchool }
         : data;
@@ -225,7 +237,7 @@ export default function OnboardingPage() {
       const firstName = nameParts[0] || "Student";
       const lastName = nameParts.slice(1).join(" ") || undefined;
 
-      await fetch("/api/profile", {
+      const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -236,13 +248,18 @@ export default function OnboardingPage() {
           onboardingCompletedAt: new Date().toISOString(),
         }),
       });
+
+      if (!response.ok) {
+        console.error("Failed to save onboarding data:", await response.text());
+      }
     } catch (err) {
       console.error("Failed to save onboarding data:", err);
     }
   };
 
   const completeOnboarding = async (dreamSchool?: string) => {
-    const name = onboardingData.name || "there";
+    // Use ref for display since state may be stale
+    const name = onboardingDataRef.current.name || "there";
 
     addAssistantMessages([
       {
@@ -254,8 +271,8 @@ export default function OnboardingPage() {
     ]);
     setStep(STEPS.COMPLETE);
 
-    // Save to server
-    await saveOnboardingData(onboardingData, dreamSchool);
+    // Save to server (uses ref internally for current data)
+    await saveOnboardingData(dreamSchool);
 
     // Redirect after reading
     setTimeout(() => {
@@ -265,8 +282,8 @@ export default function OnboardingPage() {
 
   const handleSkip = async () => {
     // Save whatever we have and go to dashboard
-    localStorage.setItem("sesame3_onboarding", JSON.stringify(onboardingData));
-    await saveOnboardingData(onboardingData);
+    localStorage.setItem("sesame3_onboarding", JSON.stringify(onboardingDataRef.current));
+    await saveOnboardingData();
     router.push("/?new=true");
   };
 
