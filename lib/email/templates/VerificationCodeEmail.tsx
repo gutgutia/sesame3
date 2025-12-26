@@ -21,13 +21,11 @@ import * as React from "react";
 interface VerificationCodeEmailProps {
   code: string;
   email: string;
-  isNewUser?: boolean;
 }
 
 export function VerificationCodeEmail({
   code,
   email,
-  isNewUser = false,
 }: VerificationCodeEmailProps) {
   return (
     <Html>
@@ -43,15 +41,11 @@ export function VerificationCodeEmail({
           </Section>
 
           {/* Header */}
-          <Heading style={heading}>
-            {isNewUser ? "Welcome to Sesame3!" : "Your login code"}
-          </Heading>
+          <Heading style={heading}>Your verification code</Heading>
 
           {/* Intro text */}
           <Text style={paragraph}>
-            {isNewUser
-              ? "We're excited to have you on board. Enter this code to create your account:"
-              : "Enter this code to sign in to your Sesame3 account:"}
+            Enter this code to continue to your Sesame3 account:
           </Text>
 
           {/* Code box */}

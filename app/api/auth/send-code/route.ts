@@ -89,15 +89,12 @@ export async function POST(request: NextRequest) {
     // Send email
     const emailResult = await sendEmail({
       to: normalizedEmail,
-      subject: isNewUser
-        ? "Welcome to Sesame - Verify your email"
-        : "Your Sesame login code",
+      subject: "Your Sesame3 verification code",
       react: VerificationCodeEmail({
         code,
         email: normalizedEmail,
-        isNewUser,
       }),
-      text: `Your Sesame verification code is: ${code}\n\nThis code expires in 10 minutes.`,
+      text: `Your Sesame3 verification code is: ${code}\n\nThis code expires in 10 minutes.`,
     });
 
     if (!emailResult.success) {
