@@ -106,6 +106,14 @@ function calculateSchoolMatch(
   };
 }
 
+/**
+ * GET - Fetch schools by names (provided by LLM) or discover based on profile
+ *
+ * Query params:
+ * - schools: Comma-separated school names from LLM (e.g., "MIT,Stanford,CMU")
+ * - tier: Filter by tier (reach/target/safety) - only for discovery mode
+ * - limit: Max results
+ */
 export async function GET(request: Request) {
   try {
     const profileId = await getCurrentProfileId();
@@ -113,8 +121,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse query params
     const url = new URL(request.url);
+    const schoolNames = url.searchParams.get("schools"); // LLM-provided names
     const tier = url.searchParams.get("tier") as SchoolTier | null;
     const limit = parseInt(url.searchParams.get("limit") || "6");
 
@@ -144,22 +152,49 @@ export async function GET(request: Request) {
     const studentAct = profile.testing?.actScores[0]?.composite || null;
     const studentGpa = profile.academics?.schoolReportedGpaUnweighted || null;
 
-    // Schools already on list (to exclude)
-    const existingSchoolIds = profile.schoolList.map(s => s.schoolId);
+    // Schools already on list (to mark as added)
+    const existingSchoolIds = new Set(profile.schoolList.map(s => s.schoolId));
 
-    // Fetch schools
-    const schools = await prisma.school.findMany({
-      where: {
-        id: { notIn: existingSchoolIds },
-        // Only get schools with some stats
-        OR: [
-          { satRange25: { not: null } },
-          { actRange25: { not: null } },
-          { avgGpaUnweighted: { not: null } },
-        ],
-      },
-      take: 100, // Get a pool to filter
-    });
+    let schools;
+
+    if (schoolNames) {
+      // MODE 1: LLM provided specific school names - look them up
+      const names = schoolNames.split(",").map(n => n.trim());
+
+      // Search for schools by name (fuzzy match)
+      schools = await prisma.school.findMany({
+        where: {
+          OR: names.flatMap(name => [
+            { name: { contains: name, mode: "insensitive" } },
+            { shortName: { contains: name, mode: "insensitive" } },
+          ]),
+        },
+        take: limit,
+      });
+
+      // Sort by the order the LLM provided (if possible)
+      const nameOrder = new Map(names.map((n, i) => [n.toLowerCase(), i]));
+      schools.sort((a, b) => {
+        const aOrder = nameOrder.get(a.name.toLowerCase()) ??
+                       nameOrder.get(a.shortName?.toLowerCase() || "") ?? 999;
+        const bOrder = nameOrder.get(b.name.toLowerCase()) ??
+                       nameOrder.get(b.shortName?.toLowerCase() || "") ?? 999;
+        return aOrder - bOrder;
+      });
+    } else {
+      // MODE 2: Discovery mode - find schools based on profile
+      schools = await prisma.school.findMany({
+        where: {
+          // Only get schools with some stats
+          OR: [
+            { satRange25: { not: null } },
+            { actRange25: { not: null } },
+            { avgGpaUnweighted: { not: null } },
+          ],
+        },
+        take: 100,
+      });
+    }
 
     // Calculate match for each school
     const schoolsWithMatch = schools.map(school => {
@@ -177,39 +212,43 @@ export async function GET(request: Request) {
         }
       );
 
-      return { school, match };
+      return { school, match, alreadyOnList: existingSchoolIds.has(school.id) };
     });
 
-    // Filter by tier if specified
-    let filteredSchools = tier
-      ? schoolsWithMatch.filter(s => s.match.tier === tier)
-      : schoolsWithMatch;
-
-    // Sort by fit score (for target/safety) or by prestige for reach
-    filteredSchools = filteredSchools.sort((a, b) => {
-      if (tier === "reach") {
-        // For reach schools, sort by selectivity (lower acceptance rate = more prestigious)
-        const aRate = a.school.acceptanceRate || 1;
-        const bRate = b.school.acceptanceRate || 1;
-        return aRate - bRate;
-      }
-      // For others, sort by fit score
-      return b.match.overallFit - a.match.overallFit;
-    });
-
-    // If no tier specified, get a balanced mix
+    // For discovery mode, filter and balance
     let recommendations;
-    if (!tier) {
-      const reaches = filteredSchools.filter(s => s.match.tier === "reach").slice(0, 2);
-      const targets = filteredSchools.filter(s => s.match.tier === "target").slice(0, 2);
-      const safeties = filteredSchools.filter(s => s.match.tier === "safety").slice(0, 2);
-      recommendations = [...reaches, ...targets, ...safeties].slice(0, limit);
+    if (!schoolNames) {
+      // Filter by tier if specified
+      let filtered = tier
+        ? schoolsWithMatch.filter(s => s.match.tier === tier)
+        : schoolsWithMatch;
+
+      // Sort appropriately
+      filtered = filtered.sort((a, b) => {
+        if (tier === "reach") {
+          const aRate = a.school.acceptanceRate || 1;
+          const bRate = b.school.acceptanceRate || 1;
+          return aRate - bRate;
+        }
+        return b.match.overallFit - a.match.overallFit;
+      });
+
+      // If no tier specified, get balanced mix
+      if (!tier) {
+        const reaches = filtered.filter(s => s.match.tier === "reach").slice(0, 2);
+        const targets = filtered.filter(s => s.match.tier === "target").slice(0, 2);
+        const safeties = filtered.filter(s => s.match.tier === "safety").slice(0, 2);
+        recommendations = [...reaches, ...targets, ...safeties].slice(0, limit);
+      } else {
+        recommendations = filtered.slice(0, limit);
+      }
     } else {
-      recommendations = filteredSchools.slice(0, limit);
+      // For LLM mode, return all matched schools in order
+      recommendations = schoolsWithMatch;
     }
 
     return NextResponse.json({
-      schools: recommendations.map(({ school, match }) => ({
+      schools: recommendations.map(({ school, match, alreadyOnList }) => ({
         id: school.id,
         name: school.name,
         shortName: school.shortName,
@@ -223,6 +262,7 @@ export async function GET(request: Request) {
         actRange75: school.actRange75,
         avgGpaUnweighted: school.avgGpaUnweighted,
         undergradEnrollment: school.undergradEnrollment,
+        alreadyOnList,
         match: {
           tier: match.tier,
           satMatch: match.satMatch,
@@ -236,6 +276,7 @@ export async function GET(request: Request) {
         act: studentAct,
         gpa: studentGpa,
       },
+      mode: schoolNames ? "llm" : "discovery",
     });
   } catch (error) {
     console.error("Error fetching school recommendations:", error);
