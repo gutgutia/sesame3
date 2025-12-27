@@ -77,6 +77,7 @@ export type ToolCall = z.infer<typeof ToolCallSchema>;
  * Note: "course" renamed to "transcript" (triggers transcript upload)
  */
 export const WidgetTypeSchema = z.enum([
+  // Input widgets - collect data from user
   "sat",
   "act",
   "activity",
@@ -86,6 +87,9 @@ export const WidgetTypeSchema = z.enum([
   "school",
   "profile",
   "goal",
+  // Recommendation widgets - display-only, show suggestions
+  "program_recommendations",  // Summer program suggestions
+  "school_recommendations",   // College/university suggestions
 ]);
 
 export type WidgetType = z.infer<typeof WidgetTypeSchema>;
@@ -146,4 +150,7 @@ export const toolToWidgetType: Record<string, WidgetType> = {
   addSchoolToList: "school",
   saveProfileInfo: "profile",
   addGoal: "goal",
+  // Recommendation tools
+  recommendPrograms: "program_recommendations",
+  recommendSchools: "school_recommendations",
 };

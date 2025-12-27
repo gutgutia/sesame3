@@ -5,6 +5,7 @@ import { Send, ArrowLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ConfirmationWidget, WidgetType } from "./ConfirmationWidget";
+import { RecommendationCarousel } from "./RecommendationCarousel";
 
 // Message type
 type Message = {
@@ -442,12 +443,24 @@ export function ChatInterface({
         {currentWidget && !isLoading && (
           <div className="flex justify-start">
             <div className="max-w-md w-full">
-              <ConfirmationWidget
-                type={currentWidget.type}
-                data={currentWidget.data}
-                onConfirm={(data) => handleWidgetConfirm(currentWidget.id, data)}
-                onDismiss={() => handleWidgetDismiss(currentWidget.id)}
-              />
+              {isRecommendationWidget(currentWidget.type) ? (
+                <RecommendationCarousel
+                  type={currentWidget.type as "program_recommendations" | "school_recommendations"}
+                  data={currentWidget.data as { focusArea?: string; tier?: string }}
+                  onAddToList={() => {
+                    // Optionally track adds
+                    onProfileUpdate?.();
+                  }}
+                  onDismiss={() => handleWidgetDismiss(currentWidget.id)}
+                />
+              ) : (
+                <ConfirmationWidget
+                  type={currentWidget.type}
+                  data={currentWidget.data}
+                  onConfirm={(data) => handleWidgetConfirm(currentWidget.id, data)}
+                  onDismiss={() => handleWidgetDismiss(currentWidget.id)}
+                />
+              )}
             </div>
           </div>
         )}
@@ -493,6 +506,10 @@ export function ChatInterface({
 
 // Helper functions
 
+function isRecommendationWidget(type: WidgetType): boolean {
+  return type === "program_recommendations" || type === "school_recommendations";
+}
+
 function getApiEndpoint(widgetType: WidgetType): string | null {
   const endpoints: Record<WidgetType, string | null> = {
     sat: "/api/profile/testing/sat",
@@ -504,6 +521,9 @@ function getApiEndpoint(widgetType: WidgetType): string | null {
     goal: "/api/profile/goals",
     school: "/api/profile/schools",
     profile: "/api/profile",
+    // Recommendation widgets don't need endpoints (they fetch their own data)
+    program_recommendations: null,
+    school_recommendations: null,
   };
 
   return endpoints[widgetType];

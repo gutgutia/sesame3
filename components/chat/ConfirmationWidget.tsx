@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 // Widget types - removed "gpa" (triggers course upload), "course" replaced with "transcript"
 export type WidgetType =
+  // Input widgets - collect data from user
   | "sat"
   | "act"
   | "activity"
@@ -18,7 +19,10 @@ export type WidgetType =
   | "program"
   | "goal"
   | "school"
-  | "profile";
+  | "profile"
+  // Recommendation widgets - display-only, show suggestions
+  | "program_recommendations"
+  | "school_recommendations";
 
 interface ConfirmationWidgetProps {
   type: WidgetType;
