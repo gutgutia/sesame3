@@ -58,11 +58,16 @@ Return a JSON object:
 - saveTestScores: { satTotal?, satMath?, satReading?, actComposite?, psatTotal? }
 - addActivity: { title, organization, category?, isLeadership?, description? }
 - addAward: { title, level, organization?, year? }
-- addCourse: { name, status, level?, grade? }
+- uploadTranscript: {} - Use when user wants to share/upload transcript, courses, classes, or schedule
 - addProgram: { name, organization?, type, status }
 - addSchoolToList: { schoolName, tier?, whyInterested? }
 - saveProfileInfo: { firstName?, lastName?, preferredName?, grade?, highSchoolName? }
 - addGoal: { title, category, targetDate? }
+
+## Transcript Upload
+When user mentions courses, classes, schedule, transcript, or wants to share their courseload:
+- Call uploadTranscript: {} to show the transcript upload widget
+- Examples: "here are my courses", "I want to share my schedule", "let me upload my transcript"
 
 Now parse the user's message:`;
 

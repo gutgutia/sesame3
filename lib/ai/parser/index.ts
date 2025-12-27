@@ -175,8 +175,9 @@ export function shouldParse(message: string): boolean {
     "mit", "stanford", "harvard", "yale", "princeton", "college", "university",
     // Profile
     "my name", "i'm in", "i am a", "junior", "senior", "sophomore", "freshman",
-    // Courses
-    "taking", "ap ", "ib ", "honors",
+    // Courses and transcripts
+    "taking", "ap ", "ib ", "honors", "course", "courses", "class", "classes",
+    "transcript", "upload", "schedule",
     // Programs (summer programs, research, internships)
     "program", "summer", "internship", "research", "camp", "institute",
     "rsi", "ssp", "simr", "mostec", "tasp", "telluride", "yygs", "sra",

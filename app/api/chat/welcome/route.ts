@@ -1,10 +1,12 @@
 /**
  * Welcome Message API
  * Generates an AI-powered initial greeting based on user context
- * 
+ *
  * Optimized for speed:
  * - Uses in-memory cache for profile data (~1ms vs ~1000ms)
  * - Uses Kimi K2 via Groq for fast generation (~300ms)
+ *
+ * Also saves the welcome message to the database so it appears when resuming
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -27,9 +29,36 @@ const MODE_CONTEXT: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
-    const { mode = "general" } = await request.json();
+    const { mode = "general", conversationId, saveOnly, message: providedMessage } = await request.json();
+
+    // If saveOnly mode, just save the provided message to DB
+    if (saveOnly && conversationId && providedMessage) {
+      try {
+        await prisma.message.create({
+          data: {
+            conversationId,
+            role: "assistant",
+            content: providedMessage,
+            model: "kimi-k2",
+            provider: "groq",
+          },
+        });
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: {
+            lastMessageAt: new Date(),
+            messageCount: { increment: 1 },
+          },
+        });
+        console.log(`[Welcome] Saved pre-loaded welcome message to conversation ${conversationId}`);
+        return NextResponse.json({ saved: true });
+      } catch (err) {
+        console.error("[Welcome] Failed to save welcome message:", err);
+        return NextResponse.json({ saved: false, error: "Failed to save" }, { status: 500 });
+      }
+    }
     
     // Get current user's profile ID
     const profileId = await getCurrentProfileId();
@@ -127,9 +156,36 @@ Rules:
     });
     
     const genTime = Date.now() - genStart;
+    const welcomeMessage = text.trim();
     console.log(`[Welcome] ${cacheHit ? "CACHE HIT" : `DB: ${dbTime}ms`}, Gen: ${genTime}ms, Total: ${Date.now() - startTime}ms`);
-    
-    return NextResponse.json({ message: text.trim() });
+
+    // Save welcome message to database if conversationId is provided
+    if (conversationId) {
+      try {
+        await prisma.message.create({
+          data: {
+            conversationId,
+            role: "assistant",
+            content: welcomeMessage,
+            model: "kimi-k2",
+            provider: "groq",
+          },
+        });
+        // Update conversation lastMessageAt
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: {
+            lastMessageAt: new Date(),
+            messageCount: { increment: 1 },
+          },
+        });
+        console.log(`[Welcome] Saved welcome message to conversation ${conversationId}`);
+      } catch (err) {
+        console.error("[Welcome] Failed to save welcome message:", err);
+      }
+    }
+
+    return NextResponse.json({ message: welcomeMessage });
     
   } catch (error) {
     console.error("Welcome message error:", error);

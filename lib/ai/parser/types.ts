@@ -146,6 +146,7 @@ export const toolToWidgetType: Record<string, WidgetType> = {
   addActivity: "activity",
   addAward: "award",
   addCourse: "transcript",      // Course mention triggers transcript upload
+  uploadTranscript: "transcript", // Explicit transcript upload
   addProgram: "program",
   addSchoolToList: "school",
   saveProfileInfo: "profile",

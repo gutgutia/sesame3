@@ -111,6 +111,13 @@ export function ChatInterface({
               },
             ]);
             setIsLoading(false);
+
+            // Save the welcome message to database so it persists when resuming
+            fetch("/api/chat/welcome", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode, conversationId: conversation.id, saveOnly: true, message: preloadedWelcome }),
+            }).catch(err => console.error("[Chat] Failed to save welcome:", err));
           }
           // If no preloadedWelcome yet, the useEffect below will handle it
         }
@@ -138,8 +145,15 @@ export function ChatInterface({
       ]);
       setIsLoading(false);
       console.log("[Chat] Using pre-loaded welcome message");
+
+      // Save the welcome message to database so it persists
+      fetch("/api/chat/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, conversationId, saveOnly: true, message: preloadedWelcome }),
+      }).catch(err => console.error("[Chat] Failed to save welcome:", err));
     }
-  }, [preloadedWelcome, conversationId, isResumedConversation]);
+  }, [preloadedWelcome, conversationId, isResumedConversation, mode]);
 
   // Session end beacon - notify server when user leaves
   useEffect(() => {

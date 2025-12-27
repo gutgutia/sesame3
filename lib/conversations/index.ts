@@ -46,10 +46,13 @@ export async function getOrCreateConversation(
   const timeWindowStart = new Date(now.getTime() - CONVERSATION_TIME_WINDOW_MS);
 
   // Find active conversation (within time window)
+  // Note: We don't check endedAt because we want to resume conversations
+  // within the 4-hour window even if user navigated away and came back.
+  // The time window is the primary factor for determining if a conversation
+  // should be resumed.
   const activeConversation = await prisma.conversation.findFirst({
     where: {
       studentProfileId: profileId,
-      endedAt: null, // Not explicitly ended
       lastMessageAt: {
         gte: timeWindowStart,
       },
@@ -86,6 +89,14 @@ export async function getOrCreateConversation(
   const pendingSummarization = conversationsNeedingSummary.map((c) => c.id);
 
   if (activeConversation) {
+    // If resuming a previously ended conversation, clear endedAt
+    if (activeConversation.endedAt) {
+      await prisma.conversation.update({
+        where: { id: activeConversation.id },
+        data: { endedAt: null },
+      });
+    }
+
     return {
       conversation: {
         id: activeConversation.id,
