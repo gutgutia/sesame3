@@ -6,7 +6,6 @@ const authRoutes = ["/login", "/auth"];
 // Session cookie names
 const SESSION_COOKIE = "sesame_session";
 const USER_ID_COOKIE = "sesame_user_id";
-const DEV_USER_COOKIE = "sesame_dev_user_id";
 
 interface SessionData {
   userId: string;
@@ -32,14 +31,6 @@ function parseSession(token: string): SessionData | null {
 }
 
 function isAuthenticated(request: NextRequest): boolean {
-  // Check for dev user cookie (development only)
-  if (process.env.NODE_ENV === "development") {
-    const devUserId = request.cookies.get(DEV_USER_COOKIE)?.value;
-    if (devUserId) {
-      return true;
-    }
-  }
-
   // Check for session cookie
   const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
   if (sessionToken) {
@@ -59,11 +50,6 @@ function isAuthenticated(request: NextRequest): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  // Development bypass - set BYPASS_AUTH=true in .env.local for easy local dev
-  if (process.env.BYPASS_AUTH === "true") {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
   const authenticated = isAuthenticated(request);
 

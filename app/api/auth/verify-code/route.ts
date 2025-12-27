@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    // Also set user ID cookie for dev switcher compatibility
+    // Also set user ID cookie as fallback for session edge cases
     cookieStore.set("sesame_user_id", user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

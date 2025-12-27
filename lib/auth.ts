@@ -2,26 +2,14 @@
  * Authentication Helpers
  *
  * Handles session verification and user retrieval.
- * Supports both:
- * - Custom email OTP sessions (sesame_session cookie)
- * - Development test users (sesame_dev_user_id cookie)
+ * Uses custom email OTP sessions (sesame_session cookie).
  */
 
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 
-// Development test users
-const DEV_USER_COOKIE = "sesame_dev_user_id";
 const SESSION_COOKIE = "sesame_session";
 const USER_ID_COOKIE = "sesame_user_id";
-
-// Test user definitions (for development)
-const TEST_USERS: Record<string, { email: string; name: string }> = {
-  "test-user-new": { email: "new@test.sesame.com", name: "Alex (New)" },
-  "test-user-onboarded": { email: "onboarded@test.sesame.com", name: "Jordan (Onboarded)" },
-  "test-user-building": { email: "building@test.sesame.com", name: "Sarah (Building)" },
-  "test-user-complete": { email: "complete@test.sesame.com", name: "Max (Complete)" },
-};
 
 export interface AuthUser {
   id: string;
@@ -59,15 +47,13 @@ function parseSession(token: string): SessionData | null {
  * Get the current authenticated user
  *
  * Priority order:
- * 1. Real session (sesame_session cookie) - always takes precedence
- * 2. User ID cookie (sesame_user_id) - fallback for real users
- * 3. Dev user override (sesame_dev_user_id) - only in development, only if no real session
- * 4. Default test user - only with BYPASS_AUTH and no other auth
+ * 1. Real session (sesame_session cookie)
+ * 2. User ID cookie (sesame_user_id) - fallback for session edge cases
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies();
 
-  // Check for real session FIRST - real users always take priority
+  // Check for session token
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (sessionToken) {
     const session = parseSession(sessionToken);
@@ -88,7 +74,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
   }
 
-  // Check for user ID cookie (simpler fallback for real users)
+  // Check for user ID cookie (fallback)
   const userId = cookieStore.get(USER_ID_COOKIE)?.value;
   if (userId) {
     const user = await prisma.user.findUnique({
@@ -103,28 +89,6 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         name: user.name || undefined,
       };
     }
-  }
-
-  // Check for dev user override (development only, when no real session exists)
-  if (process.env.NODE_ENV === "development" || process.env.BYPASS_AUTH === "true") {
-    const devUserId = cookieStore.get(DEV_USER_COOKIE)?.value;
-    if (devUserId && TEST_USERS[devUserId]) {
-      return {
-        id: devUserId,
-        email: TEST_USERS[devUserId].email,
-        name: TEST_USERS[devUserId].name,
-      };
-    }
-  }
-
-  // For development with BYPASS_AUTH, fall back to default test user
-  if (process.env.BYPASS_AUTH === "true") {
-    const defaultUserId = "test-user-new";
-    return {
-      id: defaultUserId,
-      email: TEST_USERS[defaultUserId].email,
-      name: TEST_USERS[defaultUserId].name,
-    };
   }
 
   return null;
@@ -287,5 +251,4 @@ export async function clearAuthCookies(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
   cookieStore.delete(USER_ID_COOKIE);
-  cookieStore.delete(DEV_USER_COOKIE);
 }

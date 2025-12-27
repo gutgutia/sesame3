@@ -12,8 +12,6 @@
     "db:migrate": "dotenv -e .env -- prisma migrate dev",
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:seed": "dotenv -e .env -- tsx prisma/seed.ts",
-    "db:seed-test-users": "dotenv -e .env -- tsx scripts/seed-test-users.ts",
-    "db:reset-test-user": "dotenv -e .env -- tsx scripts/reset-test-user.ts",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage"

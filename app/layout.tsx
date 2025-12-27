@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { DevSwitcher } from "@/components/dev/DevSwitcher";
 import { ProfileProvider } from "@/lib/context/ProfileContext";
 
 const inter = Inter({
@@ -36,7 +35,6 @@ export default function RootLayout({
       >
         <ProfileProvider>
           {children}
-          <DevSwitcher />
         </ProfileProvider>
       </body>
     </html>
