@@ -493,12 +493,12 @@ export function ChatInterface({
             onChange={(e) => setInput(e.target.value)}
             placeholder="What's on your mind?"
             className="w-full bg-bg-sidebar border border-border-medium rounded-xl pl-5 pr-14 py-4 text-[15px] focus:outline-none focus:border-accent-primary focus:ring-4 focus:ring-accent-surface transition-all"
-            disabled={isLoading || !!currentWidget}
+            disabled={isLoading || (!!currentWidget && !isRecommendationWidget(currentWidget.type))}
             autoFocus
           />
           <button
             type="submit"
-            disabled={!input.trim() || isLoading || !!currentWidget}
+            disabled={!input.trim() || isLoading || (!!currentWidget && !isRecommendationWidget(currentWidget.type))}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-text-main text-white rounded-lg hover:bg-black/80 disabled:opacity-40 transition-colors"
           >
             <Send className="w-4 h-4" />
