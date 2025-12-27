@@ -1254,9 +1254,9 @@ model GlobalConfig {
   // ==========================================================================
   
   // Free Tier
-  freeDailyCostLimit    Float   @default(0.10)   // $0.10/day
-  freeWeeklyCostLimit   Float   @default(0.50)   // $0.50/week
-  freeMessageLimit      Int     @default(20)     // 20 messages/day
+  freeDailyCostLimit    Float   @default(1.00)   // $1.00/day
+  freeWeeklyCostLimit   Float   @default(5.00)   // $5.00/week
+  freeMessageLimit      Int     @default(100)    // 100 messages/day
   
   // Standard Tier ($10/month)
   standardDailyCostLimit  Float   @default(1.00)   // $1.00/day

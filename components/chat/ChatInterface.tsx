@@ -211,6 +211,11 @@ export function ChatInterface({
       });
       
       if (!response.ok) {
+        // Handle rate limit errors with a friendly message
+        if (response.status === 429) {
+          const data = await response.json();
+          throw new Error(data.message || "You've reached your message limit. Please try again later.");
+        }
         throw new Error("Failed to send message");
       }
       
@@ -291,12 +296,13 @@ export function ChatInterface({
       
     } catch (error) {
       console.error("Chat error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Sorry, I encountered an error. Please try again.";
       setMessages(prev => [
         ...prev,
         {
           id: `error-${Date.now()}`,
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: errorMessage,
         },
       ]);
     } finally {
