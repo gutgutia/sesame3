@@ -310,19 +310,51 @@ export function ChatInterface({
   const handleWidgetConfirm = async (widgetId: string, data: Record<string, unknown>) => {
     const widget = pendingWidgets.find(w => w.id === widgetId);
     if (!widget) return;
-    
+
+    // Transcript widget handles its own upload - just mark as confirmed
+    if (widget.type === "transcript") {
+      if (data.type === "transcript_extracted" && Array.isArray(data.courses)) {
+        // Save extracted courses via bulk API
+        try {
+          const response = await fetch("/api/profile/courses/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ courses: data.courses }),
+          });
+          if (response.ok) {
+            setPendingWidgets(prev =>
+              prev.map(w => w.id === widgetId ? { ...w, status: "confirmed" as const } : w)
+            );
+            onProfileUpdate?.();
+          }
+        } catch (error) {
+          console.error("Failed to save courses:", error);
+        }
+      } else {
+        // Just dismiss if no courses
+        setPendingWidgets(prev =>
+          prev.map(w => w.id === widgetId ? { ...w, status: "dismissed" as const } : w)
+        );
+      }
+      return;
+    }
+
     try {
       const endpoint = getApiEndpoint(widget.type);
+      if (!endpoint) {
+        console.error("No endpoint for widget type:", widget.type);
+        return;
+      }
       const method = getApiMethod(widget.type);
-      
+
       const response = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      
+
       if (response.ok) {
-        setPendingWidgets(prev => 
+        setPendingWidgets(prev =>
           prev.map(w => w.id === widgetId ? { ...w, status: "confirmed" as const } : w)
         );
         onProfileUpdate?.();
@@ -461,24 +493,23 @@ export function ChatInterface({
 
 // Helper functions
 
-function getApiEndpoint(widgetType: WidgetType): string {
-  const endpoints: Record<WidgetType, string> = {
-    gpa: "/api/profile/academics",
-    sat: "/api/profile/testing",
-    act: "/api/profile/testing",
+function getApiEndpoint(widgetType: WidgetType): string | null {
+  const endpoints: Record<WidgetType, string | null> = {
+    sat: "/api/profile/testing/sat",
+    act: "/api/profile/testing/act",
     activity: "/api/profile/activities",
     award: "/api/profile/awards",
-    course: "/api/profile/courses",
+    transcript: null,  // Handled by widget itself
     program: "/api/profile/programs",
     goal: "/api/profile/goals",
     school: "/api/profile/schools",
     profile: "/api/profile",
   };
-  
+
   return endpoints[widgetType];
 }
 
 function getApiMethod(widgetType: WidgetType): string {
-  const postTypes: WidgetType[] = ["activity", "award", "course", "program", "goal", "school"];
+  const postTypes: WidgetType[] = ["activity", "award", "program", "goal", "school"];
   return postTypes.includes(widgetType) ? "POST" : "PUT";
 }

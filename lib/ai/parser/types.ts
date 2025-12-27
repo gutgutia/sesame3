@@ -73,14 +73,15 @@ export type ToolCall = z.infer<typeof ToolCallSchema>;
 
 /**
  * Widget type to display in the UI
+ * Note: "gpa" removed (triggers transcript upload instead)
+ * Note: "course" renamed to "transcript" (triggers transcript upload)
  */
 export const WidgetTypeSchema = z.enum([
-  "gpa",
   "sat",
   "act",
   "activity",
   "award",
-  "course",
+  "transcript",  // Replaces "course" - triggers transcript upload flow
   "program",
   "school",
   "profile",
@@ -132,13 +133,15 @@ export interface ParserContext {
 
 /**
  * Map tool names to widget types
+ * Note: saveGpa now triggers transcript upload
+ * Note: addCourse renamed to transcript upload
  */
 export const toolToWidgetType: Record<string, WidgetType> = {
-  saveGpa: "gpa",
-  saveTestScores: "sat", // Will be refined based on args
+  saveGpa: "transcript",        // GPA mention triggers transcript upload
+  saveTestScores: "sat",        // Will be refined to "act" based on args
   addActivity: "activity",
   addAward: "award",
-  addCourse: "course",
+  addCourse: "transcript",      // Course mention triggers transcript upload
   addProgram: "program",
   addSchoolToList: "school",
   saveProfileInfo: "profile",
