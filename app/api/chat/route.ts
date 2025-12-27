@@ -110,10 +110,6 @@ export async function POST(request: NextRequest) {
       };
       
       console.log(`[Chat] Parser completed in ${Date.now() - parseStart}ms`);
-      
-      if (parserResult.widget) {
-        console.log(`[Chat] Widget detected: ${parserResult.widget.type}`);
-      }
     }
     
     // === PHASE 2: Assemble Context for Advisor ===
@@ -158,10 +154,7 @@ export async function POST(request: NextRequest) {
               widget: parserResult.widget,
             });
             const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
-            console.log("[Chat] Sending widget SSE:", sseMessage.slice(0, 150));
             controller.enqueue(encoder.encode(sseMessage));
-          } else if (parserResult?.widget) {
-            console.log("[Chat] Widget detected but enableWidgets flag is:", featureFlags.enableWidgets);
           }
           
           // Stream the Advisor response
