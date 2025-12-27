@@ -370,11 +370,17 @@ Respond in JSON:
 
     const parsed = JSON.parse(result.text);
 
+    // Handle openCommitments - LLM might return array or string
+    let openCommitments = parsed.openCommitments;
+    if (Array.isArray(openCommitments)) {
+      openCommitments = openCommitments.join(". ");
+    }
+
     return {
       quickContext,
       recentSessions: parsed.recentSessions,
       studentUnderstanding: parsed.studentUnderstanding,
-      openCommitments: parsed.openCommitments,
+      openCommitments,
     };
   } catch (error) {
     console.error("[Summarize] Error generating master summary:", error);
