@@ -903,8 +903,15 @@ function TranscriptUploadWidget({
 }
 
 // =============================================================================
-// SCHOOL CONFIRM WIDGET - Handles both known and unknown schools
+// SCHOOL CONFIRM WIDGET - Two-step: 1) Tier selection, 2) Deadline selection
 // =============================================================================
+
+interface SchoolDeadline {
+  type: string;
+  label: string;
+  date: string | null;
+  alreadyAdded: boolean;
+}
 
 function SchoolConfirmWidget({
   data,
@@ -917,43 +924,69 @@ function SchoolConfirmWidget({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
+  const [step, setStep] = useState<"tier" | "deadlines" | "success">("tier");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(false);
+  const [availableDeadlines, setAvailableDeadlines] = useState<SchoolDeadline[]>([]);
+  const [selectedDeadlines, setSelectedDeadlines] = useState<Set<string>>(new Set());
+  const [createdTasks, setCreatedTasks] = useState<Array<{ title: string; dueDate: string | null }>>([]);
 
   const schoolName = (data.name as string) || (data.schoolName as string) || "Unknown School";
   const schoolId = data.schoolId as string;
   const location = data.location as string;
 
-  // Can submit if we have tier AND either schoolId or a real school name from data
   const hasSchoolIdentifier = !!schoolId || !!(data.name || data.schoolName);
-  const canSubmit = !!data.tier && hasSchoolIdentifier;
-
-  // If no schoolId, this is an unknown school - show request flow
+  const canSubmitTier = !!data.tier && hasSchoolIdentifier;
   const isUnknownSchool = !schoolId;
 
-  const handleRequestSubmit = async () => {
+  // Fetch available deadlines when moving to step 2
+  const handleTierNext = async () => {
+    if (isUnknownSchool) {
+      // For unknown schools, skip deadline step and submit directly
+      await handleUnknownSchoolSubmit();
+      return;
+    }
+
+    setIsLoadingDeadlines(true);
+    try {
+      const response = await fetch(`/api/plan/import-deadlines?type=school&sourceId=${schoolId}`);
+      if (response.ok) {
+        const result = await response.json();
+        setAvailableDeadlines(result.deadlines || []);
+        // Pre-select application deadlines based on tier/application type
+        const preSelected = new Set<string>();
+        for (const d of result.deadlines) {
+          if (!d.alreadyAdded && d.date) {
+            // Pre-select main deadlines
+            if (["early_action", "early_decision", "regular_decision", "financial_aid"].includes(d.type)) {
+              preSelected.add(d.type);
+            }
+          }
+        }
+        setSelectedDeadlines(preSelected);
+      }
+    } catch (error) {
+      console.error("Failed to fetch deadlines:", error);
+    } finally {
+      setIsLoadingDeadlines(false);
+    }
+    setStep("deadlines");
+  };
+
+  const handleUnknownSchoolSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/data-requests", {
+      await fetch("/api/data-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "school",
           name: schoolName,
-          details: {
-            tier: data.tier,
-            location: location,
-          },
+          details: { tier: data.tier, location },
         }),
       });
-
-      if (response.ok) {
-        setRequestSubmitted(true);
-        // Also save to user's school list (will create school if needed)
-        onConfirm();
-      } else {
-        console.error("Failed to submit request");
-      }
+      onConfirm();
+      setStep("success");
     } catch (error) {
       console.error("Error submitting request:", error);
     } finally {
@@ -961,17 +994,66 @@ function SchoolConfirmWidget({
     }
   };
 
-  // Show success state after request submitted
-  if (requestSubmitted) {
+  const toggleDeadline = (type: string) => {
+    setSelectedDeadlines(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  const handleFinalSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      // First, add school to list
+      onConfirm();
+
+      // Then, import selected deadlines to plan
+      if (selectedDeadlines.size > 0 && schoolId) {
+        const response = await fetch("/api/plan/import-deadlines", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "school",
+            sourceId: schoolId,
+            deadlines: Array.from(selectedDeadlines),
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setCreatedTasks(result.tasks || []);
+        }
+      }
+
+      setStep("success");
+    } catch (error) {
+      console.error("Error submitting:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Success state
+  if (step === "success") {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-2">
           <Check className="w-5 h-5 text-green-600" />
-          <span className="text-sm font-bold text-green-700">Request Sent!</span>
+          <span className="text-sm font-bold text-green-700">Added to Your List!</span>
         </div>
-        <p className="text-sm text-green-700 mb-3">
-          We&apos;ll add <strong>{schoolName}</strong> to our database soon. It&apos;s been added to your school list in the meantime.
+        <p className="text-sm text-green-700 mb-2">
+          <strong>{schoolName}</strong> has been added to your school list.
         </p>
+        {createdTasks.length > 0 && (
+          <p className="text-xs text-green-600 mb-3">
+            {createdTasks.length} deadline{createdTasks.length !== 1 ? "s" : ""} added to your plan.
+          </p>
+        )}
         <button
           onClick={onDismiss}
           className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
@@ -982,9 +1064,101 @@ function SchoolConfirmWidget({
     );
   }
 
+  // Step 2: Deadline selection
+  if (step === "deadlines") {
+    const selectableDeadlines = availableDeadlines.filter(d => d.date && !d.alreadyAdded);
+
+    return (
+      <div className="bg-accent-surface/50 border border-accent-border rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-md">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <School className="w-5 h-5 text-accent-primary" />
+            <span className="text-sm font-bold text-accent-primary uppercase tracking-wider">
+              Track Deadlines
+            </span>
+          </div>
+          <button onClick={onDismiss} className="p-1 hover:bg-white rounded transition-colors text-text-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mb-3 border border-border-subtle">
+          <p className="text-sm text-text-main">
+            Add <strong>{schoolName}</strong> deadlines to your plan?
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            Select which deadlines to track. They&apos;ll appear in your timeline.
+          </p>
+        </div>
+
+        {isLoadingDeadlines ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
+          </div>
+        ) : selectableDeadlines.length > 0 ? (
+          <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+            {selectableDeadlines.map(deadline => (
+              <label
+                key={deadline.type}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all",
+                  selectedDeadlines.has(deadline.type)
+                    ? "border-accent-primary bg-accent-surface/50"
+                    : "border-border-subtle bg-white hover:border-accent-primary/50"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedDeadlines.has(deadline.type)}
+                  onChange={() => toggleDeadline(deadline.type)}
+                  className="rounded border-border-medium"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-text-main">{deadline.label}</div>
+                  <div className="text-xs text-text-muted">
+                    {deadline.date ? new Date(deadline.date).toLocaleDateString("en-US", {
+                      month: "short", day: "numeric", year: "numeric"
+                    }) : "Date TBD"}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-sm text-text-muted mb-4">
+            No deadline dates available for this school yet.
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-border-subtle">
+          <button
+            onClick={() => setStep("tier")}
+            className="px-4 py-2.5 bg-white border border-border-medium rounded-lg text-sm font-medium text-text-muted hover:text-text-main transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={handleFinalSubmit}
+            disabled={isSubmitting}
+            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            {selectedDeadlines.size > 0
+              ? `Add School & ${selectedDeadlines.size} Deadline${selectedDeadlines.size !== 1 ? "s" : ""}`
+              : "Add School Only"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 1: Tier selection (default)
   return (
     <div className="bg-accent-surface/50 border border-accent-border rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-sm">
-      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">
           <School className="w-5 h-5 text-accent-primary" />
@@ -992,20 +1166,14 @@ function SchoolConfirmWidget({
             Add to List
           </span>
         </div>
-        <button
-          onClick={onDismiss}
-          className="p-1 hover:bg-white rounded transition-colors text-text-muted"
-        >
+        <button onClick={onDismiss} className="p-1 hover:bg-white rounded transition-colors text-text-muted">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* School Card */}
       <div className="bg-white rounded-lg p-3 mb-3 border border-border-subtle">
         <div className="font-semibold text-text-main">{schoolName}</div>
-        {location && (
-          <div className="text-xs text-text-muted mt-0.5">{location}</div>
-        )}
+        {location && <div className="text-xs text-text-muted mt-0.5">{location}</div>}
         {isUnknownSchool && (
           <span className="inline-block mt-2 text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full">
             Not in database
@@ -1013,14 +1181,12 @@ function SchoolConfirmWidget({
         )}
       </div>
 
-      {/* Unknown school message */}
       {isUnknownSchool && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3 text-xs text-amber-700">
           We don&apos;t have this school in our database yet. We&apos;ll add it to your list and send a request to add it with full admission data.
         </div>
       )}
 
-      {/* Tier Selection */}
       <div className="mb-4">
         <FieldLabel required>How would you categorize this school?</FieldLabel>
         <div className="grid grid-cols-2 gap-2 mt-2">
@@ -1046,31 +1212,23 @@ function SchoolConfirmWidget({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2">
-        {isUnknownSchool ? (
-          <button
-            onClick={handleRequestSubmit}
-            disabled={!canSubmit || isSubmitting}
-            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
+        <button
+          onClick={handleTierNext}
+          disabled={!canSubmitTier || isSubmitting}
+          className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {isSubmitting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isUnknownSchool ? (
+            <>
               <Check className="w-4 h-4" />
-            )}
-            Add & Request
-          </button>
-        ) : (
-          <button
-            onClick={onConfirm}
-            disabled={!canSubmit}
-            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Check className="w-4 h-4" />
-            Add to List
-          </button>
-        )}
+              Add & Request
+            </>
+          ) : (
+            "Next: Track Deadlines"
+          )}
+        </button>
         <button
           onClick={onDismiss}
           className="px-4 py-2.5 bg-white border border-border-medium rounded-lg text-sm font-medium text-text-muted hover:text-text-main transition-colors"
@@ -1083,8 +1241,15 @@ function SchoolConfirmWidget({
 }
 
 // =============================================================================
-// PROGRAM CONFIRM WIDGET - Handles both known and unknown programs
+// PROGRAM CONFIRM WIDGET - Two-step: 1) Status selection, 2) Deadline selection
 // =============================================================================
+
+interface ProgramDeadline {
+  type: string;
+  label: string;
+  date: string | null;
+  alreadyAdded: boolean;
+}
 
 function ProgramConfirmWidget({
   data,
@@ -1097,8 +1262,12 @@ function ProgramConfirmWidget({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
+  const [step, setStep] = useState<"status" | "deadlines" | "success">("status");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(false);
+  const [availableDeadlines, setAvailableDeadlines] = useState<ProgramDeadline[]>([]);
+  const [selectedDeadlines, setSelectedDeadlines] = useState<Set<string>>(new Set());
+  const [createdTasks, setCreatedTasks] = useState<Array<{ title: string; dueDate: string | null }>>([]);
 
   const programName = (data.name as string) || "Unknown Program";
   const organization = data.organization as string;
@@ -1106,33 +1275,55 @@ function ProgramConfirmWidget({
   const type = data.type as string;
   const selectivity = data.selectivity as string;
 
-  // If no programId, this is an unknown program - show request flow
   const isUnknownProgram = !programId;
+  const canSubmitStatus = !!data.status;
 
-  const handleRequestSubmit = async () => {
+  const handleStatusNext = async () => {
+    if (isUnknownProgram) {
+      await handleUnknownProgramSubmit();
+      return;
+    }
+
+    setIsLoadingDeadlines(true);
+    try {
+      const response = await fetch(`/api/plan/import-deadlines?type=program&sourceId=${programId}`);
+      if (response.ok) {
+        const result = await response.json();
+        setAvailableDeadlines(result.deadlines || []);
+        // Pre-select application deadlines
+        const preSelected = new Set<string>();
+        for (const d of result.deadlines) {
+          if (!d.alreadyAdded && d.date) {
+            if (["application_deadline", "early_deadline", "notification"].includes(d.type)) {
+              preSelected.add(d.type);
+            }
+          }
+        }
+        setSelectedDeadlines(preSelected);
+      }
+    } catch (error) {
+      console.error("Failed to fetch deadlines:", error);
+    } finally {
+      setIsLoadingDeadlines(false);
+    }
+    setStep("deadlines");
+  };
+
+  const handleUnknownProgramSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/data-requests", {
+      await fetch("/api/data-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "program",
           name: programName,
-          organization: organization,
-          details: {
-            year: data.year,
-            userStatus: data.status,
-          },
+          organization,
+          details: { year: data.year, userStatus: data.status },
         }),
       });
-
-      if (response.ok) {
-        setRequestSubmitted(true);
-        // Also save to user's profile as a custom program
-        onConfirm();
-      } else {
-        console.error("Failed to submit request");
-      }
+      onConfirm();
+      setStep("success");
     } catch (error) {
       console.error("Error submitting request:", error);
     } finally {
@@ -1140,17 +1331,64 @@ function ProgramConfirmWidget({
     }
   };
 
-  // Show success state after request submitted
-  if (requestSubmitted) {
+  const toggleDeadline = (type: string) => {
+    setSelectedDeadlines(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  const handleFinalSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      onConfirm();
+
+      if (selectedDeadlines.size > 0 && programId) {
+        const response = await fetch("/api/plan/import-deadlines", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "program",
+            sourceId: programId,
+            deadlines: Array.from(selectedDeadlines),
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setCreatedTasks(result.tasks || []);
+        }
+      }
+
+      setStep("success");
+    } catch (error) {
+      console.error("Error submitting:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Success state
+  if (step === "success") {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-2">
           <Check className="w-5 h-5 text-green-600" />
-          <span className="text-sm font-bold text-green-700">Request Sent!</span>
+          <span className="text-sm font-bold text-green-700">Added to Your Profile!</span>
         </div>
-        <p className="text-sm text-green-700 mb-3">
-          We&apos;ll add <strong>{programName}</strong> to our database soon. It&apos;s been added to your profile in the meantime.
+        <p className="text-sm text-green-700 mb-2">
+          <strong>{programName}</strong> has been added to your programs.
         </p>
+        {createdTasks.length > 0 && (
+          <p className="text-xs text-green-600 mb-3">
+            {createdTasks.length} deadline{createdTasks.length !== 1 ? "s" : ""} added to your plan.
+          </p>
+        )}
         <button
           onClick={onDismiss}
           className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
@@ -1161,30 +1399,116 @@ function ProgramConfirmWidget({
     );
   }
 
+  // Step 2: Deadline selection
+  if (step === "deadlines") {
+    const selectableDeadlines = availableDeadlines.filter(d => d.date && !d.alreadyAdded);
+
+    return (
+      <div className="bg-accent-surface/50 border border-accent-border rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-md">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-accent-primary" />
+            <span className="text-sm font-bold text-accent-primary uppercase tracking-wider">
+              Track Deadlines
+            </span>
+          </div>
+          <button onClick={onDismiss} className="p-1 hover:bg-white rounded transition-colors text-text-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mb-3 border border-border-subtle">
+          <p className="text-sm text-text-main">
+            Add <strong>{programName}</strong> dates to your plan?
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            Select which dates to track. They&apos;ll appear in your timeline.
+          </p>
+        </div>
+
+        {isLoadingDeadlines ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
+          </div>
+        ) : selectableDeadlines.length > 0 ? (
+          <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+            {selectableDeadlines.map(deadline => (
+              <label
+                key={deadline.type}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all",
+                  selectedDeadlines.has(deadline.type)
+                    ? "border-accent-primary bg-accent-surface/50"
+                    : "border-border-subtle bg-white hover:border-accent-primary/50"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedDeadlines.has(deadline.type)}
+                  onChange={() => toggleDeadline(deadline.type)}
+                  className="rounded border-border-medium"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-text-main">{deadline.label}</div>
+                  <div className="text-xs text-text-muted">
+                    {deadline.date ? new Date(deadline.date).toLocaleDateString("en-US", {
+                      month: "short", day: "numeric", year: "numeric"
+                    }) : "Date TBD"}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-sm text-text-muted mb-4">
+            No dates available for this program yet.
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-border-subtle">
+          <button
+            onClick={() => setStep("status")}
+            className="px-4 py-2.5 bg-white border border-border-medium rounded-lg text-sm font-medium text-text-muted hover:text-text-main transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={handleFinalSubmit}
+            disabled={isSubmitting}
+            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            {selectedDeadlines.size > 0
+              ? `Add Program & ${selectedDeadlines.size} Date${selectedDeadlines.size !== 1 ? "s" : ""}`
+              : "Add Program Only"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 1: Status selection (default)
   return (
     <div className="bg-accent-surface/50 border border-accent-border rounded-xl p-4 mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-sm">
-      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-5 h-5 text-accent-primary" />
           <span className="text-sm font-bold text-accent-primary uppercase tracking-wider">
-            {isUnknownProgram ? "Add Program" : "Add Program"}
+            Add Program
           </span>
         </div>
-        <button
-          onClick={onDismiss}
-          className="p-1 hover:bg-white rounded transition-colors text-text-muted"
-        >
+        <button onClick={onDismiss} className="p-1 hover:bg-white rounded transition-colors text-text-muted">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Program Card */}
       <div className="bg-white rounded-lg p-3 mb-3 border border-border-subtle">
         <div className="font-semibold text-text-main">{programName}</div>
-        {organization && (
-          <div className="text-xs text-text-muted mt-0.5">{organization}</div>
-        )}
+        {organization && <div className="text-xs text-text-muted mt-0.5">{organization}</div>}
         <div className="flex gap-2 mt-2">
           {type && (
             <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full uppercase">
@@ -1204,14 +1528,12 @@ function ProgramConfirmWidget({
         </div>
       </div>
 
-      {/* Unknown program message */}
       {isUnknownProgram && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3 text-xs text-amber-700">
           We don&apos;t have this program in our database yet. We&apos;ll add it to your profile and send a request to add it to our curated list.
         </div>
       )}
 
-      {/* Status Selection */}
       <div className="mb-4">
         <FieldLabel required>What&apos;s your status?</FieldLabel>
         <SelectField
@@ -1230,31 +1552,23 @@ function ProgramConfirmWidget({
         />
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2">
-        {isUnknownProgram ? (
-          <button
-            onClick={handleRequestSubmit}
-            disabled={!data.status || isSubmitting}
-            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
+        <button
+          onClick={handleStatusNext}
+          disabled={!canSubmitStatus || isSubmitting}
+          className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {isSubmitting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isUnknownProgram ? (
+            <>
               <Check className="w-4 h-4" />
-            )}
-            Add & Request
-          </button>
-        ) : (
-          <button
-            onClick={onConfirm}
-            disabled={!data.status}
-            className="flex-1 bg-accent-primary text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Check className="w-4 h-4" />
-            Add to List
-          </button>
-        )}
+              Add & Request
+            </>
+          ) : (
+            "Next: Track Dates"
+          )}
+        </button>
         <button
           onClick={onDismiss}
           className="px-4 py-2.5 bg-white border border-border-medium rounded-lg text-sm font-medium text-text-muted hover:text-text-main transition-colors"
