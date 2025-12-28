@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
 
     const dateCondition = {
       dueDate: {
+        not: null,
         gte: startDate,
         ...(endDate ? { lte: endDate } : {}),
       },
@@ -71,7 +72,6 @@ export async function GET(request: NextRequest) {
     const tasks = await prisma.task.findMany({
       where: {
         studentProfileId: profile.id,
-        dueDate: { not: null },
         ...statusCondition,
         ...dateCondition,
         ...sourceCondition,

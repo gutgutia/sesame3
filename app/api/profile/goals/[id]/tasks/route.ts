@@ -48,6 +48,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     const task = await prisma.task.create({
       data: {
+        studentProfileId: profileId,
         goalId,
         parentTaskId: body.parentTaskId || null,
         title: body.title,

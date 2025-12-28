@@ -1,27 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Plus, 
-  MessageCircle, 
-  Archive, 
-  Sparkles, 
-  ChevronDown, 
-  ChevronUp, 
+import {
+  Plus,
+  MessageCircle,
+  Archive,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
   ChevronRight,
-  Check, 
-  Target, 
+  Check,
+  Target,
   Calendar,
-  MoreHorizontal,
-  Trash2,
-  Edit3,
+  LayoutList,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
-import { AddGoalModal, AddTaskModal } from "@/components/plan";
+import { AddGoalModal, AddTaskModal, TimelineView } from "@/components/plan";
 
 // =============================================================================
 // TYPES
@@ -61,7 +60,10 @@ interface Goal {
 // MAIN PAGE
 // =============================================================================
 
+type ViewMode = "goals" | "timeline";
+
 export default function PlanPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>("goals");
   const [showCompleted, setShowCompleted] = useState(false);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [taskModalState, setTaskModalState] = useState<{
@@ -139,20 +141,55 @@ export default function PlanPage() {
           <p className="text-text-muted">Goals, tasks, and your path forward.</p>
         </div>
         <div className="flex gap-3">
+          {/* View Toggle */}
+          <div className="flex bg-bg-sidebar rounded-xl p-1">
+            <button
+              onClick={() => setViewMode("goals")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                viewMode === "goals"
+                  ? "bg-white text-text-main shadow-sm"
+                  : "text-text-muted hover:text-text-main"
+              )}
+            >
+              <LayoutList className="w-4 h-4" />
+              Goals
+            </button>
+            <button
+              onClick={() => setViewMode("timeline")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                viewMode === "timeline"
+                  ? "bg-white text-text-main shadow-sm"
+                  : "text-text-muted hover:text-text-main"
+              )}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline
+            </button>
+          </div>
           <Link href="/advisor?mode=planning">
             <Button variant="secondary">
               <MessageCircle className="w-4 h-4" />
               Brainstorm
             </Button>
           </Link>
-          <Button onClick={() => setIsAddGoalModalOpen(true)}>
-            <Plus className="w-4 h-4" />
-            Add Goal
-          </Button>
+          {viewMode === "goals" && (
+            <Button onClick={() => setIsAddGoalModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              Add Goal
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Main Layout: 2/3 content + 1/3 sidebar */}
+      {/* Timeline View - Full Width */}
+      {viewMode === "timeline" && (
+        <TimelineView />
+      )}
+
+      {/* Goals View - Main Layout: 2/3 content + 1/3 sidebar */}
+      {viewMode === "goals" && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - 2/3 width */}
         <div className="lg:col-span-2">
@@ -337,6 +374,7 @@ export default function PlanPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Modals */}
       <AddGoalModal
