@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser, type AuthUser } from "@/lib/auth";
 
 // Admin email whitelist - only these emails can access admin features
 export const ADMIN_EMAILS = ["abhishek.gutgutia@gmail.com"];
@@ -7,15 +7,14 @@ export const ADMIN_EMAILS = ["abhishek.gutgutia@gmail.com"];
  * Check if the current user is an admin
  * Returns the user if admin, throws if not
  */
-export async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function requireAdmin(): Promise<AuthUser> {
+  const user = await getCurrentUser();
 
   if (!user) {
     throw new Error("Unauthorized");
   }
 
-  if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+  if (!ADMIN_EMAILS.includes(user.email)) {
     throw new Error("Unauthorized");
   }
 
@@ -28,11 +27,10 @@ export async function requireAdmin() {
  */
 export async function isAdmin(): Promise<boolean> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
-    if (!user || !user.email) {
-      console.log("[Admin Check] No user or email found");
+    if (!user) {
+      console.log("[Admin Check] No user found");
       return false;
     }
 

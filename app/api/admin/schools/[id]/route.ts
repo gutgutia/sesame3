@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-// Admin email whitelist
-const ADMIN_EMAILS = ["abhishek.gutgutia@gmail.com"];
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
-  if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
-    throw new Error("Unauthorized");
-  }
-
-  return user;
 }
 
 /**

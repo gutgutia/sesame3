@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin";
 import Anthropic from "@anthropic-ai/sdk";
-
-// Admin email whitelist
-const ADMIN_EMAILS = ["abhishek.gutgutia@gmail.com"];
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
-  if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
-    throw new Error("Unauthorized");
-  }
-
-  return user;
-}
 
 const DEADLINE_EXTRACTION_PROMPT = `You are a helpful assistant that extracts college admissions deadline information.
 

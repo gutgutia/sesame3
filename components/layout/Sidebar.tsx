@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
-import { createClient } from "@/lib/supabase/client";
 import { PlanBadge } from "@/components/subscription/PlanBadge";
 
 type NavItem = {
@@ -110,9 +109,13 @@ export function Sidebar() {
 
   // Handle logout
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const toggleExpanded = (name: string) => {
