@@ -21,6 +21,7 @@ import {
   BookOpenCheck,
   MessageSquare,
   Lightbulb,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
@@ -222,6 +223,14 @@ export function Sidebar() {
             >
               <Settings className="w-4 h-4" />
               Settings
+            </Link>
+            <Link
+              href="/admin"
+              onClick={() => setIsDropdownOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-amber-600 hover:bg-amber-50 transition-colors"
+            >
+              <Shield className="w-4 h-4" />
+              Admin
             </Link>
             <button
               onClick={handleLogout}

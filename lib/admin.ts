@@ -32,11 +32,15 @@ export async function isAdmin(): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user || !user.email) {
+      console.log("[Admin Check] No user or email found");
       return false;
     }
 
-    return ADMIN_EMAILS.includes(user.email);
-  } catch {
+    const result = ADMIN_EMAILS.includes(user.email);
+    console.log(`[Admin Check] Email: ${user.email}, isAdmin: ${result}`);
+    return result;
+  } catch (error) {
+    console.log("[Admin Check] Error:", error);
     return false;
   }
 }
