@@ -11,10 +11,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: [
-        "lib/usage/**/*.ts",
-        "app/api/subscription/**/*.ts",
-        "app/api/stripe/**/*.ts",
-        "app/api/webhooks/stripe/**/*.ts",
+        "lib/**/*.ts",
+        "app/api/**/*.ts",
+      ],
+      exclude: [
+        "lib/db.ts",
+        "lib/supabase/**",
       ],
     },
   },

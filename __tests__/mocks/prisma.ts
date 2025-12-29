@@ -7,9 +7,58 @@ export const mockPrisma = {
     findFirst: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
+    upsert: vi.fn(),
+    delete: vi.fn(),
   },
   studentProfile: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  academics: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  testing: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+  },
+  sATScore: {
+    create: vi.fn(),
+  },
+  aCTScore: {
+    create: vi.fn(),
+  },
+  course: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+  },
+  activity: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+  },
+  award: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+  },
+  accessGrant: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+  },
+  school: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
+  },
+  summerProgram: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
   },
   usageRecord: {
     findUnique: vi.fn(),
@@ -50,7 +99,138 @@ export function createMockProfile(overrides = {}) {
   return {
     id: "profile_mock123",
     userId: "user_mock123",
+    firstName: "Test",
+    lastName: "User",
+    preferredName: null,
+    grade: "11th",
+    graduationYear: 2026,
+    highSchoolName: "Test High School",
+    highSchoolCity: "Test City",
+    highSchoolState: "CA",
+    highSchoolType: "public",
+    residencyStatus: "us_citizen",
+    onboardingCompletedAt: new Date(),
     user: createMockUser(),
+    ...overrides,
+  };
+}
+
+// Helper to create mock academics
+export function createMockAcademics(overrides = {}) {
+  return {
+    id: "academics_mock123",
+    studentProfileId: "profile_mock123",
+    schoolReportedGpaUnweighted: 3.8,
+    schoolReportedGpaWeighted: 4.2,
+    gpaScale: 4.0,
+    classRank: 25,
+    classSize: 400,
+    ...overrides,
+  };
+}
+
+// Helper to create mock testing record
+export function createMockTesting(overrides = {}) {
+  return {
+    id: "testing_mock123",
+    studentProfileId: "profile_mock123",
+    planningToTakeSat: false,
+    planningToTakeAct: false,
+    psatTotal: 1400,
+    psatMath: 720,
+    psatReading: 680,
+    satScores: [],
+    actScores: [],
+    apScores: [],
+    subjectTests: [],
+    ...overrides,
+  };
+}
+
+// Helper to create mock SAT score
+export function createMockSATScore(overrides = {}) {
+  return {
+    id: "sat_mock123",
+    testingId: "testing_mock123",
+    total: 1480,
+    math: 760,
+    reading: 720,
+    testDate: new Date("2024-12-07"),
+    isPrimary: true,
+    isSuperscored: false,
+    ...overrides,
+  };
+}
+
+// Helper to create mock course
+export function createMockCourse(overrides = {}) {
+  return {
+    id: "course_mock123",
+    studentProfileId: "profile_mock123",
+    name: "AP Calculus BC",
+    subject: "Math",
+    level: "ap",
+    status: "completed",
+    gradeLevel: "11th",
+    grade: "A",
+    gradeNumeric: 4.0,
+    academicYear: "2023-2024",
+    semester: "full_year",
+    credits: 1,
+    isCore: true,
+    ...overrides,
+  };
+}
+
+// Helper to create mock activity
+export function createMockActivity(overrides = {}) {
+  return {
+    id: "activity_mock123",
+    studentProfileId: "profile_mock123",
+    title: "President",
+    organization: "Science Olympiad",
+    category: "club",
+    description: "Lead team to state championships",
+    hoursPerWeek: 10,
+    weeksPerYear: 40,
+    isLeadership: true,
+    isSpike: true,
+    isContinuing: true,
+    displayOrder: 0,
+    ...overrides,
+  };
+}
+
+// Helper to create mock award
+export function createMockAward(overrides = {}) {
+  return {
+    id: "award_mock123",
+    studentProfileId: "profile_mock123",
+    title: "National Merit Semifinalist",
+    organization: "National Merit Scholarship Corporation",
+    level: "national",
+    category: "academic",
+    year: 2025,
+    displayOrder: 0,
+    ...overrides,
+  };
+}
+
+// Helper to create full mock profile with relations
+export function createMockFullProfile(overrides = {}) {
+  return {
+    ...createMockProfile(),
+    academics: createMockAcademics(),
+    testing: createMockTesting({
+      satScores: [createMockSATScore()],
+    }),
+    courses: [createMockCourse()],
+    activities: [createMockActivity()],
+    awards: [createMockAward()],
+    aboutMe: null,
+    programs: [],
+    goals: [],
+    schoolList: [],
     ...overrides,
   };
 }
