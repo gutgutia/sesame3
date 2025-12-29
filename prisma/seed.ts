@@ -1173,6 +1173,138 @@ const summerPrograms2026: SummerProgramSeed[] = [
       },
     ],
   },
+
+  // =============================================================================
+  // UCSB PROGRAMS
+  // =============================================================================
+  {
+    name: "UCSB Research Mentorship Program",
+    shortName: "UCSB RMP",
+    organization: "UC Santa Barbara",
+    description:
+      "A competitive 6-week summer program for high school students to conduct research under the mentorship of UCSB faculty. Students work on real research projects across STEM and social sciences.",
+    websiteUrl: "https://www.summer.ucsb.edu/pre-college/research-mentorship-program",
+    programYear: 2026,
+
+    minGrade: 11,
+    maxGrade: 12,
+    minAge: 16,
+    maxAge: null,
+    minGpaUnweighted: 3.5,
+    minGpaWeighted: null,
+    citizenship: "international_ok",
+    requiredCourses: [],
+    recommendedCourses: [],
+    eligibilityNotes:
+      "Must be 16+ and have completed junior year. 3.5+ GPA required. Students choose research areas including biology, chemistry, physics, engineering, psychology, and more.",
+
+    applicationOpens: new Date("2026-01-15"),
+    applicationDeadline: new Date("2026-03-01"),
+    isRolling: false,
+    rollingNotes: null,
+    applicationUrl: "https://www.summer.ucsb.edu/pre-college/research-mentorship-program/apply",
+    applicationNotes:
+      "Requires transcript, 2 teacher recommendations, personal statement, and research interest essay. $75 application fee.",
+
+    format: "residential",
+    location: "Santa Barbara, CA",
+
+    llmContext:
+      "UCSB RMP is one of the most prestigious research programs in California. Students are matched with faculty mentors based on research interests. About 15% acceptance rate. Program fee around $10,000 but includes housing, meals, and all research costs. Students present research at a final symposium. Many students publish papers or present at conferences. Strong for students interested in research careers.",
+
+    category: "research",
+    focusAreas: [
+      "research",
+      "STEM",
+      "science",
+      "engineering",
+      "psychology",
+      "biology",
+      "chemistry",
+      "physics",
+    ],
+    isActive: true,
+    dataSource: "manual",
+    dataStatus: "verified",
+
+    sessions: [
+      {
+        name: "Main Session",
+        startDate: new Date("2026-06-21"),
+        endDate: new Date("2026-08-01"),
+      },
+    ],
+  },
+
+  {
+    name: "UCSB Summer Research Academies",
+    shortName: "UCSB SRA",
+    organization: "UC Santa Barbara",
+    description:
+      "Intensive 1-3 week summer academies for high school students offering hands-on experience in specific research areas including marine science, engineering, and physics.",
+    websiteUrl: "https://www.summer.ucsb.edu/pre-college/summer-research-academies",
+    programYear: 2026,
+
+    minGrade: 9,
+    maxGrade: 12,
+    minAge: 14,
+    maxAge: null,
+    minGpaUnweighted: null,
+    minGpaWeighted: null,
+    citizenship: "international_ok",
+    requiredCourses: [],
+    recommendedCourses: [],
+    eligibilityNotes:
+      "Ages 14-18. Different academies have different grade requirements. Some academies accept younger students (9th grade), others require 10th+.",
+
+    applicationOpens: new Date("2026-01-01"),
+    applicationDeadline: new Date("2026-04-15"),
+    isRolling: true,
+    rollingNotes: "Rolling admissions, academies may fill before deadline",
+    applicationUrl: "https://www.summer.ucsb.edu/pre-college/summer-research-academies/apply",
+    applicationNotes:
+      "Requires transcript and short essay. Some academies require teacher recommendations. Fee varies by program length.",
+
+    format: "residential",
+    location: "Santa Barbara, CA",
+
+    llmContext:
+      "UCSB SRA offers multiple themed academies: Ocean Science, Engineering Design, Physics of Waves, and more. Shorter commitment (1-3 weeks) than RMP, making it accessible to younger students. Less selective than RMP but still high quality. Program fees range $2,000-$6,000 depending on length. Good option for students wanting to explore research before committing to a longer program. Beautiful coastal campus.",
+
+    category: "research",
+    focusAreas: [
+      "research",
+      "STEM",
+      "marine_science",
+      "engineering",
+      "physics",
+      "oceanography",
+    ],
+    isActive: true,
+    dataSource: "manual",
+    dataStatus: "verified",
+
+    sessions: [
+      {
+        name: "Academy Session 1",
+        startDate: new Date("2026-06-21"),
+        endDate: new Date("2026-07-04"),
+        notes: "2-week academy",
+      },
+      {
+        name: "Academy Session 2",
+        startDate: new Date("2026-07-05"),
+        endDate: new Date("2026-07-18"),
+        notes: "2-week academy",
+      },
+      {
+        name: "Academy Session 3",
+        startDate: new Date("2026-07-19"),
+        endDate: new Date("2026-08-01"),
+        notes: "2-week academy",
+      },
+    ],
+  },
 ];
 
 async function seedSummerPrograms() {
