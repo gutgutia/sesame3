@@ -38,7 +38,6 @@ interface StudentProfile {
 
 interface SummerProgram {
   programYear: number;
-  startDate?: Date | string | null;
   minGrade?: number | null;
   maxGrade?: number | null;
   minAge?: number | null;
@@ -47,7 +46,6 @@ interface SummerProgram {
   minGpaWeighted?: number | null;
   citizenship?: string | null;
   requiredCourses?: string[];
-  otherRequirements?: string[];
   eligibilityNotes?: string | null;
 }
 
@@ -171,10 +169,8 @@ export function calculateEligibility(
       });
     } else {
       const birthDate = new Date(student.birthDate);
-      // Use program start date, or default to June 1 of program year
-      const referenceDate = program.startDate
-        ? new Date(program.startDate)
-        : new Date(program.programYear, 5, 1); // June 1
+      // Default to June 1 of program year for age calculation
+      const referenceDate = new Date(program.programYear, 5, 1); // June 1
 
       const age = calculateAgeAtDate(birthDate, referenceDate);
 
@@ -323,13 +319,13 @@ export function calculateEligibility(
     }
   }
 
-  // 6. Other requirements (always needs manual check)
-  if (program.otherRequirements && program.otherRequirements.length > 0) {
+  // 6. Eligibility notes (complex requirements that need manual review)
+  if (program.eligibilityNotes) {
     checks.push({
       criterion: "Other Requirements",
       status: "check_required",
-      message: program.otherRequirements.join("; "),
-      details: "Please review these requirements manually",
+      message: "Additional eligibility requirements apply",
+      details: program.eligibilityNotes,
     });
   }
 

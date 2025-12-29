@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Edit2,
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,14 +18,10 @@ interface Program {
   shortName: string | null;
   organization: string | null;
   category: string | null;
-  focus: string | null;
   applicationOpens: Date | null;
-  earlyDeadline: Date | null;
   applicationDeadline: Date | null;
-  notificationDate: Date | null;
-  startDate: Date | null;
-  endDate: Date | null;
-  cost: number | null;
+  format: string | null;
+  location: string | null;
 }
 
 interface ProgramsTableProps {
@@ -143,10 +138,10 @@ export function ProgramsTable({
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Program</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Institution</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500">Organization</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Category</th>
+              <th className="text-center px-4 py-3 font-medium text-gray-500">Format</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Deadline</th>
-              <th className="text-center px-4 py-3 font-medium text-gray-500">Dates</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="text-right px-4 py-3 font-medium text-gray-500">Actions</th>
             </tr>
@@ -156,7 +151,11 @@ export function ProgramsTable({
               const deadlineStatus = getDeadlineStatus(program);
 
               return (
-                <tr key={program.id} className="hover:bg-gray-50">
+                <tr
+                  key={program.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => router.push(`/admin/programs/${program.id}`)}
+                >
                   <td className="px-4 py-3">
                     <div>
                       <div className="font-medium text-gray-900">{program.name}</div>
@@ -176,16 +175,16 @@ export function ProgramsTable({
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <DateCell date={program.applicationDeadline} />
-                  </td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-500">
-                    {program.startDate && program.endDate ? (
-                      <>
-                        {formatDate(program.startDate)} – {formatDate(program.endDate)}
-                      </>
+                    {program.format ? (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
+                        {program.format}
+                      </span>
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <DateCell date={program.applicationDeadline} />
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={cn("text-xs font-medium", deadlineStatus.color)}>
@@ -194,22 +193,19 @@ export function ProgramsTable({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={`/admin/programs/${program.id}`}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </a>
-                      <a
-                        href={`https://www.google.com/search?q=${encodeURIComponent(program.name + " summer program application")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(
+                            `https://www.google.com/search?q=${encodeURIComponent(program.name + " summer program application")}`,
+                            "_blank"
+                          );
+                        }}
                         className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                         title="Search"
                       >
                         <ExternalLink className="w-4 h-4" />
-                      </a>
+                      </button>
                     </div>
                   </td>
                 </tr>

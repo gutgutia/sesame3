@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
 
       // Also create default action tasks if they selected "include_actions"
       if (deadlines.includes("include_actions")) {
-        const primaryDeadline = program.applicationDeadline || program.earlyDeadline;
+        const primaryDeadline = program.applicationDeadline;
 
         if (primaryDeadline) {
           for (const template of DEFAULT_PROGRAM_ACTIONS) {

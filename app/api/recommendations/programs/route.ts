@@ -87,7 +87,6 @@ export async function GET(request: Request) {
         where: whereClause,
         orderBy: [
           { applicationDeadline: "asc" }, // Upcoming deadlines first
-          { selectivity: "asc" },
         ],
         take: 50, // Get more than needed for filtering
       });
@@ -113,7 +112,6 @@ export async function GET(request: Request) {
         },
         {
           programYear: program.programYear,
-          startDate: program.startDate,
           minGrade: program.minGrade,
           maxGrade: program.maxGrade,
           minAge: program.minAge,
@@ -122,7 +120,6 @@ export async function GET(request: Request) {
           minGpaWeighted: program.minGpaWeighted,
           citizenship: program.citizenship,
           requiredCourses: program.requiredCourses,
-          otherRequirements: program.otherRequirements,
           eligibilityNotes: program.eligibilityNotes,
         }
       );
@@ -145,11 +142,9 @@ export async function GET(request: Request) {
         organization: program.organization,
         description: program.description,
         location: program.location,
-        duration: program.duration,
+        format: program.format,
         focusAreas: program.focusAreas,
-        selectivity: program.selectivity,
-        cost: program.cost,
-        stipend: program.stipend,
+        category: program.category,
         applicationDeadline: program.applicationDeadline,
         websiteUrl: program.websiteUrl,
         eligibility: {
@@ -186,11 +181,9 @@ export async function GET(request: Request) {
           organization: program.organization,
           description: program.description,
           location: program.location,
-          duration: program.duration,
+          format: program.format,
           focusAreas: program.focusAreas,
-          selectivity: program.selectivity,
-          cost: program.cost,
-          stipend: program.stipend,
+          category: program.category,
           applicationDeadline: program.applicationDeadline,
           websiteUrl: program.websiteUrl,
           eligibility: {

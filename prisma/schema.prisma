@@ -629,33 +629,34 @@ model SchoolDeadlineYear {
 
 // -----------------------------------------------------------------------------
 // SummerProgram - Reference Data (Curated, shared across students)
-// Programs have yearly cycles - deadlines and dates update each year
+// Programs are updated in place each year - students track via applicationYear
+// Variations (residential vs commuter) are separate program records
 // -----------------------------------------------------------------------------
 
 model SummerProgram {
   id            String @id @default(uuid())
 
   // Basic Info
-  name          String    // "Stanford Institutes of Medicine Summer Research Program"
-  shortName     String?   // "SIMR"
-  organization  String    // "Stanford Medicine" | "MIT" | "CalTech"
+  name          String    // "Columbia Summer Immersion - Residential"
+  shortName     String?   // "Columbia Residential"
+  organization  String    // "Columbia University"
   description   String?   @db.Text
   websiteUrl    String?
 
-  // Program Year (deadlines are year-specific)
-  programYear   Int       // 2025, 2026, etc.
+  // Program Year (update in place each cycle)
+  programYear   Int       // 2025, 2026, etc. - current year's data
 
   // =========================================================================
-  // ELIGIBILITY - Auto-checkable criteria
+  // ELIGIBILITY - Auto-checkable criteria (for fast SQL filtering)
   // =========================================================================
 
   // Grade eligibility (entering grade OR during program - specify in notes)
   minGrade      Int?      // 9, 10, 11, 12
-  maxGrade      Int?
+  maxGrade      Int?      // For programs like "juniors and seniors only"
 
-  // Age eligibility
+  // Age eligibility (approximation for filtering, specifics in eligibilityNotes)
   minAge        Int?      // 14, 15, 16...
-  maxAge        Int?
+  maxAge        Int?      // Some programs cap at 17 or 18
 
   // Academic requirements
   minGpaUnweighted  Float?    // 3.5
@@ -672,78 +673,64 @@ model SummerProgram {
   recommendedCourses  String[]  // ["AP Physics C", "Linear Algebra"]
 
   // =========================================================================
-  // ELIGIBILITY - Other requirements (display only, student self-assesses)
+  // ELIGIBILITY - Complex requirements (AI interprets these)
   // =========================================================================
 
-  otherRequirements   String[]  // ["Must identify as female", "First-generation only", "Title I school"]
-  eligibilityNotes    String?   // Freeform notes about eligibility
+  // Freeform notes for complex eligibility rules the system can't auto-check
+  // e.g., "Students who are 15 must turn 16 by December 31 of the year they attend"
+  // e.g., "Must identify as female", "First-generation only", "Title I school"
+  eligibilityNotes    String?   @db.Text
 
   // =========================================================================
-  // APPLICATION TIMELINE
+  // APPLICATION
   // =========================================================================
 
-  applicationOpens    DateTime?
-  earlyDeadline       DateTime?   // Priority/early deadline if exists
+  applicationOpens    DateTime?   // When applications open (for hyper-prepared families)
   applicationDeadline DateTime?   // Primary deadline
   isRolling           Boolean     @default(false)  // Rolling admissions?
   rollingNotes        String?     // "Until filled", "Rolling through March 1"
-  notificationDate    DateTime?   // When decisions come out
+  applicationUrl      String?     // Direct link to application
 
-  // Application details
-  applicationUrl      String?
-  applicationFee      Int?        // In dollars, null if free
-
-  // Application requirements
-  requiresRecs        Boolean     @default(false)
-  requiresTranscript  Boolean     @default(false)
-  requiresEssay       Boolean     @default(false)
-  requiresInterview   Boolean     @default(false)
-  requiresTestScores  Boolean     @default(false)
-  applicationNotes    String?     // Other requirements
+  // Freeform notes about application requirements
+  // e.g., "Requires 2 teacher recommendations, transcript, and 500-word essay"
+  applicationNotes    String?     @db.Text
 
   // =========================================================================
   // PROGRAM DETAILS
   // =========================================================================
 
-  startDate     DateTime?
-  endDate       DateTime?
-  duration      String?   // "6 weeks", "3 weeks", "8 weeks"
   format        String?   // "residential" | "commuter" | "online" | "hybrid"
-  location      String?   // "Stanford, CA" | "Cambridge, MA" | "Online"
+  location      String?   // "New York, NY" | "Stanford, CA" | "Online"
 
-  // Cost
-  cost          Int?      // Program cost in dollars, null if free
-  stipend       Int?      // If they pay students
-  financialAid  Boolean   @default(false)
-  costNotes     String?   // "Full financial aid available", "Need-based aid"
+  // Sessions are stored in SummerProgramSession child table
+  // This allows programs with multiple sessions (June vs July)
 
   // =========================================================================
-  // CLASSIFICATION
+  // AI CONTEXT
   // =========================================================================
 
-  selectivity   String?   // "highly_selective" | "selective" | "moderate" | "open"
-  acceptanceRate Float?   // 0.0 - 1.0 if known
-  cohortSize    Int?      // How many students accepted
-
-  // Focus areas (for filtering/matching)
-  focusAreas    String[]  // ["STEM", "research", "medicine", "biology", "engineering"]
+  // Freeform context for AI advisor to use when making recommendations
+  // e.g., tracks/courses offered, notable alumni, tips for application
+  // e.g., "Offers Business, Architecture, and Engineering tracks. Business track is best for students interested in entrepreneurship."
+  llmContext    String?   @db.Text
 
   // =========================================================================
   // METADATA
   // =========================================================================
 
+  category      String?   // "STEM" | "research" | "arts" | "leadership" | "business" | "humanities"
+  focusAreas    String[]  // ["STEM", "research", "medicine", "biology", "engineering"]
+
   isActive      Boolean   @default(true)   // Is this program still running?
   lastVerified  DateTime?                  // When we last verified the info
-  dataSource    String?                    // "manual" | "website" | "student_report"
+  dataSource    String?                    // "manual" | "website" | "llm_scraped"
   dataStatus    String?                    // "pending_review" | "verified" | "needs_update"
-  category      String?                    // "STEM" | "research" | "arts" | "leadership" | "business" | "humanities"
-  focus         String?                    // Primary focus area for display
-  internalNotes String?                    // Admin notes
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
+  sessions        SummerProgramSession[]
   studentPrograms StudentSummerProgram[]
   goals           Goal[]
   tasks           Task[]
@@ -754,6 +741,31 @@ model SummerProgram {
   @@index([applicationDeadline])
   @@index([minGrade, maxGrade])
   @@index([isActive])
+  @@index([category])
+}
+
+// -----------------------------------------------------------------------------
+// SummerProgramSession - Program sessions within a year
+// A program can have multiple sessions (e.g., June session, July session)
+// -----------------------------------------------------------------------------
+
+model SummerProgramSession {
+  id              String @id @default(uuid())
+  summerProgramId String
+  summerProgram   SummerProgram @relation(fields: [summerProgramId], references: [id], onDelete: Cascade)
+
+  name            String    // "Session 1", "Summer A", "June Session"
+  startDate       DateTime
+  endDate         DateTime
+
+  // Optional notes about this specific session
+  notes           String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([summerProgramId])
+  @@index([startDate])
 }
 
 // -----------------------------------------------------------------------------
