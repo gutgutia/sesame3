@@ -12,6 +12,8 @@
     "db:migrate": "dotenv -e .env -- prisma migrate dev",
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
+    "db:seed-programs": "dotenv -e .env.local -- tsx prisma/seed-programs.ts",
+    "db:seed-schools": "dotenv -e .env.local -- tsx prisma/seed-schools.ts",
     "db:cleanup": "dotenv -e .env.local -- tsx prisma/db-cleanup.ts",
     "db:clear-programs": "dotenv -e .env.local -- tsx prisma/db-cleanup.ts --programs",
     "db:clear-schools": "dotenv -e .env.local -- tsx prisma/db-cleanup.ts --schools",
