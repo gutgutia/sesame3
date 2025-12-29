@@ -34,8 +34,18 @@ interface School {
   state: string | null;
   type: string | null;
   websiteUrl: string | null;
+  // College Scorecard data (read-only)
   acceptanceRate: number | null;
-  // Admission type flags
+  satRange25: number | null;
+  satRange75: number | null;
+  actRange25: number | null;
+  actRange75: number | null;
+  undergradEnrollment: number | null;
+  tuition: number | null;
+  roomBoard: number | null;
+  avgFinancialAid: number | null;
+  dataSource: string | null;
+  // Admission type flags (manual)
   hasEarlyDecision: boolean;
   hasEarlyDecisionII: boolean;
   hasEarlyAction: boolean;
@@ -62,10 +72,9 @@ export function SchoolEditForm({ school }: SchoolEditFormProps) {
   const currentYear = new Date().getFullYear();
   const currentCycle = currentYear + 1; // If it's 2024, we're applying for Fall 2025
 
-  // Form state for school fields
+  // Form state for editable school fields (non-Scorecard data)
   const [formData, setFormData] = useState({
     websiteUrl: school.websiteUrl || "",
-    acceptanceRate: school.acceptanceRate?.toString() || "",
     hasEarlyDecision: school.hasEarlyDecision,
     hasEarlyDecisionII: school.hasEarlyDecisionII,
     hasEarlyAction: school.hasEarlyAction,
@@ -217,9 +226,6 @@ export function SchoolEditForm({ school }: SchoolEditFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           websiteUrl: formData.websiteUrl || null,
-          acceptanceRate: formData.acceptanceRate
-            ? parseFloat(formData.acceptanceRate)
-            : null,
           hasEarlyDecision: formData.hasEarlyDecision,
           hasEarlyDecisionII: formData.hasEarlyDecisionII,
           hasEarlyAction: formData.hasEarlyAction,
@@ -575,37 +581,105 @@ export function SchoolEditForm({ school }: SchoolEditFormProps) {
         </div>
       </div>
 
-      {/* Basic Stats */}
+      {/* College Scorecard Data (Read-Only) */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="font-bold text-lg mb-4">Basic Information</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Website URL
-            </label>
-            <input
-              type="url"
-              value={formData.websiteUrl}
-              onChange={(e) => handleChange("websiteUrl", e.target.value)}
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-            />
+            <h2 className="font-bold text-lg">College Scorecard Data</h2>
+            <p className="text-sm text-gray-500">
+              Data from the U.S. Department of Education (read-only)
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Acceptance Rate (decimal, e.g., 0.05 for 5%)
-            </label>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              max="1"
-              value={formData.acceptanceRate}
-              onChange={(e) => handleChange("acceptanceRate", e.target.value)}
-              placeholder="0.05"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-            />
-          </div>
+          {school.dataSource && (
+            <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+              Source: {school.dataSource}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatDisplay
+            label="Acceptance Rate"
+            value={
+              school.acceptanceRate
+                ? `${(school.acceptanceRate * 100).toFixed(1)}%`
+                : null
+            }
+          />
+          <StatDisplay
+            label="Undergrad Enrollment"
+            value={
+              school.undergradEnrollment
+                ? school.undergradEnrollment.toLocaleString()
+                : null
+            }
+          />
+          <StatDisplay
+            label="SAT Range"
+            value={
+              school.satRange25 && school.satRange75
+                ? `${school.satRange25} - ${school.satRange75}`
+                : null
+            }
+          />
+          <StatDisplay
+            label="ACT Range"
+            value={
+              school.actRange25 && school.actRange75
+                ? `${school.actRange25} - ${school.actRange75}`
+                : null
+            }
+          />
+          <StatDisplay
+            label="Tuition"
+            value={school.tuition ? `$${school.tuition.toLocaleString()}` : null}
+          />
+          <StatDisplay
+            label="Room & Board"
+            value={school.roomBoard ? `$${school.roomBoard.toLocaleString()}` : null}
+          />
+          <StatDisplay
+            label="Avg Financial Aid"
+            value={
+              school.avgFinancialAid
+                ? `$${school.avgFinancialAid.toLocaleString()}`
+                : null
+            }
+          />
+          <StatDisplay
+            label="Total Cost"
+            value={
+              school.tuition && school.roomBoard
+                ? `$${(school.tuition + school.roomBoard).toLocaleString()}`
+                : null
+            }
+          />
+        </div>
+
+        {!school.acceptanceRate &&
+          !school.undergradEnrollment &&
+          !school.satRange25 && (
+            <div className="mt-4 p-3 bg-gray-50 text-gray-500 rounded-lg text-sm text-center">
+              No College Scorecard data available. This data is imported
+              automatically.
+            </div>
+          )}
+      </div>
+
+      {/* Website (Editable) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="font-bold text-lg mb-4">Website</h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            School Website URL
+          </label>
+          <input
+            type="url"
+            value={formData.websiteUrl}
+            onChange={(e) => handleChange("websiteUrl", e.target.value)}
+            placeholder="https://..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          />
         </div>
       </div>
 
@@ -724,5 +798,22 @@ function CheckboxField({
         )}
       </div>
     </label>
+  );
+}
+
+function StatDisplay({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-sm font-medium text-gray-900">
+        {value || <span className="text-gray-400">—</span>}
+      </div>
+    </div>
   );
 }

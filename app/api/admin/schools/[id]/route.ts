@@ -64,12 +64,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    // Update school fields
+    // Update school fields (excluding College Scorecard data which is read-only)
     const school = await prisma.school.update({
       where: { id },
       data: {
         websiteUrl: body.websiteUrl,
-        acceptanceRate: body.acceptanceRate,
         hasEarlyDecision: body.hasEarlyDecision ?? false,
         hasEarlyDecisionII: body.hasEarlyDecisionII ?? false,
         hasEarlyAction: body.hasEarlyAction ?? false,
