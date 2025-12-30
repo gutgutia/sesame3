@@ -96,8 +96,9 @@ export async function POST(request: NextRequest) {
     const parseStart = Date.now();
 
     // Start parsing and feature flags in parallel
+    // Pass mode to shouldParse - onboarding mode is more lenient (always parses)
     const [parserResultRaw, featureFlags] = await Promise.all([
-      isUserMessage && shouldParse(userInput)
+      isUserMessage && shouldParse(userInput, mode)
         ? parseUserMessage(userInput, { entryMode: mode })
         : Promise.resolve(null),
       getFeatureFlags(),

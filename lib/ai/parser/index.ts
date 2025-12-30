@@ -159,15 +159,24 @@ function createEmptyResponse(): ParserResponse {
 /**
  * Quick check if a message likely contains extractable data
  * Used to skip parsing for simple conversational messages
+ *
+ * @param message - The user's message
+ * @param mode - The entry mode (onboarding is more lenient)
  */
-export function shouldParse(message: string): boolean {
+export function shouldParse(message: string, mode?: string): boolean {
   const lowerMessage = message.toLowerCase();
-  
+
+  // During onboarding, ALWAYS parse - we expect name, grade, school
+  // Short responses like "Vansh" or "10th grade" are common
+  if (mode === "onboarding") {
+    return true;
+  }
+
   // Skip very short messages unless they contain numbers
   if (message.length < 10 && !/\d/.test(message)) {
     return false;
   }
-  
+
   // Keywords that suggest extractable data
   const dataKeywords = [
     // Test scores
@@ -180,8 +189,9 @@ export function shouldParse(message: string): boolean {
     "award", "won", "winner", "finalist", "semifinalist", "national", "aime", "usamo",
     // Schools
     "mit", "stanford", "harvard", "yale", "princeton", "college", "university",
-    // Profile
+    // Profile / Grade levels
     "my name", "i'm in", "i am a", "junior", "senior", "sophomore", "freshman",
+    "grade", "9th", "10th", "11th", "12th",
     // Courses and transcripts
     "taking", "ap ", "ib ", "honors", "course", "courses", "class", "classes",
     "transcript", "upload", "schedule",
@@ -192,14 +202,14 @@ export function shouldParse(message: string): boolean {
     // Goals and intentions
     "goal", "plan to", "want to", "hope to", "aiming", "target", "aspire",
   ];
-  
+
   const hasKeyword = dataKeywords.some(keyword => {
     if (keyword.includes("\\")) {
       return new RegExp(keyword, "i").test(lowerMessage);
     }
     return lowerMessage.includes(keyword);
   });
-  
+
   return hasKeyword;
 }
 
