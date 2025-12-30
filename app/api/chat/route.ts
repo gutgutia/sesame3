@@ -6,6 +6,7 @@ import {
   allTools,
   assembleContext,
   parseUserMessage,
+  callSecretary,
   shouldParse,
   formatParserContextForAdvisor,
   getAdvisorForTier,
@@ -13,8 +14,10 @@ import {
   getTierModelType,
   isRecommendationTool,
   getWidgetTypeFromToolName,
+  executeToolCall,
   type EntryMode,
   type ParserResponse,
+  type SecretaryResponse,
   type SubscriptionTier,
 } from "@/lib/ai";
 import {
@@ -95,23 +98,58 @@ export async function POST(request: NextRequest) {
     // === PHASE 1: Fast Parsing with Kimi K2 + Feature Flags (parallel) ===
     const parseStart = Date.now();
 
-    // Start parsing and feature flags in parallel
-    // Pass mode to shouldParse - onboarding mode is more lenient (always parses)
-    const [parserResultRaw, featureFlags] = await Promise.all([
-      isUserMessage && shouldParse(userInput, mode)
-        ? parseUserMessage(userInput, { entryMode: mode })
-        : Promise.resolve(null),
-      getFeatureFlags(),
-    ]);
+    // Get student profile for context (needed for secretary model)
+    const studentProfile = await prisma.studentProfile.findUnique({
+      where: { id: profileId },
+      select: { firstName: true, grade: true },
+    });
 
-    const parserResult: ParserResponse | null = parserResultRaw;
-    const parserTokens = parserResult
-      ? { input: Math.ceil(userInput.length / 4) + 100, output: 50 }
-      : { input: 0, output: 0 };
+    // Start feature flags fetch
+    const featureFlags = await getFeatureFlags();
 
-    if (parserResult) {
+    // Prepare conversation history for secretary model
+    const conversationHistory = validMessages.map((m: { role: string; content: string }) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    // Call secretary model or legacy parser based on feature flag
+    let secretaryResult: SecretaryResponse | null = null;
+    let parserResult: ParserResponse | null = null;
+
+    if (featureFlags.enableSecretaryModel && isUserMessage) {
+      // NEW: Secretary model handles routing decision
+      secretaryResult = await callSecretary(userInput, {
+        studentName: studentProfile?.firstName,
+        grade: studentProfile?.grade || undefined,
+        entryMode: mode,
+        conversationHistory: conversationHistory.slice(0, -1), // Exclude current message (it's in userInput)
+      });
+      console.log(`[Chat] Secretary completed in ${Date.now() - parseStart}ms, canHandle: ${secretaryResult.canHandle}`);
+    } else if (isUserMessage && shouldParse(userInput, mode)) {
+      // LEGACY: Stateless parser (fallback)
+      parserResult = await parseUserMessage(userInput, { entryMode: mode });
       console.log(`[Chat] Parser completed in ${Date.now() - parseStart}ms`);
     }
+
+    // Merge secretary result into parser result for compatibility
+    // (widgets, tools, entities are the same structure)
+    if (secretaryResult) {
+      parserResult = {
+        entities: secretaryResult.entities,
+        intents: secretaryResult.intents,
+        tools: secretaryResult.tools,
+        widgets: secretaryResult.widgets,
+        widget: secretaryResult.widget,
+        acknowledgment: secretaryResult.acknowledgment,
+        questions: secretaryResult.questions,
+        confidence: secretaryResult.confidence,
+      };
+    }
+
+    const parserTokens = parserResult || secretaryResult
+      ? { input: Math.ceil(userInput.length / 4) + 200, output: 100 }
+      : { input: 0, output: 0 };
 
     // === PHASE 2: Start SSE Stream IMMEDIATELY - Send widgets before context assembly ===
     const encoder = new TextEncoder();
@@ -140,6 +178,59 @@ export async function POST(request: NextRequest) {
             });
             const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
             controller.enqueue(encoder.encode(sseMessage));
+          }
+
+          // ==========================================================================
+          // ROUTING DECISION: Secretary handles vs Claude escalation
+          // ==========================================================================
+          if (secretaryResult?.canHandle && secretaryResult.response) {
+            // === FAST PATH: Secretary (Kimi K2) handles this interaction ===
+            console.log(`[Chat] Secretary handling response directly`);
+
+            // Execute tool calls from secretary
+            if (secretaryResult.tools && secretaryResult.tools.length > 0) {
+              for (const tool of secretaryResult.tools) {
+                try {
+                  await executeToolCall(profileId, tool.name, tool.args);
+                  console.log(`[Chat] Executed tool: ${tool.name}`);
+                } catch (err) {
+                  console.error(`[Chat] Tool execution error for ${tool.name}:`, err);
+                }
+              }
+            }
+
+            // Stream secretary's response
+            controller.enqueue(encoder.encode(secretaryResult.response));
+
+            // Record usage for secretary
+            await recordUsage({
+              userId,
+              model: "kimi_k2",
+              tokensInput: parserTokens.input,
+              tokensOutput: Math.ceil(secretaryResult.response.length / 4),
+              messageCount: 1,
+            }).catch(err => console.error("Error recording secretary usage:", err));
+
+            // Save conversation
+            saveConversation({
+              profileId,
+              conversationId,
+              mode,
+              messages,
+              assistantText: secretaryResult.response,
+              toolCalls: secretaryResult.tools,
+              parserResult,
+              modelName: "kimi-k2",
+              tokensUsed: parserTokens.input + Math.ceil(secretaryResult.response.length / 4),
+            }).catch(err => console.error("Error saving conversation:", err));
+
+            controller.close();
+            return;
+          }
+
+          // === SLOW PATH: Escalate to Claude for complex reasoning ===
+          if (secretaryResult && !secretaryResult.canHandle) {
+            console.log(`[Chat] Escalating to Claude: ${secretaryResult.escalationReason || "complex reasoning needed"}`);
           }
 
           // === Get context (from cache if available, otherwise assemble) ===

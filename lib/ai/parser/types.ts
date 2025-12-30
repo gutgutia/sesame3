@@ -147,13 +147,60 @@ export type ParserResponse = z.infer<typeof ParserResponseSchema>;
 
 /**
  * Context needed for parsing
+ * Now includes full conversation history for secretary model
  */
 export interface ParserContext {
   studentName?: string;
   grade?: string;
   entryMode?: string;
+  // Full conversation history for context-aware parsing
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  // Legacy field - kept for backward compatibility
   recentMessages?: Array<{ role: "user" | "assistant"; content: string }>;
 }
+
+/**
+ * Secretary model response - extends parser response with routing decision
+ */
+export const SecretaryResponseSchema = z.object({
+  // === Routing Decision ===
+  // Can Kimi handle this alone, or should we escalate to Claude?
+  canHandle: z.boolean().default(false),
+
+  // Why are we escalating? (only if canHandle is false)
+  escalationReason: z.string().optional(),
+
+  // === Kimi's Response (if handling) ===
+  // The actual response to show the user (only if canHandle is true)
+  response: z.string().optional(),
+
+  // === Data Extraction (always populated) ===
+  // Extracted structured data
+  entities: z.array(ExtractedEntitySchema).default([]),
+
+  // What the user is trying to do
+  intents: z.array(IntentTypeSchema).default([]),
+
+  // Tool calls to execute
+  tools: z.array(ToolCallSchema).default([]),
+
+  // Widgets to show for confirmation
+  widgets: z.array(WidgetSchema).default([]),
+
+  // Legacy single widget (for backward compatibility)
+  widget: WidgetSchema.optional(),
+
+  // Quick acknowledgment (legacy - now use response)
+  acknowledgment: z.string().optional(),
+
+  // Any questions extracted from the user's message
+  questions: z.array(z.string()).default([]),
+
+  // Raw confidence score (0-1)
+  confidence: z.number().min(0).max(1).default(0.8),
+});
+
+export type SecretaryResponse = z.infer<typeof SecretaryResponseSchema>;
 
 /**
  * Map tool names to widget types

@@ -1462,10 +1462,11 @@ model GlobalConfig {
   // ==========================================================================
   // FEATURE FLAGS
   // ==========================================================================
-  
+
   enableWidgets             Boolean @default(true)   // In-chat confirmation widgets
   enableChancesCalculation  Boolean @default(true)
   enableStoryMode           Boolean @default(true)
+  enableSecretaryModel      Boolean @default(true)   // Use Kimi K2 as intelligent secretary
   
   // Maintenance mode
   maintenanceMode     Boolean @default(false)

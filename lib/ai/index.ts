@@ -26,9 +26,11 @@ export { executeToolCall } from "./tool-handlers";
 // Parser (NEW - Kimi K2)
 export {
   parseUserMessage,
+  callSecretary,
   shouldParse,
   formatParserContextForAdvisor,
   type ParserResponse,
+  type SecretaryResponse,
   type ParserContext,
   type ExtractedEntity,
   type WidgetType,

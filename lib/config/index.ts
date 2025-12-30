@@ -17,6 +17,7 @@ export type FeatureFlags = {
   enableWidgets: boolean;
   enableChancesCalculation: boolean;
   enableStoryMode: boolean;
+  enableSecretaryModel: boolean;
   maintenanceMode: boolean;
   maintenanceMessage: string | null;
 };
@@ -51,6 +52,7 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
       enableWidgets: true,
       enableChancesCalculation: true,
       enableStoryMode: true,
+      enableSecretaryModel: true,
       maintenanceMode: true,
       maintenanceMessage: true,
     },
@@ -64,16 +66,18 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
         enableWidgets: true,
         enableChancesCalculation: true,
         enableStoryMode: true,
+        enableSecretaryModel: true,
         maintenanceMode: true,
         maintenanceMessage: true,
       },
     });
   }
-  
+
   cachedFlags = {
     enableWidgets: config.enableWidgets,
     enableChancesCalculation: config.enableChancesCalculation,
     enableStoryMode: config.enableStoryMode,
+    enableSecretaryModel: config.enableSecretaryModel,
     maintenanceMode: config.maintenanceMode,
     maintenanceMessage: config.maintenanceMessage,
   };

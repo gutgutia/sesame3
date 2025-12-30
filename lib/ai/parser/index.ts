@@ -1,19 +1,22 @@
 // =============================================================================
-// PARSER MODULE - Fast entity extraction using Kimi K2
+// SECRETARY MODULE - Intelligent routing using Kimi K2
 // =============================================================================
 
 import { generateText } from "ai";
 import { modelFor } from "../providers";
 import { buildParserPrompt } from "../prompts/parser-prompt";
+import { buildSecretaryPrompt } from "../prompts/secretary-prompt";
 import {
   ParserResponse,
   ParserContext,
+  SecretaryResponse,
   toolToWidgetType,
   WidgetType,
   Widget,
 } from "./types";
 
 export * from "./types";
+export { buildSecretaryPrompt } from "../prompts/secretary-prompt";
 
 /**
  * Parse a user message to extract entities, intents, and tool calls.
@@ -251,4 +254,121 @@ export function formatParserContextForAdvisor(response: ParserResponse): string 
   }
 
   return parts.join(" ");
+}
+
+// =============================================================================
+// SECRETARY MODEL - Intelligent routing with conversation context
+// =============================================================================
+
+/**
+ * Call the Secretary model (Kimi K2) with full conversation context.
+ * The Secretary decides whether to handle the interaction or escalate to Claude.
+ *
+ * @param userMessage - The user's latest message
+ * @param context - Full context including conversation history
+ * @returns SecretaryResponse with routing decision and optional response
+ */
+export async function callSecretary(
+  userMessage: string,
+  context: ParserContext
+): Promise<SecretaryResponse> {
+  const startTime = Date.now();
+
+  try {
+    const systemPrompt = buildSecretaryPrompt({
+      studentName: context.studentName,
+      grade: context.grade,
+      entryMode: context.entryMode,
+      conversationHistory: context.conversationHistory,
+    });
+
+    const { text } = await generateText({
+      model: modelFor.fastParsing,
+      system: systemPrompt,
+      prompt: userMessage,
+      temperature: 0.2, // Slightly higher for more natural responses
+      maxOutputTokens: 800, // More tokens for response generation
+    });
+
+    // Parse the JSON response
+    const parsed = parseJsonResponse(text);
+
+    if (!parsed || typeof parsed !== "object") {
+      console.warn("[Secretary] Invalid JSON response:", text.slice(0, 200));
+      // Default to escalating on parse failure
+      return createEmptySecretaryResponse(true, "Failed to parse response");
+    }
+
+    console.log("[Secretary] Raw response:", JSON.stringify(parsed).slice(0, 400));
+
+    // Construct the secretary response
+    const response: SecretaryResponse = {
+      // Routing decision
+      canHandle: parsed.canHandle === true,
+      escalationReason: typeof parsed.escalationReason === "string" ? parsed.escalationReason : undefined,
+
+      // Response (if handling)
+      response: typeof parsed.response === "string" ? parsed.response : undefined,
+
+      // Data extraction
+      entities: Array.isArray(parsed.entities) ? parsed.entities : [],
+      intents: Array.isArray(parsed.intents) ? parsed.intents : [],
+      tools: Array.isArray(parsed.tools) ? parsed.tools : [],
+      widgets: [], // Will be populated below
+      widget: undefined,
+      acknowledgment: typeof parsed.acknowledgment === "string" ? parsed.acknowledgment : undefined,
+      questions: Array.isArray(parsed.questions) ? parsed.questions : [],
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.8,
+    };
+
+    // Parse widgets from response or derive from tools
+    if (Array.isArray(parsed.widgets) && parsed.widgets.length > 0) {
+      response.widgets = parsed.widgets as Widget[];
+    } else if (response.tools.length > 0) {
+      // Derive widgets from tools
+      const widgets: Widget[] = [];
+      for (const tool of response.tools) {
+        const widgetType = deriveWidgetType(tool.name, tool.args);
+        widgets.push({
+          type: widgetType,
+          data: tool.args as Record<string, unknown>,
+        });
+      }
+      response.widgets = widgets;
+    }
+
+    // Set legacy single widget
+    if (response.widgets.length > 0) {
+      response.widget = response.widgets[0];
+    }
+
+    const duration = Date.now() - startTime;
+    const action = response.canHandle ? "handling" : "escalating";
+    console.log(`[Secretary] Completed in ${duration}ms, ${action}`);
+
+    return response;
+  } catch (error) {
+    console.error("[Secretary] Error:", error);
+    // Default to escalating on error
+    return createEmptySecretaryResponse(true, "Error calling secretary model");
+  }
+}
+
+/**
+ * Create an empty secretary response
+ */
+function createEmptySecretaryResponse(
+  escalate: boolean = false,
+  reason?: string
+): SecretaryResponse {
+  return {
+    canHandle: !escalate,
+    escalationReason: reason,
+    entities: [],
+    intents: [],
+    tools: [],
+    widgets: [],
+    questions: [],
+    confidence: 0,
+  };
 }
