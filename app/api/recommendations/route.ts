@@ -66,9 +66,12 @@ export async function POST() {
     // Generate new recommendations
     const result = await generateRecommendations(profileId);
 
+    // Fetch the saved recommendations (with IDs) from database
+    const savedRecommendations = await getRecommendations(profileId);
+
     return NextResponse.json({
       success: true,
-      recommendations: result.recommendations,
+      recommendations: savedRecommendations,
       stage: result.stage,
       savedCount: result.savedCount,
     });
