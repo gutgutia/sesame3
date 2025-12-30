@@ -240,41 +240,48 @@ export function ChatInterface({
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
 
-        // Check for SSE widget event at start of stream
-        if (buffer.includes("event: widget")) {
-          const eventMatch = buffer.match(/event: widget\ndata: (.+?)(\n\n|$)/);
-          if (eventMatch) {
-            try {
-              const eventData = JSON.parse(eventMatch[1]);
-              if (eventData.type === "widget" && eventData.widget) {
-                // Normalize widget data (parser uses satTotal/satMath/satReading, API uses total/math/reading)
-                const normalizedData = normalizeWidgetData(eventData.widget.type, eventData.widget.data);
-                const widget: PendingWidget = {
-                  id: `widget-${Date.now()}`,
-                  type: eventData.widget.type as WidgetType,
-                  data: normalizedData,
-                  status: "pending",
-                };
-                setPendingWidgets(prev => [...prev, widget]);
-              }
-            } catch (e) {
-              console.error("[Chat] Failed to parse widget event:", e);
+        // Extract ALL widget events from buffer (supports multiple widgets)
+        const widgetRegex = /event: widget\ndata: (.+?)(\n\n|$)/g;
+        let match;
+        const newWidgets: PendingWidget[] = [];
+
+        while ((match = widgetRegex.exec(buffer)) !== null) {
+          try {
+            const eventData = JSON.parse(match[1]);
+            if (eventData.type === "widget" && eventData.widget) {
+              // Normalize widget data (parser uses satTotal/satMath/satReading, API uses total/math/reading)
+              const normalizedData = normalizeWidgetData(eventData.widget.type, eventData.widget.data);
+              const widget: PendingWidget = {
+                id: `widget-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                type: eventData.widget.type as WidgetType,
+                data: normalizedData,
+                status: "pending",
+              };
+              newWidgets.push(widget);
             }
-            // Remove the SSE event from buffer, keep the rest as text
-            buffer = buffer.replace(/event: widget\ndata: .+?(\n\n|$)/, "");
+          } catch (e) {
+            console.error("[Chat] Failed to parse widget event:", e);
           }
         }
-        
+
+        // Add all new widgets at once
+        if (newWidgets.length > 0) {
+          setPendingWidgets(prev => [...prev, ...newWidgets]);
+        }
+
+        // Remove all SSE widget events from buffer, keep the rest as text
+        buffer = buffer.replace(/event: widget\ndata: .+?(\n\n|$)/g, "");
+
         // Everything else is text content
         if (buffer) {
           fullText = buffer;
-          setMessages(prev => 
-            prev.map(m => 
-              m.id === assistantMessage.id 
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === assistantMessage.id
                 ? { ...m, content: fullText }
                 : m
             )
@@ -417,11 +424,14 @@ export function ChatInterface({
         prev.map(w => w.id === widgetId ? { ...w, status: "confirmed" as const } : w)
       );
 
+      // Normalize widget data to API format before sending
+      const apiData = normalizeWidgetDataForApi(widget.type, data);
+
       // Call API in background
       const response = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(apiData),
       });
 
       if (response.ok) {
@@ -586,6 +596,11 @@ function isRecommendationWidget(type: WidgetType): boolean {
 
 function getApiEndpoint(widgetType: WidgetType): string | null {
   const endpoints: Record<WidgetType, string | null> = {
+    // Onboarding micro-widgets - all use profile PUT endpoint
+    name: "/api/profile",
+    grade: "/api/profile",
+    highschool: "/api/profile",
+    // Standard widgets
     sat: "/api/profile/testing/sat",
     act: "/api/profile/testing/act",
     activity: "/api/profile/activities",
@@ -605,6 +620,7 @@ function getApiEndpoint(widgetType: WidgetType): string | null {
 
 function getApiMethod(widgetType: WidgetType): string {
   const postTypes: WidgetType[] = ["activity", "award", "program", "goal", "school", "sat", "act"];
+  // Onboarding widgets use PUT for profile updates
   return postTypes.includes(widgetType) ? "POST" : "PUT";
 }
 
@@ -614,6 +630,30 @@ function getApiMethod(widgetType: WidgetType): string {
  * API uses: total, math, reading, composite, etc.
  */
 function normalizeWidgetData(widgetType: string, data: Record<string, unknown>): Record<string, unknown> {
+  // Onboarding micro-widgets
+  if (widgetType === "name") {
+    return {
+      firstName: data.firstName,
+      lastName: data.lastName,
+    };
+  }
+
+  if (widgetType === "grade") {
+    return {
+      grade: data.grade,
+    };
+  }
+
+  if (widgetType === "highschool") {
+    // Widget uses "name", API expects "highSchoolName"
+    return {
+      highSchoolName: data.name,
+      highSchoolCity: data.city,
+      highSchoolState: data.state,
+    };
+  }
+
+  // Standard widgets
   if (widgetType === "sat") {
     return {
       total: data.satTotal ?? data.total,
@@ -631,6 +671,25 @@ function normalizeWidgetData(widgetType: string, data: Record<string, unknown>):
       reading: data.actReading ?? data.reading,
       science: data.actScience ?? data.science,
       testDate: data.testDate,
+    };
+  }
+
+  // For other widget types, return data as-is
+  return data;
+}
+
+/**
+ * Normalize widget form data to API format before sending.
+ * This transforms the widget's internal field names to what the API expects.
+ */
+function normalizeWidgetDataForApi(widgetType: WidgetType, data: Record<string, unknown>): Record<string, unknown> {
+  // Onboarding micro-widgets need field name transformations
+  if (widgetType === "highschool") {
+    // Widget uses "name", API expects "highSchoolName"
+    return {
+      highSchoolName: data.name,
+      highSchoolCity: data.city,
+      highSchoolState: data.state,
     };
   }
 

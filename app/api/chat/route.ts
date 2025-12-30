@@ -148,7 +148,18 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           // Send widget data first (if detected AND widgets are enabled)
-          if (featureFlags.enableWidgets && parserResult?.widget) {
+          // Now supports multiple widgets
+          if (featureFlags.enableWidgets && parserResult?.widgets && parserResult.widgets.length > 0) {
+            for (const widget of parserResult.widgets) {
+              const widgetEvent = JSON.stringify({
+                type: "widget",
+                widget: widget,
+              });
+              const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
+              controller.enqueue(encoder.encode(sseMessage));
+            }
+          } else if (featureFlags.enableWidgets && parserResult?.widget) {
+            // Fallback to legacy single widget for backward compat
             const widgetEvent = JSON.stringify({
               type: "widget",
               widget: parserResult.widget,

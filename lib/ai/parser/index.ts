@@ -10,6 +10,7 @@ import {
   ParserContext,
   toolToWidgetType,
   WidgetType,
+  Widget,
 } from "./types";
 
 export * from "./types";
@@ -55,24 +56,29 @@ export async function parseUserMessage(
       intents: Array.isArray(parsed.intents) ? parsed.intents : [],
       tools: Array.isArray(parsed.tools) ? parsed.tools : [],
       acknowledgment: typeof parsed.acknowledgment === "string" ? parsed.acknowledgment : undefined,
-      widget: parsed.widget && typeof parsed.widget === "object" 
-        ? { 
-            type: (parsed.widget as Record<string, unknown>).type as WidgetType, 
-            data: (parsed.widget as Record<string, unknown>).data as Record<string, unknown> || {}
-          }
-        : undefined,
+      widgets: [], // Will be populated below
+      widget: undefined, // Legacy field, set to first widget for backward compat
       questions: Array.isArray(parsed.questions) ? parsed.questions : [],
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.8,
     };
-    
-    // Derive widget from tools if not explicitly set
-    if (!response.widget && response.tools.length > 0) {
-      const firstTool = response.tools[0];
-      const widgetType = deriveWidgetType(firstTool.name, firstTool.args);
-      response.widget = {
-        type: widgetType,
-        data: firstTool.args as Record<string, unknown>,
-      };
+
+    // Derive widgets from ALL tools (not just first)
+    if (response.tools.length > 0) {
+      const widgets: Widget[] = [];
+
+      for (const tool of response.tools) {
+        const widgetType = deriveWidgetType(tool.name, tool.args);
+        widgets.push({
+          type: widgetType,
+          data: tool.args as Record<string, unknown>,
+        });
+      }
+
+      response.widgets = widgets;
+      // Set legacy single widget to first one for backward compatibility
+      if (widgets.length > 0) {
+        response.widget = widgets[0];
+      }
     }
     
     const duration = Date.now() - startTime;
@@ -144,6 +150,7 @@ function createEmptyResponse(): ParserResponse {
     entities: [],
     intents: [],
     tools: [],
+    widgets: [],
     questions: [],
     confidence: 0,
   };
@@ -203,9 +210,9 @@ export function formatParserContextForAdvisor(response: ParserResponse): string 
   if (response.entities.length === 0 && response.questions.length === 0) {
     return "";
   }
-  
+
   const parts: string[] = [];
-  
+
   if (response.entities.length > 0) {
     const entitySummary = response.entities.map(e => {
       if (e.subtype) {
@@ -215,18 +222,23 @@ export function formatParserContextForAdvisor(response: ParserResponse): string 
     }).join(", ");
     parts.push(`[Extracted: ${entitySummary}]`);
   }
-  
-  if (response.widget) {
+
+  // Show all widgets that will be displayed
+  if (response.widgets && response.widgets.length > 0) {
+    const widgetTypes = response.widgets.map(w => w.type).join(", ");
+    parts.push(`[Widgets shown: ${widgetTypes}]`);
+  } else if (response.widget) {
+    // Fallback to legacy single widget
     parts.push(`[Widget shown: ${response.widget.type}]`);
   }
-  
+
   if (response.questions.length > 0) {
     parts.push(`[Questions: ${response.questions.join("; ")}]`);
   }
-  
+
   if (response.intents.length > 0) {
     parts.push(`[Intents: ${response.intents.join(", ")}]`);
   }
-  
+
   return parts.join(" ");
 }

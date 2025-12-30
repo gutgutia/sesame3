@@ -54,6 +54,21 @@ Return a JSON object:
 }
 
 ## Available Tools
+
+### Onboarding Tools (use these for basic profile info)
+- saveName: { firstName, lastName? } - When user shares their name. Capitalize properly.
+  - Examples: "I'm sarah chen" → { firstName: "Sarah", lastName: "Chen" }
+  - Examples: "call me Alex" → { firstName: "Alex" }
+- saveGrade: { grade } - When user shares their grade level
+  - Valid grades: "9th", "10th", "11th", "12th", "gap_year"
+  - Examples: "I'm a junior" → { grade: "11th" }
+  - Examples: "senior year" → { grade: "12th" }
+- saveHighSchool: { name, city?, state? } - When user shares their high school
+  - Capitalize school name properly
+  - Convert state names to 2-letter codes (California → CA)
+  - Examples: "lincoln high in san jose, california" → { name: "Lincoln High", city: "San Jose", state: "CA" }
+
+### Profile Tools
 - saveGpa: { gpaUnweighted?, gpaWeighted?, gpaScale? }
 - saveTestScores: { satTotal?, satMath?, satReading?, actComposite?, psatTotal? }
 - addActivity: { title, organization, category?, isLeadership?, description? }
@@ -61,8 +76,15 @@ Return a JSON object:
 - uploadTranscript: {} - Use when user wants to share/upload transcript, courses, classes, or schedule
 - addProgram: { name, organization?, type, status } - ONLY for specific named programs
 - addSchoolToList: { schoolName, tier?, whyInterested? }
-- saveProfileInfo: { firstName?, lastName?, preferredName?, grade?, highSchoolName? }
+- saveProfileInfo: { firstName?, lastName?, preferredName?, grade?, highSchoolName? } - Legacy, prefer specific tools above
 - addGoal: { title, category, targetDate? }
+
+## IMPORTANT: Multiple Tools
+When user provides multiple pieces of info, call MULTIPLE tools:
+- "I'm Sarah Chen, a junior at Lincoln High in San Jose" should produce:
+  1. saveName: { firstName: "Sarah", lastName: "Chen" }
+  2. saveGrade: { grade: "11th" }
+  3. saveHighSchool: { name: "Lincoln High", city: "San Jose" }
 
 ## Programs vs Goals - IMPORTANT DISTINCTION
 - addProgram: Use ONLY when user mentions a SPECIFIC, NAMED program they have attended or are applying to

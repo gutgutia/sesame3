@@ -10,6 +10,10 @@ import { cn } from "@/lib/utils";
 
 // Widget types - removed "gpa" (triggers course upload), "course" replaced with "transcript"
 export type WidgetType =
+  // Onboarding micro-widgets - lightweight data capture
+  | "name"        // firstName, lastName with proper capitalization
+  | "grade"       // Grade selection (9th-12th, gap_year)
+  | "highschool"  // High school name, city, state
   // Input widgets - collect data from user
   | "sat"
   | "act"
@@ -24,6 +28,16 @@ export type WidgetType =
   | "program_recommendations"
   | "school_recommendations";
 
+// Helper: Capitalize each word properly
+function capitalizeWords(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 interface ConfirmationWidgetProps {
   type: WidgetType;
   data: Record<string, unknown>;
@@ -32,6 +46,11 @@ interface ConfirmationWidgetProps {
 }
 
 const icons: Record<WidgetType, React.ElementType> = {
+  // Onboarding micro-widgets
+  name: User,
+  grade: User,
+  highschool: School,
+  // Standard widgets
   sat: PenTool,
   act: PenTool,
   activity: Users,
@@ -47,6 +66,11 @@ const icons: Record<WidgetType, React.ElementType> = {
 };
 
 const titles: Record<WidgetType, string> = {
+  // Onboarding micro-widgets
+  name: "Your Name",
+  grade: "Grade Level",
+  highschool: "High School",
+  // Standard widgets
   sat: "SAT Score",
   act: "ACT Score",
   activity: "Activity",
@@ -129,6 +153,18 @@ export function ConfirmationWidget({ type, data, onConfirm, onDismiss }: Confirm
 
       {/* Form Fields based on type */}
       <div className="space-y-3">
+        {type === "name" && (
+          <NameFields data={formData} onChange={updateField} />
+        )}
+
+        {type === "grade" && (
+          <GradeFields data={formData} onChange={updateField} />
+        )}
+
+        {type === "highschool" && (
+          <HighSchoolFields data={formData} onChange={updateField} />
+        )}
+
         {type === "sat" && (
           <SATFields data={formData} onChange={updateField} />
         )}
@@ -243,6 +279,163 @@ function SelectField({
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
     </select>
+  );
+}
+
+// =============================================================================
+// NAME FIELDS - First name, last name with auto-capitalization
+// =============================================================================
+
+function NameFields({ data, onChange }: { data: Record<string, unknown>; onChange: (field: string, value: unknown) => void }) {
+  // Auto-capitalize on initial load
+  const firstName = data.firstName as string || "";
+  const lastName = data.lastName as string || "";
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <FieldLabel required>First Name</FieldLabel>
+          <TextField
+            value={capitalizeWords(firstName)}
+            onChange={(v) => onChange("firstName", capitalizeWords(v))}
+            placeholder="First name"
+            required
+          />
+        </div>
+        <div>
+          <FieldLabel>Last Name</FieldLabel>
+          <TextField
+            value={capitalizeWords(lastName)}
+            onChange={(v) => onChange("lastName", capitalizeWords(v))}
+            placeholder="Last name"
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// =============================================================================
+// GRADE FIELDS - Grade level selection
+// =============================================================================
+
+function GradeFields({ data, onChange }: { data: Record<string, unknown>; onChange: (field: string, value: unknown) => void }) {
+  const grade = data.grade as string || "";
+
+  return (
+    <>
+      <div>
+        <FieldLabel required>What grade are you in?</FieldLabel>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {[
+            { value: "9th", label: "9th Grade" },
+            { value: "10th", label: "10th Grade" },
+            { value: "11th", label: "11th Grade" },
+            { value: "12th", label: "12th Grade" },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange("grade", opt.value)}
+              className={cn(
+                "py-2.5 px-3 rounded-lg border text-sm font-medium transition-all",
+                grade === opt.value
+                  ? "border-accent-primary bg-accent-surface text-accent-primary ring-2 ring-accent-primary/20"
+                  : "border-border-medium bg-white text-text-main hover:border-accent-primary"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange("grade", "gap_year")}
+          className={cn(
+            "w-full mt-2 py-2 px-3 rounded-lg border text-sm font-medium transition-all",
+            grade === "gap_year"
+              ? "border-accent-primary bg-accent-surface text-accent-primary ring-2 ring-accent-primary/20"
+              : "border-border-medium bg-white text-text-muted hover:border-accent-primary hover:text-text-main"
+          )}
+        >
+          Gap Year
+        </button>
+      </div>
+    </>
+  );
+}
+
+// =============================================================================
+// HIGH SCHOOL FIELDS - School name, city, state
+// =============================================================================
+
+// US States for dropdown
+const US_STATES = [
+  { value: "AL", label: "Alabama" }, { value: "AK", label: "Alaska" },
+  { value: "AZ", label: "Arizona" }, { value: "AR", label: "Arkansas" },
+  { value: "CA", label: "California" }, { value: "CO", label: "Colorado" },
+  { value: "CT", label: "Connecticut" }, { value: "DE", label: "Delaware" },
+  { value: "FL", label: "Florida" }, { value: "GA", label: "Georgia" },
+  { value: "HI", label: "Hawaii" }, { value: "ID", label: "Idaho" },
+  { value: "IL", label: "Illinois" }, { value: "IN", label: "Indiana" },
+  { value: "IA", label: "Iowa" }, { value: "KS", label: "Kansas" },
+  { value: "KY", label: "Kentucky" }, { value: "LA", label: "Louisiana" },
+  { value: "ME", label: "Maine" }, { value: "MD", label: "Maryland" },
+  { value: "MA", label: "Massachusetts" }, { value: "MI", label: "Michigan" },
+  { value: "MN", label: "Minnesota" }, { value: "MS", label: "Mississippi" },
+  { value: "MO", label: "Missouri" }, { value: "MT", label: "Montana" },
+  { value: "NE", label: "Nebraska" }, { value: "NV", label: "Nevada" },
+  { value: "NH", label: "New Hampshire" }, { value: "NJ", label: "New Jersey" },
+  { value: "NM", label: "New Mexico" }, { value: "NY", label: "New York" },
+  { value: "NC", label: "North Carolina" }, { value: "ND", label: "North Dakota" },
+  { value: "OH", label: "Ohio" }, { value: "OK", label: "Oklahoma" },
+  { value: "OR", label: "Oregon" }, { value: "PA", label: "Pennsylvania" },
+  { value: "RI", label: "Rhode Island" }, { value: "SC", label: "South Carolina" },
+  { value: "SD", label: "South Dakota" }, { value: "TN", label: "Tennessee" },
+  { value: "TX", label: "Texas" }, { value: "UT", label: "Utah" },
+  { value: "VT", label: "Vermont" }, { value: "VA", label: "Virginia" },
+  { value: "WA", label: "Washington" }, { value: "WV", label: "West Virginia" },
+  { value: "WI", label: "Wisconsin" }, { value: "WY", label: "Wyoming" },
+  { value: "DC", label: "Washington DC" },
+];
+
+function HighSchoolFields({ data, onChange }: { data: Record<string, unknown>; onChange: (field: string, value: unknown) => void }) {
+  const name = data.name as string || "";
+  const city = data.city as string || "";
+  const state = data.state as string || "";
+
+  return (
+    <>
+      <div>
+        <FieldLabel required>School Name</FieldLabel>
+        <TextField
+          value={capitalizeWords(name)}
+          onChange={(v) => onChange("name", capitalizeWords(v))}
+          placeholder="e.g., Lincoln High School"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <FieldLabel>City</FieldLabel>
+          <TextField
+            value={capitalizeWords(city)}
+            onChange={(v) => onChange("city", capitalizeWords(v))}
+            placeholder="City"
+          />
+        </div>
+        <div>
+          <FieldLabel>State</FieldLabel>
+          <SelectField
+            value={state}
+            onChange={(v) => onChange("state", v)}
+            placeholder="Select state"
+            options={US_STATES}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 

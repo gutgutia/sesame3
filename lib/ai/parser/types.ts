@@ -56,6 +56,11 @@ export type IntentType = z.infer<typeof IntentTypeSchema>;
  */
 export const ToolCallSchema = z.object({
   name: z.enum([
+    // Onboarding tools - separate, lightweight
+    "saveName",          // { firstName, lastName }
+    "saveGrade",         // { grade }
+    "saveHighSchool",    // { name, city?, state? }
+    // Profile tools
     "saveGpa",
     "saveTestScores",
     "addActivity",
@@ -63,8 +68,9 @@ export const ToolCallSchema = z.object({
     "addCourse",
     "addProgram",
     "addSchoolToList",
-    "saveProfileInfo",
+    "saveProfileInfo",   // Legacy combined profile tool
     "addGoal",
+    "uploadTranscript",
   ]),
   args: z.record(z.string(), z.unknown()),
 });
@@ -77,6 +83,10 @@ export type ToolCall = z.infer<typeof ToolCallSchema>;
  * Note: "course" renamed to "transcript" (triggers transcript upload)
  */
 export const WidgetTypeSchema = z.enum([
+  // Onboarding micro-widgets - lightweight data capture
+  "name",        // firstName, lastName with proper capitalization
+  "grade",       // Grade selection (9th-12th, gap_year)
+  "highschool",  // High school name, city, state
   // Input widgets - collect data from user
   "sat",
   "act",
@@ -84,8 +94,8 @@ export const WidgetTypeSchema = z.enum([
   "award",
   "transcript",  // Replaces "course" - triggers transcript upload flow
   "program",
-  "school",
-  "profile",
+  "school",      // College/university for school list
+  "profile",     // Legacy combined profile widget
   "goal",
   // Recommendation widgets - display-only, show suggestions
   "program_recommendations",  // Summer program suggestions
@@ -95,30 +105,40 @@ export const WidgetTypeSchema = z.enum([
 export type WidgetType = z.infer<typeof WidgetTypeSchema>;
 
 /**
+ * Single widget definition
+ */
+export const WidgetSchema = z.object({
+  type: WidgetTypeSchema,
+  data: z.record(z.string(), z.unknown()),
+});
+
+export type Widget = z.infer<typeof WidgetSchema>;
+
+/**
  * Complete parser response
  */
 export const ParserResponseSchema = z.object({
   // Extracted structured data
   entities: z.array(ExtractedEntitySchema).default([]),
-  
+
   // What the user is trying to do
   intents: z.array(IntentTypeSchema).default([]),
-  
+
   // Tool calls to execute
   tools: z.array(ToolCallSchema).default([]),
-  
+
   // Quick acknowledgment (shown before Advisor response)
   acknowledgment: z.string().optional(),
-  
-  // Widget to show for confirmation
-  widget: z.object({
-    type: WidgetTypeSchema,
-    data: z.record(z.string(), z.unknown()),
-  }).optional(),
-  
+
+  // Widgets to show for confirmation (supports multiple)
+  widgets: z.array(WidgetSchema).default([]),
+
+  // Legacy single widget (for backward compatibility, set to first widget)
+  widget: WidgetSchema.optional(),
+
   // Any questions extracted from the user's message
   questions: z.array(z.string()).default([]),
-  
+
   // Raw confidence score (0-1)
   confidence: z.number().min(0).max(1).default(0.8),
 });
@@ -141,6 +161,11 @@ export interface ParserContext {
  * Note: addCourse renamed to transcript upload
  */
 export const toolToWidgetType: Record<string, WidgetType> = {
+  // Onboarding micro-widgets
+  saveName: "name",
+  saveGrade: "grade",
+  saveHighSchool: "highschool",
+  // Standard widgets
   saveGpa: "transcript",        // GPA mention triggers transcript upload
   saveTestScores: "sat",        // Will be refined to "act" based on args
   addActivity: "activity",
@@ -149,7 +174,7 @@ export const toolToWidgetType: Record<string, WidgetType> = {
   uploadTranscript: "transcript", // Explicit transcript upload
   addProgram: "program",
   addSchoolToList: "school",
-  saveProfileInfo: "profile",
+  saveProfileInfo: "profile",   // Legacy combined profile widget
   addGoal: "goal",
   // Recommendation tools
   recommendPrograms: "program_recommendations",
