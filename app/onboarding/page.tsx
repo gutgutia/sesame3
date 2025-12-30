@@ -25,8 +25,8 @@ export default function OnboardingPage() {
         }
       } catch (error) {
         console.error("Failed to fetch welcome message:", error);
-        // Use a default welcome if fetch fails
-        setWelcomeMessage("Hi! I'm Sesame, your college prep guide. I'm here to help you navigate this journey calmly — one step at a time. What should I call you?");
+        // Use a default onboarding welcome if fetch fails
+        setWelcomeMessage("Hi! I'm Sesame, your college prep guide. I'm here to help you navigate the college journey calmly — one step at a time. First things first: what should I call you?");
       }
     };
 
