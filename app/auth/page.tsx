@@ -1,11 +1,27 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import { ArrowRight, Mail, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthPageLoading />}>
+      <AuthPageContent />
+    </Suspense>
+  );
+}
+
+function AuthPageLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white">
+      <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
+    </div>
+  );
+}
+
+function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
