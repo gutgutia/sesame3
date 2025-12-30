@@ -51,8 +51,8 @@ const TEST_USERS = [
       highSchoolCity: "Palo Alto",
       highSchoolState: "CA",
       academics: {
-        gpaUnweighted: 3.9,
-        gpaWeighted: 4.2,
+        schoolReportedGpaUnweighted: 3.9,
+        schoolReportedGpaWeighted: 4.2,
       },
       testing: {
         satTotal: 1490,
@@ -111,8 +111,8 @@ const TEST_USERS = [
         values: ["curiosity", "equity", "persistence"],
       },
       academics: {
-        gpaUnweighted: 3.95,
-        gpaWeighted: 4.4,
+        schoolReportedGpaUnweighted: 3.95,
+        schoolReportedGpaWeighted: 4.4,
         classRank: 5,
         classSize: 450,
       },
@@ -267,8 +267,8 @@ async function seedTestUsers() {
         await prisma.academics.create({
           data: {
             studentProfileId: profile.id,
-            gpaUnweighted: profileData.academics.gpaUnweighted,
-            gpaWeighted: profileData.academics.gpaWeighted,
+            schoolReportedGpaUnweighted: profileData.academics.schoolReportedGpaUnweighted,
+            schoolReportedGpaWeighted: profileData.academics.schoolReportedGpaWeighted,
             classRank: profileData.academics.classRank,
             classSize: profileData.academics.classSize,
           },
