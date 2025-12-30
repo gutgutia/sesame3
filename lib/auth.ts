@@ -155,17 +155,32 @@ export async function getCurrentProfileId(): Promise<string | null> {
     },
   });
 
-  // Create profile
-  profile = await prisma.studentProfile.create({
-    data: {
-      userId: user.id,
-      firstName: user.name?.split(" ")[0] || "Student",
-      lastName: user.name?.split(" ").slice(1).join(" ") || undefined,
-    },
-    select: { id: true },
-  });
-
-  return profile.id;
+  // Create profile - use try/catch to handle race condition
+  // where multiple requests try to create profile simultaneously
+  try {
+    profile = await prisma.studentProfile.create({
+      data: {
+        userId: user.id,
+        firstName: user.name?.split(" ")[0] || "Student",
+        lastName: user.name?.split(" ").slice(1).join(" ") || undefined,
+      },
+      select: { id: true },
+    });
+    return profile.id;
+  } catch (error) {
+    // If unique constraint error (P2002), another request created the profile first
+    // Just fetch and return it
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      const existingProfile = await prisma.studentProfile.findFirst({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (existingProfile) {
+        return existingProfile.id;
+      }
+    }
+    throw error;
+  }
 }
 
 /**
