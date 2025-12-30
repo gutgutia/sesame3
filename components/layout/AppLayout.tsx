@@ -1,10 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const warmedUp = useRef(false);
+
+  // Pre-warm context cache on login for instant chat startup
+  useEffect(() => {
+    if (warmedUp.current) return;
+    warmedUp.current = true;
+
+    // Fire and forget - don't block rendering
+    fetch("/api/context/warmup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).catch(() => {
+      // Ignore errors - warmup is optional optimization
+    });
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-bg-app font-body text-text-main w-full">
       <Sidebar />

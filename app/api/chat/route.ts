@@ -23,6 +23,7 @@ import {
   getUserIdFromProfile,
 } from "@/lib/usage";
 import { getFeatureFlags } from "@/lib/config";
+import { getCachedContext, setCachedContext } from "@/lib/cache/context-cache";
 
 export const maxDuration = 60; // Allow up to 60 seconds for streaming
 
@@ -140,18 +141,26 @@ export async function POST(request: NextRequest) {
             controller.enqueue(encoder.encode(sseMessage));
           }
 
-          // === NOW assemble context (widgets already sent to client) ===
+          // === Get context (from cache if available, otherwise assemble) ===
           const contextStart = Date.now();
-          const context = await assembleContext({
-            profileId,
-            mode: mode as EntryMode,
-            messages: validMessages.map((m: { role: string; content: string }) => ({
-              role: m.role as "user" | "assistant",
-              content: m.content,
-            })),
-            sessionStartTime: new Date(),
-          });
-          console.log(`[Chat] Context assembled in ${Date.now() - contextStart}ms`);
+          let context = getCachedContext(profileId);
+          let cacheHit = !!context;
+
+          if (!context) {
+            // Cache miss - assemble fresh context
+            context = await assembleContext({
+              profileId,
+              mode: mode as EntryMode,
+              messages: validMessages.map((m: { role: string; content: string }) => ({
+                role: m.role as "user" | "assistant",
+                content: m.content,
+              })),
+              sessionStartTime: new Date(),
+            });
+            // Cache for next request
+            setCachedContext(profileId, context);
+          }
+          console.log(`[Chat] Context ${cacheHit ? "CACHE HIT" : "assembled"} in ${Date.now() - contextStart}ms`);
 
           // Inject parser context into the system prompt
           let advisorPrompt = context.advisorPrompt;
