@@ -91,65 +91,37 @@ export async function POST(request: NextRequest) {
     const isUserMessage = lastMessage?.role === "user";
     const userInput = isUserMessage ? lastMessage.content : "";
     
-    // === PHASE 1: Fast Parsing with Kimi K2 ===
-    let parserResult: ParserResponse | null = null;
-    let parserTokens = { input: 0, output: 0 };
-    
-    if (isUserMessage && shouldParse(userInput)) {
-      console.log("[Chat] Parsing user message...");
-      const parseStart = Date.now();
-      
-      parserResult = await parseUserMessage(userInput, {
-        entryMode: mode,
-      });
-      
-      // Estimate parser tokens (rough estimate: 4 chars = 1 token)
-      parserTokens = {
-        input: Math.ceil(userInput.length / 4) + 100, // +100 for system prompt
-        output: 50, // Parser output is small
-      };
-      
+    // === PHASE 1: Fast Parsing with Kimi K2 + Feature Flags (parallel) ===
+    const parseStart = Date.now();
+
+    // Start parsing and feature flags in parallel
+    const [parserResultRaw, featureFlags] = await Promise.all([
+      isUserMessage && shouldParse(userInput)
+        ? parseUserMessage(userInput, { entryMode: mode })
+        : Promise.resolve(null),
+      getFeatureFlags(),
+    ]);
+
+    const parserResult: ParserResponse | null = parserResultRaw;
+    const parserTokens = parserResult
+      ? { input: Math.ceil(userInput.length / 4) + 100, output: 50 }
+      : { input: 0, output: 0 };
+
+    if (parserResult) {
       console.log(`[Chat] Parser completed in ${Date.now() - parseStart}ms`);
     }
-    
-    // === PHASE 2: Assemble Context for Advisor ===
-    const context = await assembleContext({
-      profileId,
-      mode: mode as EntryMode,
-      messages: validMessages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-      sessionStartTime: new Date(),
-    });
-    
-    // Inject parser context into the system prompt
-    let advisorPrompt = context.advisorPrompt;
-    if (parserResult) {
-      const parserContext = formatParserContextForAdvisor(parserResult);
-      if (parserContext) {
-        advisorPrompt += `\n\n## Parser Analysis\n${parserContext}`;
-      }
-    }
-    
-    // Estimate input tokens for advisor
-    const estimatedInputTokens = Math.ceil(
-      (advisorPrompt.length + validMessages.reduce((acc: number, m: { content: string }) => acc + m.content.length, 0)) / 4
-    );
-    
-    // === PHASE 3: Create SSE Stream with Widget + Advisor Response ===
+
+    // === PHASE 2: Start SSE Stream IMMEDIATELY - Send widgets before context assembly ===
     const encoder = new TextEncoder();
     let totalOutputTokens = 0;
-    
-    // Check if widgets are enabled (feature flag)
-    const featureFlags = await getFeatureFlags();
-    
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Send widget data first (if detected AND widgets are enabled)
-          // Now supports multiple widgets
+          // Send widget data IMMEDIATELY after parsing (before context assembly)
+          // This ensures widgets appear in ~600ms, not 3+ seconds
           if (featureFlags.enableWidgets && parserResult?.widgets && parserResult.widgets.length > 0) {
+            console.log(`[Chat] Sending ${parserResult.widgets.length} widget(s) immediately`);
             for (const widget of parserResult.widgets) {
               const widgetEvent = JSON.stringify({
                 type: "widget",
@@ -167,7 +139,34 @@ export async function POST(request: NextRequest) {
             const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
             controller.enqueue(encoder.encode(sseMessage));
           }
-          
+
+          // === NOW assemble context (widgets already sent to client) ===
+          const contextStart = Date.now();
+          const context = await assembleContext({
+            profileId,
+            mode: mode as EntryMode,
+            messages: validMessages.map((m: { role: string; content: string }) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })),
+            sessionStartTime: new Date(),
+          });
+          console.log(`[Chat] Context assembled in ${Date.now() - contextStart}ms`);
+
+          // Inject parser context into the system prompt
+          let advisorPrompt = context.advisorPrompt;
+          if (parserResult) {
+            const parserContext = formatParserContextForAdvisor(parserResult);
+            if (parserContext) {
+              advisorPrompt += `\n\n## Parser Analysis\n${parserContext}`;
+            }
+          }
+
+          // Estimate input tokens for advisor
+          const estimatedInputTokens = Math.ceil(
+            (advisorPrompt.length + validMessages.reduce((acc: number, m: { content: string }) => acc + m.content.length, 0)) / 4
+          );
+
           // Stream the Advisor response
           const result = streamText({
             model: advisorModel,
