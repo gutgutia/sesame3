@@ -57,12 +57,19 @@ Return a JSON object:
 
 ### Onboarding Tools (use these for basic profile info)
 - saveName: { firstName, lastName? } - When user shares their name. Capitalize properly.
+  - Use when user gives their name in ANY format (especially during onboarding)
   - Examples: "I'm sarah chen" → { firstName: "Sarah", lastName: "Chen" }
   - Examples: "call me Alex" → { firstName: "Alex" }
+  - Examples: "Vansh" → { firstName: "Vansh" }
+  - Examples: "sarah" → { firstName: "Sarah" }
+  - Examples: "John Smith" → { firstName: "John", lastName: "Smith" }
 - saveGrade: { grade } - When user shares their grade level
   - Valid grades: "9th", "10th", "11th", "12th", "gap_year"
   - Examples: "I'm a junior" → { grade: "11th" }
   - Examples: "senior year" → { grade: "12th" }
+  - Examples: "10th grade" → { grade: "10th" }
+  - Examples: "sophomore" → { grade: "10th" }
+  - Examples: "freshman" → { grade: "9th" }
 - saveHighSchool: { name, city?, state? } - When user shares their high school
   - Capitalize school name properly
   - Convert state names to 2-letter codes (California → CA)
