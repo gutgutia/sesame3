@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { 
-  Search, 
-  Loader2, 
+import {
+  Search,
+  Loader2,
   TrendingUp,
   ChevronDown,
   ChevronUp,
@@ -46,10 +46,49 @@ interface SchoolEntry {
 }
 
 // =============================================================================
-// MAIN PAGE
+// MAIN PAGE (wrapper with Suspense)
 // =============================================================================
 
 export default function ChancesPage() {
+  return (
+    <Suspense fallback={<ChancesPageLoading />}>
+      <ChancesPageContent />
+    </Suspense>
+  );
+}
+
+function ChancesPageLoading() {
+  return (
+    <div className="min-h-screen bg-surface-primary pb-20">
+      <div className="border-b border-border-subtle bg-surface-secondary/50">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-primary to-accent-secondary flex items-center justify-center">
+              <Target className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-semibold text-text-primary">
+              Your Chances
+            </h1>
+          </div>
+          <p className="text-text-secondary">
+            See how you stack up against your target schools
+          </p>
+        </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-accent-primary" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// MAIN PAGE CONTENT
+// =============================================================================
+
+function ChancesPageContent() {
   const searchParams = useSearchParams();
   const initialSchoolId = searchParams.get("school");
   const { profile } = useProfile();
