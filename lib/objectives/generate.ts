@@ -251,6 +251,7 @@ async function computeUpcomingDeadlines(
     where: {
       studentProfileId: profileId,
       status: { in: ["researching", "planning", "in_progress"] },
+      schoolId: { not: null }, // Only linked schools (not custom)
     },
     select: {
       applicationType: true,
@@ -270,6 +271,8 @@ async function computeUpcomingDeadlines(
   for (const entry of schools) {
     // Get relevant deadline based on application type
     const appType = entry.applicationType;
+    // Skip if no linked school (should not happen due to filter, but TypeScript safety)
+    if (!entry.school) continue;
     const yearDeadlines = entry.school.deadlineYears[0];
     if (!yearDeadlines) continue;
 
@@ -357,8 +360,11 @@ function buildObjectivesPrompt(
   // School list
   const schools =
     profile?.schoolList
+      ?.filter((s: { school: { name: string } | null }) => s.school)
       ?.slice(0, 3)
-      .map((s: { school: { name: string } }) => s.school.name) || [];
+      .map((s: { school: { name: string } | null; customName?: string | null }) =>
+        s.school?.name || s.customName || "Unknown"
+      ) || [];
   if (schools.length > 0) {
     profileParts.push(`Target schools: ${schools.join(", ")}`);
   }

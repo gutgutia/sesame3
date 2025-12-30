@@ -47,7 +47,7 @@ function parseSession(token: string): SessionData | null {
  * Get the current authenticated user
  *
  * Priority order:
- * 1. Real session (sesame_session cookie)
+ * 1. Real session (sesame_session cookie) - verify by ID first, fallback to email
  * 2. User ID cookie (sesame_user_id) - fallback for session edge cases
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
@@ -58,11 +58,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (sessionToken) {
     const session = parseSession(sessionToken);
     if (session) {
-      // Verify user exists in database
-      const user = await prisma.user.findUnique({
+      // First try to find user by ID (fast path)
+      let user = await prisma.user.findUnique({
         where: { id: session.userId },
         select: { id: true, email: true, name: true },
       });
+
+      // If not found by ID, try by email (handles re-seeded users)
+      if (!user && session.email) {
+        user = await prisma.user.findUnique({
+          where: { email: session.email },
+          select: { id: true, email: true, name: true },
+        });
+      }
 
       if (user) {
         return {

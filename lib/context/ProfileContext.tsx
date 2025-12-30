@@ -148,6 +148,9 @@ export interface ProfileData {
     isDream?: boolean;
     status?: string | null;
     interestLevel?: string | null;
+    isCustom?: boolean;
+    customName?: string | null;
+    customLocation?: string | null;
     school?: {
       id: string;
       name: string;

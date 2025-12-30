@@ -42,6 +42,22 @@ export async function GET() {
 /**
  * POST /api/opportunities/summer-programs
  * Add a summer program to tracking
+ *
+ * Body for linked program (from our database):
+ *   - summerProgramId: ID of program from our database
+ *   - applicationYear?: Year (defaults to program's programYear)
+ *   - status?: Tracking status
+ *   - notes?: Notes
+ *   - whyInterested?: Why interested
+ *
+ * Body for custom program (not in our database):
+ *   - customName: Name of the program
+ *   - customOrganization?: Organization name
+ *   - customDescription?: Brief description
+ *   - applicationYear: Year (required for custom)
+ *   - status?: Tracking status
+ *   - notes?: Notes
+ *   - whyInterested?: Why interested
  */
 export async function POST(request: NextRequest) {
   try {
@@ -55,62 +71,118 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { summerProgramId, applicationYear, status = "interested", notes, whyInterested } = body;
+    const {
+      summerProgramId,
+      customName,
+      customOrganization,
+      customDescription,
+      applicationYear,
+      status = "interested",
+      notes,
+      whyInterested,
+    } = body;
 
-    if (!summerProgramId) {
+    // Must have either summerProgramId (linked) or customName (custom)
+    if (!summerProgramId && !customName) {
       return NextResponse.json(
-        { error: "summerProgramId is required" },
+        { error: "Either summerProgramId or customName is required" },
         { status: 400 }
       );
     }
 
-    // Get the program to determine the application year if not provided
-    const program = await prisma.summerProgram.findUnique({
-      where: { id: summerProgramId },
-    });
+    if (summerProgramId) {
+      // Adding a linked program from our database
 
-    if (!program) {
-      return NextResponse.json(
-        { error: "Program not found" },
-        { status: 404 }
-      );
-    }
+      // Get the program to determine the application year if not provided
+      const program = await prisma.summerProgram.findUnique({
+        where: { id: summerProgramId },
+      });
 
-    const year = applicationYear || program.programYear;
+      if (!program) {
+        return NextResponse.json(
+          { error: "Program not found" },
+          { status: 404 }
+        );
+      }
 
-    // Check if already tracking this program for this year
-    const existing = await prisma.studentSummerProgram.findUnique({
-      where: {
-        studentProfileId_summerProgramId_applicationYear: {
+      const year = applicationYear || program.programYear;
+
+      // Check if already tracking this program for this year
+      const existing = await prisma.studentSummerProgram.findFirst({
+        where: {
           studentProfileId: profileId,
           summerProgramId,
           applicationYear: year,
         },
-      },
-    });
+      });
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Already tracking this program for this year" },
-        { status: 409 }
-      );
+      if (existing) {
+        return NextResponse.json(
+          { error: "Already tracking this program for this year" },
+          { status: 409 }
+        );
+      }
+
+      const tracked = await prisma.studentSummerProgram.create({
+        data: {
+          studentProfileId: profileId,
+          summerProgramId,
+          isCustom: false,
+          applicationYear: year,
+          status,
+          notes,
+          whyInterested,
+        },
+        include: {
+          summerProgram: true,
+        },
+      });
+
+      return NextResponse.json(tracked, { status: 201 });
+    } else {
+      // Adding a custom program (not in our database)
+
+      if (!applicationYear) {
+        return NextResponse.json(
+          { error: "applicationYear is required for custom programs" },
+          { status: 400 }
+        );
+      }
+
+      // Check if custom program with same name already tracked for this year
+      const existing = await prisma.studentSummerProgram.findFirst({
+        where: {
+          studentProfileId: profileId,
+          isCustom: true,
+          customName: { equals: customName, mode: "insensitive" },
+          applicationYear,
+        },
+      });
+
+      if (existing) {
+        return NextResponse.json(
+          { error: "Already tracking this program for this year" },
+          { status: 409 }
+        );
+      }
+
+      const tracked = await prisma.studentSummerProgram.create({
+        data: {
+          studentProfileId: profileId,
+          summerProgramId: null,
+          isCustom: true,
+          customName,
+          customOrganization,
+          customDescription,
+          applicationYear,
+          status,
+          notes,
+          whyInterested,
+        },
+      });
+
+      return NextResponse.json(tracked, { status: 201 });
     }
-
-    const tracked = await prisma.studentSummerProgram.create({
-      data: {
-        studentProfileId: profileId,
-        summerProgramId,
-        applicationYear: year,
-        status,
-        notes,
-        whyInterested,
-      },
-      include: {
-        summerProgram: true,
-      },
-    });
-
-    return NextResponse.json(tracked, { status: 201 });
   } catch (error) {
     console.error("Error adding program to tracking:", error);
     return NextResponse.json(

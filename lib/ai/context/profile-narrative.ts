@@ -188,20 +188,25 @@ export function buildProfileNarrative(profile: FullProfile | null): string {
   // School List (with dream schools and application status)
   // ==========================================================================
   if (profile.schoolList && profile.schoolList.length > 0) {
+    // Helper to get school name (handles custom schools)
+    const getSchoolName = (entry: (typeof profile.schoolList)[number]): string => {
+      return entry.school?.name || entry.customName || "Unknown School";
+    };
+
     // Highlight dream schools first
     const dreamSchools = profile.schoolList.filter(s => s.isDream);
     if (dreamSchools.length > 0) {
-      const dreamNames = dreamSchools.map(s => s.school.name).join(", ");
+      const dreamNames = dreamSchools.map(s => getSchoolName(s)).join(", ");
       sections.push(`Dream schools: ${dreamNames}`);
     }
-    
+
     // Then by tier
     const byTier: Record<string, string[]> = {};
     for (const entry of profile.schoolList) {
       const tier = entry.tier || "exploring";
       if (!byTier[tier]) byTier[tier] = [];
-      
-      let schoolStr = entry.school.name;
+
+      let schoolStr = getSchoolName(entry);
       // Add application status if actively applying
       if (entry.status && entry.status !== "researching") {
         schoolStr += ` (${entry.status})`;

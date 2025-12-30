@@ -141,6 +141,10 @@ model StudentProfile {
   accessGrants AccessGrant[]
   invitations  Invitation[]
 
+  // Relations - Recommendations
+  recommendationPreferences RecommendationPreferences?
+  recommendations           Recommendation[]
+
   @@index([userId])
 }
 
@@ -575,11 +579,12 @@ model School {
   dataStatus         String?   // "pending_review" | "verified" | "needs_update"
 
   // Relations
-  studentSchools StudentSchool[]
-  goals          Goal[]
-  tasks          Task[]
-  taskTemplates  TaskTemplate[]
-  deadlineYears  SchoolDeadlineYear[]
+  studentSchools  StudentSchool[]
+  goals           Goal[]
+  tasks           Task[]
+  taskTemplates   TaskTemplate[]
+  deadlineYears   SchoolDeadlineYear[]
+  recommendations Recommendation[]
 
   @@index([name])
 }
@@ -735,6 +740,7 @@ model SummerProgram {
   goals           Goal[]
   tasks           Task[]
   taskTemplates   TaskTemplate[]
+  recommendations Recommendation[]
 
   @@unique([name, programYear])  // Same program can have multiple year entries
   @@index([programYear])
@@ -777,8 +783,16 @@ model StudentSummerProgram {
   id                String @id @default(uuid())
   studentProfileId  String
   studentProfile    StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
-  summerProgramId   String
-  summerProgram     SummerProgram @relation(fields: [summerProgramId], references: [id], onDelete: Cascade)
+
+  // Linked program from our curated database (null for custom programs)
+  summerProgramId   String?
+  summerProgram     SummerProgram? @relation(fields: [summerProgramId], references: [id], onDelete: Cascade)
+
+  // Custom program fields (for programs not in our database)
+  isCustom          Boolean   @default(false)
+  customName        String?   // e.g., "Local Hospital Internship"
+  customOrganization String?  // e.g., "St. Mary's Hospital"
+  customDescription String?   @db.Text  // Brief description of the program
 
   // Which year they're tracking/applying for
   applicationYear   Int
@@ -809,6 +823,7 @@ model StudentSummerProgram {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // Unique constraint for linked programs only
   @@unique([studentProfileId, summerProgramId, applicationYear])
   @@index([studentProfileId])
   @@index([status])
@@ -823,46 +838,54 @@ model StudentSchool {
   id               String @id @default(uuid())
   studentProfileId String
   studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
-  schoolId         String
-  school           School @relation(fields: [schoolId], references: [id])
-  
+
+  // Linked school from our curated database (null for custom schools)
+  schoolId         String?
+  school           School? @relation(fields: [schoolId], references: [id])
+
+  // Custom school fields (for schools not in our database)
+  isCustom         Boolean   @default(false)
+  customName       String?   // e.g., "XYZ University"
+  customLocation   String?   // e.g., "California"
+
   // Classification
   tier             String    // "reach" | "target" | "safety"
   isDream          Boolean   @default(false)  // Can be true for any tier
-  
+
   // Interest Level
   interestLevel    String?   // "high" | "medium" | "low" | "uncertain"
-  
+
   // Application Status
-  status           String    @default("researching")  
+  status           String    @default("researching")
   // "researching" | "planning" | "in_progress" | "submitted" | "accepted" | "rejected" | "waitlisted" | "deferred" | "withdrawn" | "committed"
-  
+
   // Application Type
   applicationType  String?   // "ed" | "ed2" | "ea" | "rea" | "rd"
-  
+
   // Decision
   decisionDate     DateTime?
   financialAidOffered Int?
-  
+
   // Student's Notes
   notes            String?
   whyInterested    String?   // Why this school
   concerns         String?   // Hesitations
-  
+
   // Calculated
   calculatedChance Float?    // Our calculated admission probability
   chanceUpdatedAt  DateTime?
-  
+
   // Display
   displayOrder     Int       @default(0)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // Unique constraint for linked schools only (custom schools use different uniqueness)
   @@unique([studentProfileId, schoolId])
   @@index([studentProfileId])
   @@index([status])
-  
+
   // Relations - Rich notes (separate from simple 'notes' field above)
   richNotes SchoolNote[]
 }
@@ -1449,6 +1472,103 @@ model GlobalConfig {
   maintenanceMessage  String?
 
   updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// LAYER 7: RECOMMENDATIONS
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// RecommendationPreferences - Student's recommendation preferences
+// Semi-structured: free text organized by category
+// -----------------------------------------------------------------------------
+
+model RecommendationPreferences {
+  id               String @id @default(uuid())
+  studentProfileId String @unique
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  // Free-text preferences by category
+  // "I'm interested in schools with strong engineering programs, preferably on the West Coast"
+  schoolPreferences        String?   @db.Text
+
+  // "I want programs that will help me with research experience, specifically in biology or medicine"
+  programPreferences       String?   @db.Text
+
+  // "I'd like to improve my leadership experience and find competitions in STEM"
+  generalPreferences       String?   @db.Text
+
+  // Location preferences
+  preferredRegions         String[]  // ["West Coast", "Northeast", "Midwest"]
+  avoidRegions             String[]  // Regions to avoid
+
+  // Size preferences
+  preferredSchoolSize      String?   // "small" | "medium" | "large" | "any"
+
+  // Other filters
+  requireNeedBlind         Boolean   @default(false)
+  requireMeritScholarships Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Recommendation - AI-generated recommendations
+// Generated by specialized agents, consolidated by master agent
+// -----------------------------------------------------------------------------
+
+model Recommendation {
+  id               String @id @default(uuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  // Category of recommendation
+  category         String    // "school" | "program" | "activity" | "general"
+
+  // What's being recommended
+  title            String    // "Stanford University" | "RSI" | "Start a research project"
+  subtitle         String?   // "Reach School" | "Summer 2025" | "High Priority"
+
+  // Reference to existing entities (if applicable)
+  schoolId         String?
+  school           School?        @relation(fields: [schoolId], references: [id])
+  summerProgramId  String?
+  summerProgram    SummerProgram? @relation(fields: [summerProgramId], references: [id])
+
+  // The recommendation content
+  reasoning        String    @db.Text  // Why this is recommended
+  fitScore         Float?    // 0.0 - 1.0 how well it fits the student
+  priority         String?   // "high" | "medium" | "low"
+
+  // Action items (optional)
+  actionItems      String[]  // ["Research the program", "Check deadline: March 1"]
+
+  // Timing context
+  relevantGrade    String?   // "11th" | "12th" - when this is most relevant
+  expiresAt        DateTime? // When recommendation is no longer relevant
+
+  // Generation metadata
+  generatedAt      DateTime  @default(now())
+  generatedBy      String    // "school_agent" | "program_agent" | "master_agent"
+  profileVersion   String?   // Hash/version of profile when generated
+
+  // User interaction
+  status           String    @default("active")  // "active" | "dismissed" | "saved" | "acted_upon"
+  userFeedback     String?   // "helpful" | "not_relevant" | "already_knew"
+  dismissedAt      DateTime?
+  savedAt          DateTime?
+
+  // Display order within category
+  displayOrder     Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentProfileId])
+  @@index([category])
+  @@index([status])
+  @@index([generatedAt])
 }
 
 // -----------------------------------------------------------------------------

@@ -71,12 +71,16 @@ interface SummerProgram {
 
 interface TrackedProgram {
   id: string;
-  summerProgramId: string;
+  summerProgramId?: string | null;
   applicationYear: number;
   status: string;
   notes?: string | null;
   whyInterested?: string | null;
-  summerProgram: SummerProgram;
+  isCustom?: boolean;
+  customName?: string | null;
+  customOrganization?: string | null;
+  customDescription?: string | null;
+  summerProgram?: SummerProgram | null;
 }
 
 // =============================================================================
@@ -151,6 +155,28 @@ export default function OpportunitiesPage() {
       }
     } catch (error) {
       console.error("Error adding program:", error);
+    }
+  };
+
+  // Handle adding a custom program
+  const handleAddCustomProgram = async (data: {
+    customName: string;
+    customOrganization?: string;
+    customDescription?: string;
+    applicationYear: number;
+  }) => {
+    const res = await fetch("/api/opportunities/summer-programs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+      await fetchTrackedPrograms();
+      setShowAddModal(false);
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to add program");
     }
   };
 
@@ -268,6 +294,7 @@ export default function OpportunitiesPage() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddProgram}
+        onAddCustom={handleAddCustomProgram}
       />
 
       {/* Eligibility Modal */}
@@ -367,23 +394,29 @@ function ProgramCard({
   const [showMenu, setShowMenu] = useState(false);
 
   const program = tracked.summerProgram;
+  const isCustom = tracked.isCustom || !program;
   const statusOption = STATUS_OPTIONS.find(s => s.value === tracked.status) || STATUS_OPTIONS[0];
 
-  // Calculate eligibility
-  const eligibility = profile
+  // Display values - handle both linked and custom programs
+  const displayName = isCustom ? tracked.customName : (program?.shortName || program?.name);
+  const displayOrg = isCustom ? tracked.customOrganization : program?.organization;
+  const websiteUrl = program?.websiteUrl;
+
+  // Calculate eligibility (only for linked programs)
+  const eligibility = profile && program
     ? calculateEligibility(profile as Parameters<typeof calculateEligibility>[0], program)
     : null;
   const eligibilityBadge = eligibility ? getEligibilityBadge(eligibility.overall) : null;
 
-  // Format deadline
-  const deadline = program.applicationDeadline
+  // Format deadline (only for linked programs)
+  const deadline = program?.applicationDeadline
     ? new Date(program.applicationDeadline).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       })
     : null;
 
-  const isDeadlineSoon = program.applicationDeadline
+  const isDeadlineSoon = program?.applicationDeadline
     ? new Date(program.applicationDeadline).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000
     : false;
 
@@ -391,12 +424,28 @@ function ProgramCard({
     <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:shadow-lg transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <Link href={`/summer-programs/${program.id}`} className="flex-1 min-w-0 group">
-          <h3 className="font-display font-bold text-text-main truncate group-hover:text-accent-primary transition-colors">
-            {program.shortName || program.name}
-          </h3>
-          <p className="text-sm text-text-muted truncate">{program.organization}</p>
-        </Link>
+        {isCustom ? (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display font-bold text-text-main truncate">
+                {displayName || "Untitled Program"}
+              </h3>
+              <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                Custom
+              </span>
+            </div>
+            {displayOrg && (
+              <p className="text-sm text-text-muted truncate">{displayOrg}</p>
+            )}
+          </div>
+        ) : (
+          <Link href={`/summer-programs/${program!.id}`} className="flex-1 min-w-0 group">
+            <h3 className="font-display font-bold text-text-main truncate group-hover:text-accent-primary transition-colors">
+              {displayName}
+            </h3>
+            <p className="text-sm text-text-muted truncate">{displayOrg}</p>
+          </Link>
+        )}
 
         {/* Menu */}
         <div className="relative">
@@ -410,17 +459,19 @@ function ProgramCard({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-full mt-1 bg-white border border-border-subtle rounded-xl shadow-lg z-20 py-1 min-w-[140px]">
-                <Link
-                  href={`/summer-programs/${program.id}`}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface-secondary transition-colors"
-                  onClick={() => setShowMenu(false)}
-                >
-                  <FileText className="w-4 h-4" />
-                  View Details
-                </Link>
-                {program.websiteUrl && (
+                {!isCustom && program && (
+                  <Link
+                    href={`/summer-programs/${program.id}`}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface-secondary transition-colors"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <FileText className="w-4 h-4" />
+                    View Details
+                  </Link>
+                )}
+                {websiteUrl && (
                   <a
-                    href={program.websiteUrl}
+                    href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface-secondary transition-colors"
@@ -496,39 +547,46 @@ function ProgramCard({
             </span>
           </div>
         )}
-        {program.location && (
+        {program?.location && (
           <div className="flex items-center gap-2 text-text-muted">
             <MapPin className="w-4 h-4" />
             <span>{program.location}</span>
           </div>
         )}
-        {program.duration && (
+        {program?.duration && (
           <div className="flex items-center gap-2 text-text-muted">
             <Clock className="w-4 h-4" />
             <span>{program.duration}</span>
           </div>
         )}
+        {isCustom && tracked.customDescription && (
+          <div className="text-text-muted text-xs line-clamp-2">
+            {tracked.customDescription}
+          </div>
+        )}
       </div>
 
-      {/* Eligibility */}
-      <div className="pt-3 border-t border-border-subtle">
-        <button
-          onClick={() => onCheckEligibility(tracked)}
-          className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors w-full justify-center",
-            eligibilityBadge?.bgColor || "bg-gray-100",
-            eligibilityBadge?.color || "text-gray-700",
-            "hover:opacity-80"
-          )}
-        >
-          {eligibility?.overall === "eligible" && <CheckCircle2 className="w-4 h-4" />}
-          {eligibility?.overall === "ineligible" && <AlertCircle className="w-4 h-4" />}
-          {(eligibility?.overall === "check_required" || eligibility?.overall === "unknown") && (
-            <HelpCircle className="w-4 h-4" />
-          )}
-          {eligibilityBadge?.label || "Check Eligibility"}
-        </button>
-      </div>
+      {/* Eligibility - only show for linked programs */}
+      {!isCustom && program && (
+        <div className="pt-3 border-t border-border-subtle">
+          <button
+            onClick={() => onCheckEligibility(tracked)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors w-full justify-center",
+              eligibilityBadge?.bgColor || "bg-gray-100",
+              eligibilityBadge?.color || "text-gray-700",
+              "hover:opacity-80"
+            )}
+          >
+            {eligibility?.overall === "eligible" && <CheckCircle2 className="w-4 h-4" />}
+            {eligibility?.overall === "ineligible" && <AlertCircle className="w-4 h-4" />}
+            {(eligibility?.overall === "check_required" || eligibility?.overall === "unknown") && (
+              <HelpCircle className="w-4 h-4" />
+            )}
+            {eligibilityBadge?.label || "Check Eligibility"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -541,16 +599,37 @@ function AddProgramModal({
   isOpen,
   onClose,
   onAdd,
+  onAddCustom,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (programId: string) => void;
+  onAddCustom: (data: { customName: string; customOrganization?: string; customDescription?: string; applicationYear: number }) => Promise<void>;
 }) {
+  // Mode: "search" for database search, "custom" for custom entry
+  const [mode, setMode] = useState<"search" | "custom">("search");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [programs, setPrograms] = useState<SummerProgram[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear() + 1);
   const [addingId, setAddingId] = useState<string | null>(null);
+
+  // Custom program fields
+  const [customName, setCustomName] = useState("");
+  const [customOrganization, setCustomOrganization] = useState("");
+  const [customDescription, setCustomDescription] = useState("");
+  const [isSavingCustom, setIsSavingCustom] = useState(false);
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setMode("search");
+      setCustomName("");
+      setCustomOrganization("");
+      setCustomDescription("");
+    }
+  }, [isOpen]);
 
   // Search programs
   const searchPrograms = useCallback(async () => {
@@ -587,6 +666,30 @@ function AddProgramModal({
     setAddingId(null);
   };
 
+  const handleAddCustom = async () => {
+    if (!customName.trim()) return;
+
+    setIsSavingCustom(true);
+    try {
+      await onAddCustom({
+        customName: customName.trim(),
+        customOrganization: customOrganization.trim() || undefined,
+        customDescription: customDescription.trim() || undefined,
+        applicationYear: selectedYear,
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error adding custom program:", error);
+    } finally {
+      setIsSavingCustom(false);
+    }
+  };
+
+  const switchToCustomMode = () => {
+    setCustomName(searchQuery);
+    setMode("custom");
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -595,7 +698,19 @@ function AddProgramModal({
         {/* Header */}
         <div className="p-6 border-b border-border-subtle">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-text-primary">Add Summer Program</h2>
+            <div className="flex items-center gap-3">
+              {mode === "custom" && (
+                <button
+                  onClick={() => setMode("search")}
+                  className="p-1.5 -ml-1.5 text-text-muted hover:text-text-primary hover:bg-surface-secondary rounded-lg transition-colors"
+                >
+                  <ChevronDown className="w-5 h-5 rotate-90" />
+                </button>
+              )}
+              <h2 className="text-xl font-semibold text-text-primary">
+                {mode === "search" ? "Add Summer Program" : "Add Custom Program"}
+              </h2>
+            </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-surface-secondary rounded-lg transition-colors"
@@ -604,99 +719,216 @@ function AddProgramModal({
             </button>
           </div>
 
-          {/* Search and year filter */}
+          {/* Search and year filter (search mode) or Year selector (custom mode) */}
           <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search programs..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
-              />
-            </div>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(parseInt(e.target.value))}
-              className="px-3 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
-            >
-              <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
-              <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
-            </select>
+            {mode === "search" ? (
+              <>
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Search programs..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                  />
+                </div>
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(parseInt(e.target.value))}
+                  className="px-3 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                >
+                  <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+                  <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
+                </select>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-text-muted">Application Year:</span>
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(parseInt(e.target.value))}
+                  className="px-3 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                >
+                  <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+                  <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Program list */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
-            </div>
-          ) : programs.length === 0 ? (
-            <div className="text-center py-8 text-text-muted">
-              {searchQuery ? "No programs found" : "Search for programs to add"}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {programs.map(program => (
-                <div
-                  key={program.id}
-                  className={cn(
-                    "flex items-center gap-4 p-4 border rounded-xl transition-colors",
-                    program.isTracked
-                      ? "border-green-200 bg-green-50"
-                      : "border-border-subtle hover:border-accent-primary"
-                  )}
-                >
-                  <Link
-                    href={`/summer-programs/${program.id}`}
-                    className="flex-1 min-w-0 group"
-                    onClick={onClose}
-                  >
-                    <div className="font-medium text-text-primary truncate group-hover:text-accent-primary transition-colors">
-                      {program.shortName ? `${program.shortName} - ${program.name}` : program.name}
-                    </div>
-                    <div className="text-sm text-text-muted truncate">{program.organization}</div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-text-muted">
-                      {program.applicationDeadline && (
-                        <span>
-                          Deadline:{" "}
-                          {new Date(program.applicationDeadline).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      )}
-                      {program.selectivity && (
-                        <span className="capitalize">{program.selectivity.replace("_", " ")}</span>
-                      )}
-                    </div>
-                  </Link>
-                  {program.isTracked ? (
-                    <div className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                      <Check className="w-4 h-4" />
-                      Added
+          {mode === "search" ? (
+            <>
+              {/* Option to add custom program */}
+              <button
+                onClick={() => setMode("custom")}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 mb-4 border border-dashed border-border-subtle rounded-xl text-sm text-text-muted hover:border-accent-primary hover:text-accent-primary hover:bg-accent-surface/30 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add a program not in our database
+              </button>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
+                </div>
+              ) : programs.length === 0 ? (
+                <div className="text-center py-8">
+                  {searchQuery ? (
+                    <div className="space-y-3">
+                      <p className="text-text-muted">
+                        No programs found for &quot;{searchQuery}&quot;
+                      </p>
+                      <button
+                        onClick={switchToCustomMode}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-accent-surface text-accent-primary rounded-lg text-sm font-medium hover:bg-accent-surface/80 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add &quot;{searchQuery}&quot; as custom program
+                      </button>
                     </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAdd(program.id)}
-                      disabled={addingId === program.id}
-                    >
-                      {addingId === program.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" />
-                          Add
-                        </>
-                      )}
-                    </Button>
+                    <p className="text-text-muted">Search for programs to add</p>
                   )}
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div className="space-y-3">
+                  {programs.map(program => (
+                    <div
+                      key={program.id}
+                      className={cn(
+                        "flex items-center gap-4 p-4 border rounded-xl transition-colors",
+                        program.isTracked
+                          ? "border-green-200 bg-green-50"
+                          : "border-border-subtle hover:border-accent-primary"
+                      )}
+                    >
+                      <Link
+                        href={`/summer-programs/${program.id}`}
+                        className="flex-1 min-w-0 group"
+                        onClick={onClose}
+                      >
+                        <div className="font-medium text-text-primary truncate group-hover:text-accent-primary transition-colors">
+                          {program.shortName ? `${program.shortName} - ${program.name}` : program.name}
+                        </div>
+                        <div className="text-sm text-text-muted truncate">{program.organization}</div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-text-muted">
+                          {program.applicationDeadline && (
+                            <span>
+                              Deadline:{" "}
+                              {new Date(program.applicationDeadline).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          )}
+                          {program.selectivity && (
+                            <span className="capitalize">{program.selectivity.replace("_", " ")}</span>
+                          )}
+                        </div>
+                      </Link>
+                      {program.isTracked ? (
+                        <div className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
+                          <Check className="w-4 h-4" />
+                          Added
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAdd(program.id)}
+                          disabled={addingId === program.id}
+                        >
+                          {addingId === program.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              Add
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Custom Program Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-1.5">
+                    Program Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    placeholder="e.g., XYZ Summer Research Program"
+                    className="w-full py-2.5 px-4 border border-border-subtle rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-1.5">
+                    Organization (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={customOrganization}
+                    onChange={(e) => setCustomOrganization(e.target.value)}
+                    placeholder="e.g., Stanford University"
+                    className="w-full py-2.5 px-4 border border-border-subtle rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-1.5">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    value={customDescription}
+                    onChange={(e) => setCustomDescription(e.target.value)}
+                    placeholder="Brief description of the program..."
+                    rows={3}
+                    className="w-full py-2.5 px-4 border border-border-subtle rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Info note */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+                <strong>Note:</strong> Custom programs won&apos;t have detailed eligibility information.
+                You can still track your application progress.
+              </div>
+
+              {/* Save button */}
+              <div className="mt-6 flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setMode("search")}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddCustom}
+                  disabled={!customName.trim() || isSavingCustom}
+                  className="flex-1"
+                >
+                  {isSavingCustom ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Add Program
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -717,8 +949,9 @@ function EligibilityModal({
   profile: ReturnType<typeof useProfile>["profile"];
   onClose: () => void;
 }) {
-  const eligibility: EligibilityResult | null = profile
-    ? calculateEligibility(profile as Parameters<typeof calculateEligibility>[0], program.summerProgram)
+  const summerProgram = program.summerProgram;
+  const eligibility: EligibilityResult | null = profile && summerProgram
+    ? calculateEligibility(profile as Parameters<typeof calculateEligibility>[0], summerProgram)
     : null;
 
   const badge = eligibility ? getEligibilityBadge(eligibility.overall) : null;
@@ -731,7 +964,7 @@ function EligibilityModal({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">
-                {program.summerProgram.shortName || program.summerProgram.name}
+                {summerProgram?.shortName || summerProgram?.name || program.customName}
               </h2>
               <p className="text-sm text-text-muted">Eligibility Check</p>
             </div>
@@ -808,11 +1041,13 @@ function EligibilityModal({
               </div>
 
               {/* Program year note */}
-              <div className="mt-6 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                <strong>Note:</strong> This eligibility check is for the{" "}
-                <strong>{program.summerProgram.programYear}</strong> program. Age and grade
-                requirements are calculated based on the program start date.
-              </div>
+              {summerProgram && (
+                <div className="mt-6 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  <strong>Note:</strong> This eligibility check is for the{" "}
+                  <strong>{summerProgram.programYear}</strong> program. Age and grade
+                  requirements are calculated based on the program start date.
+                </div>
+              )}
             </>
           )}
         </div>

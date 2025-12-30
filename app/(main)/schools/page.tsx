@@ -29,7 +29,10 @@ interface StudentSchool {
   isDream: boolean;
   status: string | null;
   interestLevel: string | null;
-  school: {
+  isCustom?: boolean;
+  customName?: string | null;
+  customLocation?: string | null;
+  school?: {
     id: string;
     name: string;
     shortName?: string | null;
@@ -39,7 +42,7 @@ interface StudentSchool {
     satRange25?: number | null;
     satRange75?: number | null;
     websiteUrl?: string | null;
-  };
+  } | null;
 }
 
 // =============================================================================
@@ -57,7 +60,10 @@ export default function SchoolsPage() {
     isDream: s.isDream || false,
     status: s.status || null,
     interestLevel: s.interestLevel || null,
-    school: s.school || { id: "", name: "Unknown", shortName: null, city: null, state: null, acceptanceRate: null, satRange25: null, satRange75: null, websiteUrl: null },
+    isCustom: s.isCustom || false,
+    customName: s.customName || null,
+    customLocation: s.customLocation || null,
+    school: s.school || null,
   }));
 
   const handleDelete = async (id: string) => {
@@ -304,6 +310,20 @@ function SchoolCard({
   colorClass: string;
   onDelete: () => void;
 }) {
+  // Determine display values for both linked and custom schools
+  const displayName = school.isCustom
+    ? school.customName
+    : school.school?.shortName || school.school?.name;
+  const displayLocation = school.isCustom
+    ? school.customLocation
+    : school.school?.city && school.school?.state
+      ? `${school.school.city}, ${school.school.state}`
+      : null;
+  const websiteUrl = school.school?.websiteUrl;
+  const acceptanceRate = school.school?.acceptanceRate;
+  const satRange25 = school.school?.satRange25;
+  const satRange75 = school.school?.satRange75;
+
   return (
     <div className={cn(
       "bg-white border rounded-xl p-4 transition-all hover:shadow-card group relative",
@@ -311,41 +331,48 @@ function SchoolCard({
     )}>
       {/* Clickable overlay for navigation */}
       <Link href={`/schools/${school.id}`} className="absolute inset-0 z-0" />
-      
+
       <div className="flex items-start gap-3 relative z-10 pointer-events-none">
         <SchoolLogo
-          name={school.school.name}
-          shortName={school.school.shortName}
-          websiteUrl={school.school.websiteUrl}
+          name={displayName || "School"}
+          shortName={school.school?.shortName}
+          websiteUrl={websiteUrl}
           size="lg"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-display font-bold text-text-main truncate">
-              {school.school.shortName || school.school.name}
+              {displayName || "Unknown School"}
             </h3>
             {school.isDream && (
               <Heart className="w-4 h-4 text-pink-500 fill-current shrink-0" />
             )}
+            {school.isCustom && (
+              <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                Custom
+              </span>
+            )}
           </div>
-          <div className="text-sm text-text-muted">
-            {school.school.city}, {school.school.state}
-          </div>
-          {school.school.acceptanceRate && (
+          {displayLocation && (
+            <div className="text-sm text-text-muted">
+              {displayLocation}
+            </div>
+          )}
+          {acceptanceRate && (
             <div className="text-xs text-text-muted mt-1">
-              {Math.round(school.school.acceptanceRate * 100)}% acceptance
-              {school.school.satRange25 && school.school.satRange75 && (
+              {Math.round(acceptanceRate * 100)}% acceptance
+              {satRange25 && satRange75 && (
                 <span className="ml-2">
-                  • SAT {school.school.satRange25}–{school.school.satRange75}
+                  • SAT {satRange25}–{satRange75}
                 </span>
               )}
             </div>
           )}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-          {school.school.websiteUrl && (
+          {websiteUrl && (
             <a
-              href={school.school.websiteUrl}
+              href={websiteUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -362,7 +389,7 @@ function SchoolCard({
           </button>
         </div>
       </div>
-      
+
       {/* View details hint */}
       <div className="absolute bottom-2 right-3 text-xs text-text-light opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
         View details <ChevronRight className="w-3 h-3" />

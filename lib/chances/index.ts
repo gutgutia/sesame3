@@ -194,17 +194,24 @@ export async function updateStoredChances(
   profileId: string,
   options: CalculateChancesOptions = {}
 ): Promise<void> {
-  // Get student's school list
+  // Get student's school list (only linked schools with schoolId)
   const studentSchools = await prisma.studentSchool.findMany({
-    where: { studentProfileId: profileId },
+    where: {
+      studentProfileId: profileId,
+      schoolId: { not: null }, // Only linked schools
+    },
     select: { id: true, schoolId: true },
   });
-  
-  const schoolIds = studentSchools.map(s => s.schoolId);
+
+  // Filter to only linked schools (schoolId is not null)
+  const schoolIds = studentSchools
+    .map(s => s.schoolId)
+    .filter((id): id is string => id !== null);
   const results = await calculateChancesMultiple(profileId, schoolIds, options);
-  
+
   // Update stored chances
   for (const studentSchool of studentSchools) {
+    if (!studentSchool.schoolId) continue;
     const result = results.get(studentSchool.schoolId);
     if (result) {
       await prisma.studentSchool.update({
