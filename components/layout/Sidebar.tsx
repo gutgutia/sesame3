@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Lightbulb,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
@@ -37,6 +38,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { name: "Home", href: "/", icon: LayoutGrid },
   { name: "Advisor", href: "/advisor", icon: MessageSquare },
+  { name: "Recommendations", href: "/recommendations", icon: Sparkles },
   { name: "Plan", href: "/plan", icon: Compass },
   {
     name: "Profile",
