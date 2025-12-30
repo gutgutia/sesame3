@@ -8,12 +8,31 @@
  * then calls our API to create the session.
  */
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
 export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<CallbackLoading />}>
+      <AuthCallbackContent />
+    </Suspense>
+  );
+}
+
+function CallbackLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-primary mx-auto mb-4" />
+        <p className="text-text-muted">Completing sign in...</p>
+      </div>
+    </div>
+  );
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
