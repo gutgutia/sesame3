@@ -99,20 +99,18 @@ async function clearUserProfile(userId: string, deleteUser: boolean = false) {
   });
   if (deletedCourses.count > 0) console.log(`  🗑️  Deleted ${deletedCourses.count} courses`);
 
-  // SAT Scores
-  const deletedSatScores = await prisma.sATScore.deleteMany({
-    where: { studentProfileId: profile.id },
-  });
-  if (deletedSatScores.count > 0) console.log(`  🗑️  Deleted ${deletedSatScores.count} SAT scores`);
-
-  // ACT Scores
-  const deletedActScores = await prisma.aCTScore.deleteMany({
-    where: { studentProfileId: profile.id },
-  });
-  if (deletedActScores.count > 0) console.log(`  🗑️  Deleted ${deletedActScores.count} ACT scores`);
-
-  // AP Scores and Subject Tests (under Testing)
+  // Test scores (all under Testing)
   if (profile.testing) {
+    const deletedSatScores = await prisma.sATScore.deleteMany({
+      where: { testingId: profile.testing.id },
+    });
+    if (deletedSatScores.count > 0) console.log(`  🗑️  Deleted ${deletedSatScores.count} SAT scores`);
+
+    const deletedActScores = await prisma.aCTScore.deleteMany({
+      where: { testingId: profile.testing.id },
+    });
+    if (deletedActScores.count > 0) console.log(`  🗑️  Deleted ${deletedActScores.count} ACT scores`);
+
     await prisma.aPScore.deleteMany({
       where: { testingId: profile.testing.id },
     });
