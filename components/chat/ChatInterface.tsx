@@ -72,10 +72,10 @@ export function ChatInterface({
         const response = await fetch(`/api/conversations?mode=${mode}`);
 
         if (!response.ok) {
-          // For onboarding, if we can't load conversation, still show welcome message
-          // The conversation will be created when user sends first message
-          if (mode === "onboarding" && preloadedWelcome) {
-            console.warn("[Chat] Could not load conversation for onboarding, using welcome message only");
+          // For onboarding, gracefully handle failed conversation load
+          // The welcome message is fetched separately, and conversation will be created on first message
+          if (mode === "onboarding") {
+            console.warn("[Chat] Could not load conversation for onboarding, will use welcome message");
             setIsLoading(false);
             return;
           }
