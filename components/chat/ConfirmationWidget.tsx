@@ -89,7 +89,7 @@ export function ConfirmationWidget({ type, data, onConfirm, onDismiss }: Confirm
   const [formData, setFormData] = useState<Record<string, unknown>>(data);
 
   const Icon = icons[type] || Target;
-  const title = titles[type] || "Confirm";
+  const title = titles[type] || "Info";
 
   const updateField = (field: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));

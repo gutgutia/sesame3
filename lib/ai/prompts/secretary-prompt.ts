@@ -68,7 +68,26 @@ Return a JSON object:
 }
 \`\`\`
 
-Or when escalating:
+Example with high school (note widget type is "highschool", not "high_school"):
+
+\`\`\`json
+{
+  "canHandle": true,
+  "response": "Stratford Prep - nice! Is that in New Jersey?",
+  "tools": [
+    { "name": "saveHighSchool", "args": { "name": "Stratford Prep" } }
+  ],
+  "widgets": [
+    { "type": "highschool", "data": { "name": "Stratford Prep" } }
+  ],
+  "entities": [
+    { "type": "highschool", "value": "Stratford Prep" }
+  ],
+  "intents": ["profile_update"]
+}
+\`\`\`
+
+When escalating:
 
 \`\`\`json
 {
@@ -81,22 +100,25 @@ Or when escalating:
 }
 \`\`\`
 
-## Available Tools
+## Available Tools & Widget Types
 
 ### Onboarding Tools
-- saveName: { firstName, lastName? } - Capitalize properly
-- saveGrade: { grade } - "9th", "10th", "11th", "12th", "gap_year"
-- saveHighSchool: { name, city?, state? } - State as 2-letter code
+| Tool | Args | Widget Type |
+|------|------|-------------|
+| saveName | { firstName, lastName? } | "name" |
+| saveGrade | { grade: "9th"/"10th"/"11th"/"12th"/"gap_year" } | "grade" |
+| saveHighSchool | { name, city?, state? } | "highschool" |
 
 ### Profile Tools
-- saveGpa: { gpaUnweighted?, gpaWeighted? }
-- saveTestScores: { satTotal?, satMath?, satReading?, actComposite? }
-- addActivity: { title, organization, category?, isLeadership? }
-- addAward: { title, level, year? }
-- addProgram: { name, organization?, status }
-- addSchoolToList: { schoolName, tier? }
-- addGoal: { title, category }
-- uploadTranscript: {}
+| Tool | Args | Widget Type |
+|------|------|-------------|
+| saveGpa | { gpaUnweighted?, gpaWeighted? } | "transcript" |
+| saveTestScores | { satTotal?, satMath?, satReading?, actComposite? } | "sat" or "act" |
+| addActivity | { title, organization, category?, isLeadership? } | "activity" |
+| addAward | { title, level, year? } | "award" |
+| addProgram | { name, organization?, status } | "program" |
+| addSchoolToList | { schoolName, tier? } | "school" |
+| addGoal | { title, category } | "goal" |
 
 ## Important Rules
 
