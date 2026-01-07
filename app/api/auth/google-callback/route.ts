@@ -67,10 +67,11 @@ export async function POST(request: NextRequest) {
       });
 
       // Send welcome email (async, don't block)
+      const userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name;
       sendEmail({
         to: normalizedEmail,
         subject: "Welcome to Sesame3!",
-        react: WelcomeEmail({}),
+        react: WelcomeEmail({ name: userName }),
         text: "Welcome to Sesame3! We're excited to help you on your college prep journey.",
       }).catch((err) => {
         console.error("[Google Callback] Failed to send welcome email:", err);

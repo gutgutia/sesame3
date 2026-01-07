@@ -38,45 +38,19 @@ function AuthPageContent() {
   // DEV: Show code in console for testing
   const [devCode, setDevCode] = useState<string | null>(null);
 
-  const handleGoogleSignIn = async () => {
-    if (isGoogleLoading || isLoading) return;
-
-    setIsGoogleLoading(true);
-    setError(null);
-
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-      // The redirect will happen automatically
-    } catch (err) {
-      console.error("[Auth] Google sign-in error:", err);
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
-      setIsGoogleLoading(false);
-    }
-  };
-
   const codeInputRef = useRef<HTMLInputElement>(null);
 
-  // Check for OAuth errors from callback redirect
+  // Check for OAuth error in URL params
   useEffect(() => {
-    const oauthError = searchParams.get("error");
-    if (oauthError) {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
       const errorMessages: Record<string, string> = {
-        no_code: "Authentication was cancelled. Please try again.",
-        auth_failed: "Failed to sign in with Google. Please try again.",
-        no_user: "Could not retrieve your account information. Please try again.",
+        auth_failed: "Authentication failed. Please try again.",
+        no_session: "Could not create session. Please try again.",
+        no_code: "Authentication incomplete. Please try again.",
         unexpected: "An unexpected error occurred. Please try again.",
       };
-      setError(errorMessages[oauthError] || "Authentication failed. Please try again.");
+      setError(errorMessages[errorParam] || "Authentication failed. Please try again.");
     }
   }, [searchParams]);
 
@@ -86,6 +60,38 @@ function AuthPageContent() {
       codeInputRef.current.focus();
     }
   }, [step]);
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+          skipBrowserRedirect: false,
+        },
+      });
+
+      if (error) {
+        console.error("[Auth] Google sign-in error:", error);
+        setError("Failed to start Google sign-in. Please try again.");
+        setIsGoogleLoading(false);
+      }
+      // If successful, user is redirected to Google - no need to reset loading
+    } catch (err) {
+      console.error("[Auth] Google sign-in exception:", err);
+      setError("Failed to start Google sign-in. Please try again.");
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,7 +236,7 @@ function AuthPageContent() {
 
               <button
                 onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || isLoading}
+                disabled={isGoogleLoading}
                 className="w-full flex items-center justify-center gap-3 bg-white border border-border-medium hover:bg-bg-sidebar py-3.5 rounded-xl font-medium text-text-main transition-colors mb-6 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGoogleLoading ? (
