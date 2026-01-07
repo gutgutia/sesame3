@@ -6,39 +6,51 @@
   --bg-sidebar: #F7F5F0;
   --bg-card: #FFFFFF;
   --bg-card-hover: #FCFCFA;
-  
+
+  /* Marketing site compatibility */
+  --bg-page: #FDFCF9;
+  --bg-surface: #FFFFFF;
+  --bg-secondary: #F7F5F0;
+
   /* Accents */
   --accent-primary: #12756A;
   --accent-hover: #0F6158;
   --accent-surface: #E8F5F3;
   --accent-border: #C8EAE6;
-  
+
   /* Functional Colors */
   --text-main: #2D2A26;
   --text-muted: #6B665E;
   --text-light: #9E988E;
-  
+
   --border-subtle: #ECEAE4;
   --border-medium: #E0DCD4;
-  
+  --border: #E8E5DF;
+
   /* Status */
   --success-text: #145935;
   --success-bg: #EAF7ED;
+  --success: #22C55E;
   --warning-text: #854D0E;
-  --warning-bg: #FEFCE8; 
+  --warning-bg: #FEFCE8;
+  --warning: #F59E0B;
+  --error: #DC2626;
   --info-bg: #F0F9FF;
   --info-text: #0C4A6E;
-  --reach-bg: #FEF2F2; 
+  --reach-bg: #FEF2F2;
   --reach-text: #B91C1C;
-  --target-bg: #EFF6FF; 
+  --target-bg: #EFF6FF;
   --target-text: #1D4ED8;
-  --safety-bg: #ECFDF5; 
+  --safety-bg: #ECFDF5;
   --safety-text: #047857;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
   --shadow-card: 0 4px 20px rgba(45, 42, 38, 0.03), 0 1px 3px rgba(45, 42, 38, 0.02);
   --shadow-float: 0 12px 36px rgba(45, 42, 38, 0.06), 0 4px 8px rgba(45, 42, 38, 0.03);
+
+  /* Layout */
+  --container-width: 1140px;
 }
 
 @theme {
@@ -72,9 +84,60 @@
   --shadow-float: var(--shadow-float);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--bg-app);
   color: var(--text-main);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Cross-browser form reset */
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0;
+}
+
+button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Typography for marketing pages */
+h1, h2, h3, h4 {
+  font-family: 'Satoshi', sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* Container for marketing pages */
+.container {
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Section base for marketing pages */
+.section {
+  padding: 100px 0;
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-surface);
+  color: var(--text-main);
 }
