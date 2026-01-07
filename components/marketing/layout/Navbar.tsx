@@ -27,10 +27,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <a href="/auth" className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
-            Sign In
-          </a>
-          <Button variant="primary" size="sm" href="/auth">Get Started</Button>
+          <Button variant="primary" size="sm" href="#waitlist">Join Waitlist</Button>
         </div>
       </div>
     </nav>
