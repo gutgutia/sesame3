@@ -3,7 +3,6 @@
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { AdvisorSidebar } from "@/components/chat/AdvisorSidebar";
 import { useProfile } from "@/lib/context/ProfileContext";
 
 function AdvisorContent() {
@@ -62,10 +61,10 @@ function AdvisorContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] md:h-[calc(100vh-5rem)] bg-bg-app -mx-4 md:-mx-10 mt-2">
-      {/* Left: Chat Interface - centered with max width */}
+    <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-5rem)] bg-bg-app -mx-4 md:-mx-10 mt-2">
+      {/* Chat Interface - centered with max width */}
       <div className="flex-1 flex flex-col items-center min-h-0 overflow-hidden">
-        <div className="w-full max-w-3xl flex-1 flex flex-col overflow-hidden">
+        <div className="w-full max-w-3xl flex-1 flex flex-col overflow-hidden px-4">
           <ChatInterface
             mode={mode}
             initialMessage={initialQuery || undefined}
@@ -73,11 +72,6 @@ function AdvisorContent() {
             preloadedWelcome={welcomeMessage}
           />
         </div>
-      </div>
-
-      {/* Right: Advisor Context Sidebar */}
-      <div className="hidden md:flex w-[320px] bg-[#FAFAF9] flex-col border-l border-border-subtle p-5 overflow-y-auto flex-shrink-0">
-        <AdvisorSidebar />
       </div>
     </div>
   );
