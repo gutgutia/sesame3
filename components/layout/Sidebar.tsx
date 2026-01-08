@@ -8,7 +8,6 @@ import {
   Compass,
   User,
   BookOpen,
-  Search,
   Settings,
   LogOut,
   ChevronUp,
@@ -35,11 +34,9 @@ type NavItem = {
   children?: NavItem[];
 };
 
+// Main navigation items - ordered by student journey
 const navItems: NavItem[] = [
   { name: "Home", href: "/dashboard", icon: LayoutGrid },
-  { name: "Advisor", href: "/advisor", icon: MessageSquare },
-  { name: "Recommendations", href: "/recommendations", icon: Sparkles },
-  { name: "Plan", href: "/plan", icon: Compass },
   {
     name: "Profile",
     href: "/profile",
@@ -63,9 +60,20 @@ const navItems: NavItem[] = [
       { name: "Chances", href: "/chances", icon: Target },
     ]
   },
-  { name: "Opportunities", href: "/opportunities", icon: Lightbulb },
-  { name: "Discover", href: "/discover", icon: Search },
+  { name: "Opportunities", href: "/opportunities", icon: GraduationCap },
+  { name: "Plan", href: "/plan", icon: Compass },
 ];
+
+// Advisor is separate - cross-cutting feature with special treatment
+const advisorItem: NavItem = {
+  name: "AI Advisor",
+  href: "/advisor",
+  icon: Sparkles,
+  children: [
+    { name: "Chat", href: "/advisor", icon: MessageSquare },
+    { name: "Recommendations", href: "/recommendations", icon: Target },
+  ]
+};
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -110,6 +118,17 @@ export function Sidebar() {
         }
       }
     });
+    // Also handle Advisor item expansion
+    if (advisorItem.children) {
+      const isAdvisorChildActive = advisorItem.children.some(child =>
+        pathname === child.href ||
+        (child.href !== "/advisor" && pathname.startsWith(child.href))
+      );
+      const isAdvisorActive = pathname.startsWith("/advisor") || pathname.startsWith("/recommendations");
+      if (isAdvisorChildActive || isAdvisorActive) {
+        newExpanded.push(advisorItem.name);
+      }
+    }
     setExpandedItems(newExpanded);
   }, [pathname]);
 
@@ -228,6 +247,49 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex flex-col gap-2 flex-1 overflow-y-auto">
         {navItems.map((item) => renderNavItem(item))}
+
+        {/* Advisor - Visually distinct but part of main nav */}
+        <div className="mt-3 pt-3 border-t border-border-subtle/50">
+          <button
+            onClick={() => {
+              toggleExpanded(advisorItem.name);
+              router.push(advisorItem.href);
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all",
+              pathname.startsWith("/advisor") || pathname.startsWith("/recommendations")
+                ? "bg-accent-primary text-white shadow-md"
+                : "bg-accent-surface text-accent-primary hover:bg-accent-primary/10"
+            )}
+          >
+            <Sparkles className="w-5 h-5 stroke-[2px]" />
+            <span className="flex-1 text-left">AI Advisor</span>
+            {expandedItems.includes(advisorItem.name) ? (
+              <ChevronUp className="w-4 h-4 opacity-60" />
+            ) : (
+              <ChevronDown className="w-4 h-4 opacity-60" />
+            )}
+          </button>
+          {expandedItems.includes(advisorItem.name) && advisorItem.children && (
+            <div className="ml-4 mt-1 flex flex-col gap-1 border-l border-accent-primary/20 pl-2">
+              {advisorItem.children.map(child => (
+                <Link
+                  key={child.href + child.name}
+                  href={child.href}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:bg-accent-primary/10",
+                    (pathname === child.href || (child.href !== "/advisor" && pathname.startsWith(child.href)))
+                      ? "bg-accent-surface text-accent-primary font-semibold"
+                      : "text-text-muted"
+                  )}
+                >
+                  <child.icon className="w-4 h-4 stroke-[2px]" />
+                  {child.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* Plan Badge */}
