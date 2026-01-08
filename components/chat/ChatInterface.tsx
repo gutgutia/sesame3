@@ -905,59 +905,19 @@ function getWidgetSummary(widgetType: WidgetType, data: Record<string, unknown>)
 
 /**
  * Normalize markdown for proper rendering.
- * Adds line breaks where the AI forgot to include them.
+ * Very conservative - only fix obvious issues without breaking content.
  */
 function normalizeMarkdownLineBreaks(content: string): string {
-  let result = content;
+  // Only fix: add line break before numbered lists (1. 2. 3.) that are stuck to previous text
+  // e.g., "something)1. First item" → "something)\n\n1. First item"
+  let result = content.replace(/([.!?)])\s*(\d+\.\s+\*\*)/g, '$1\n\n$2');
 
-  // Add line break before bold text that starts a new section
-  // e.g., "something.**Bold Section:**" → "something.\n\n**Bold Section:**"
-  result = result.replace(/([.!?])\s*(\*\*[A-Z])/g, '$1\n\n$2');
+  // Add break before bold section headers that follow punctuation with no space
+  // e.g., "end.**Section:**" → "end.\n\n**Section:**"
+  // Only match ** followed by word and colon (section headers)
+  result = result.replace(/([.!?)])\s*(\*\*[A-Za-z][^*]+:\*\*)/g, '$1\n\n$2');
 
-  // Add line break after sentences that end with punctuation followed immediately by bold
-  // e.g., "end of sentence)**Bold" → "end of sentence)\n\n**Bold"
-  result = result.replace(/(\))\s*(\*\*[A-Z])/g, '$1\n\n$2');
-
-  // Add line break before list items if there isn't one
-  // e.g., "some text- List item" → "some text\n\n- List item"
-  result = result.replace(/([^-\n])(\n?)([-*] )/g, '$1\n\n$3');
-
-  // Add line break after list section ends and new paragraph begins
-  // e.g., "list item?**New section" → "list item?\n\n**New section"
-  result = result.replace(/(\?)\s*(\*\*)/g, '$1\n\n$2');
-
-  // Add line break after periods/questions followed by capital letter (new sentence that should be paragraph)
-  // But only if it looks like a section transition (followed by bold or after a long sentence)
-  result = result.replace(/([.!?])\s*(\*\*)/g, '$1\n\n$2');
-
-  // Now handle existing single newlines - convert to paragraph breaks
-  // Split into lines
-  const lines = result.split('\n');
-  const finalResult: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const nextLine = lines[i + 1];
-
-    finalResult.push(line);
-
-    // Add extra newline (paragraph break) if:
-    // - Current line is not empty
-    // - Next line exists and is not empty
-    // - Not already followed by empty line
-    // - Neither line is a list item
-    if (
-      line.trim() !== '' &&
-      nextLine !== undefined &&
-      nextLine.trim() !== '' &&
-      !nextLine.trim().match(/^[-*•]|\d+\./) && // Next line is not a list item
-      !line.trim().match(/^[-*•]|\d+\./) // Current line is not a list item
-    ) {
-      finalResult.push(''); // Add empty line for paragraph break
-    }
-  }
-
-  return finalResult.join('\n');
+  return result;
 }
 
 /**
