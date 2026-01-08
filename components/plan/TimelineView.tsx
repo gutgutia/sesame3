@@ -88,7 +88,10 @@ export function TimelineView() {
           completed: showCompleted.toString(),
         });
         const res = await fetch(`/api/plan/timeline?${params}`);
-        if (!res.ok) throw new Error("Failed to fetch timeline");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.details || "Failed to fetch timeline");
+        }
         const data = await res.json();
         setData(data);
       } catch (err) {

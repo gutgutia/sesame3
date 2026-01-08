@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfileId } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -12,20 +12,10 @@ interface RouteParams {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const profileId = await getCurrentProfileId();
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const profile = await prisma.studentProfile.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    if (!profileId) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const { taskId } = await params;
@@ -33,7 +23,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Verify task belongs to this profile
     const existing = await prisma.task.findFirst({
-      where: { id: taskId, studentProfileId: profile.id },
+      where: { id: taskId, studentProfileId: profileId },
     });
 
     if (!existing) {
@@ -93,27 +83,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const profileId = await getCurrentProfileId();
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const profile = await prisma.studentProfile.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    if (!profileId) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const { taskId } = await params;
 
     // Verify task belongs to this profile
     const existing = await prisma.task.findFirst({
-      where: { id: taskId, studentProfileId: profile.id },
+      where: { id: taskId, studentProfileId: profileId },
     });
 
     if (!existing) {
