@@ -166,29 +166,29 @@ export function ChatInterface({
           );
           setIsLoading(false);
         } else {
-          // New conversation - use preloaded welcome or fetch it
+          // New conversation - use preloaded welcome or fallback
           console.log(
             `[Chat] New conversation ${conversation.id} in ${Date.now() - startTime}ms`
           );
-          if (preloadedWelcome) {
-            welcomeSet.current = true;
-            setMessages([
-              {
-                id: "welcome",
-                role: "assistant",
-                content: preloadedWelcome,
-              },
-            ]);
-            setIsLoading(false);
 
-            // Save the welcome message to database so it persists when resuming
-            fetch("/api/chat/welcome", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mode, conversationId: conversation.id, saveOnly: true, message: preloadedWelcome }),
-            }).catch(err => console.error("[Chat] Failed to save welcome:", err));
-          }
-          // If no preloadedWelcome yet, the useEffect below will handle it
+          // Use preloaded welcome or a fallback message
+          const welcomeContent = preloadedWelcome || getFallbackWelcome(mode);
+          welcomeSet.current = true;
+          setMessages([
+            {
+              id: "welcome",
+              role: "assistant",
+              content: welcomeContent,
+            },
+          ]);
+          setIsLoading(false);
+
+          // Save the welcome message to database so it persists when resuming
+          fetch("/api/chat/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode, conversationId: conversation.id, saveOnly: true, message: welcomeContent }),
+          }).catch(err => console.error("[Chat] Failed to save welcome:", err));
         }
       } catch (error) {
         console.error("[Chat] Error loading conversation:", error);
@@ -998,6 +998,23 @@ function getReentryMessage(mode: string): string | null {
     story: "Want to work on your story? Tell me about something you're passionate about or what makes you unique.",
   };
   return messages[mode] || null;
+}
+
+/**
+ * Get a fallback welcome message when the preloaded welcome isn't available yet.
+ * These match the fallback messages in the welcome API.
+ */
+function getFallbackWelcome(mode: string): string {
+  const messages: Record<string, string> = {
+    onboarding: "Hi! I'm Sesame, your college prep guide. I'm here to help you navigate the college journey calmly — one step at a time. First things first: what should I call you?",
+    chances: "Hey! Ready to explore your admission chances? Which schools are you most curious about — or would you like me to give you a general sense of where you stand?",
+    schools: "Let's build your college list! Are there any schools you're already interested in, or would you like me to suggest some based on what you're looking for?",
+    planning: "Let's brainstorm some goals! What area are you thinking about — summer programs, competitions, passion projects, or something else?",
+    profile: "Let's get your profile updated! What would you like to add — activities, awards, test scores, or something else?",
+    story: "I'd love to hear more about you — beyond the grades and scores. What's something you're really passionate about, or what makes you unique?",
+    general: "Hey! What's on your mind today?",
+  };
+  return messages[mode] || messages.general;
 }
 
 /**
