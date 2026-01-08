@@ -168,12 +168,6 @@ export default function PlanPage() {
               Timeline
             </button>
           </div>
-          <Link href="/advisor?mode=planning">
-            <Button variant="secondary">
-              <MessageCircle className="w-4 h-4" />
-              Brainstorm
-            </Button>
-          </Link>
           {viewMode === "goals" && (
             <Button onClick={() => setIsAddGoalModalOpen(true)}>
               <Plus className="w-4 h-4" />
