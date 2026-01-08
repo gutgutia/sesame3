@@ -2,6 +2,9 @@
 // SECRETARY PROMPT (for Kimi K2 - intelligent routing & simple responses)
 // =============================================================================
 
+import { buildOnboardingSystemPrompt } from "./onboarding-prompt";
+import { buildCounselorSecretaryPrompt } from "./counselor-prompt";
+
 /**
  * The Secretary model (Kimi K2) acts as Sesame's intelligent assistant.
  * It sees the full conversation history and decides whether to:
@@ -196,8 +199,26 @@ export function buildSecretaryPrompt(context: {
   studentName?: string;
   grade?: string;
   entryMode?: string;
+  profileSummary?: string;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): string {
+  // Use dedicated onboarding prompt for onboarding mode
+  if (context.entryMode === "onboarding") {
+    return buildOnboardingSecretaryPrompt(context);
+  }
+
+  // For general/advisor modes, use the counselor prompt
+  if (context.entryMode === "general" || context.entryMode === "advisor") {
+    return buildCounselorSecretaryPrompt({
+      studentName: context.studentName,
+      grade: context.grade,
+      profileSummary: context.profileSummary,
+      conversationHistory: context.conversationHistory,
+    });
+  }
+
+  // For specialized modes (profile, schools, plan), use mode-specific context
+  // combined with the base secretary prompt
   const parts: string[] = [SECRETARY_SYSTEM_PROMPT];
 
   // Add student context if known
@@ -214,13 +235,11 @@ export function buildSecretaryPrompt(context: {
   // Add entry mode context
   if (context.entryMode) {
     const modeDescriptions: Record<string, string> = {
-      onboarding:
-        "Student is new and going through onboarding. Focus on collecting basic info (name, grade, school). Keep it welcoming and low-pressure.",
-      general:
-        "Regular advising session. Student may ask questions or share updates.",
-      profile: "Student is working on their profile. Help them add/update information.",
-      schools: "Student is exploring or managing their school list.",
-      plan: "Student is working on goals and planning.",
+      profile: "Student is working on their profile. Help them add activities, awards, test scores, and other profile information. Be encouraging about capturing their achievements.",
+      schools: "Student is exploring or managing their college list. Help them add schools, understand fit, and organize their list into reaches/targets/safeties.",
+      plan: "Student is working on goals and planning. Help them set goals, track deadlines, and stay organized. Keep them focused and motivated.",
+      chances: "Student wants to understand their admission chances. This usually requires escalation to Claude for detailed analysis.",
+      story: "Student is working on their personal narrative. Help them articulate their story and what makes them unique.",
     };
     const modeDesc = modeDescriptions[context.entryMode] || "";
     if (modeDesc) {
@@ -237,6 +256,74 @@ export function buildSecretaryPrompt(context: {
   parts.push("\n## Now respond to the student's latest message:");
 
   return parts.join("\n");
+}
+
+/**
+ * Build the onboarding-specific secretary prompt
+ * This combines the onboarding persona with secretary response format
+ */
+function buildOnboardingSecretaryPrompt(context: {
+  studentName?: string;
+  grade?: string;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+}): string {
+  // Get the rich onboarding system prompt
+  const onboardingPrompt = buildOnboardingSystemPrompt({
+    studentName: context.studentName,
+    grade: context.grade,
+    conversationHistory: context.conversationHistory,
+  });
+
+  // Add the secretary response format instructions
+  const responseFormat = `
+
+## Response Format (IMPORTANT)
+
+You must return a JSON object. Always set canHandle: true during onboarding unless the student asks a complex strategic question.
+
+\`\`\`json
+{
+  "canHandle": true,
+  "response": "Your conversational response here",
+  "tools": [
+    { "name": "toolName", "args": { ... } }
+  ],
+  "widgets": [
+    { "type": "widgetType", "data": { ... } }
+  ],
+  "entities": [],
+  "intents": []
+}
+\`\`\`
+
+### Available Tools & Widget Types
+
+| Tool | Args | Widget Type |
+|------|------|-------------|
+| saveName | { firstName, lastName? } | "name" |
+| saveGrade | { grade: "9th"/"10th"/"11th"/"12th" } | "grade" |
+| saveHighSchool | { name, city?, state? } | "highschool" |
+| addActivity | { title, organization, category?, isLeadership? } | "activity" |
+| addAward | { title, level, year? } | "award" |
+| saveTestScores | { satTotal?, actComposite? } | "sat" or "act" |
+
+### When to use tools:
+- Student says their name → saveName
+- Student mentions their grade/year → saveGrade
+- Student mentions their school → saveHighSchool
+- Student mentions an activity, club, sport → addActivity
+- Student mentions an award or achievement → addAward
+- Student mentions test scores → saveTestScores
+
+### Rules:
+1. ALWAYS provide a conversational response in the "response" field
+2. Each tool should have a corresponding widget
+3. If student mentions multiple items, create multiple tools/widgets
+4. Keep responses SHORT (2-3 sentences) and end with ONE question
+5. React to what they shared before asking the next question
+6. When in doubt about a complex question, set canHandle: false`;
+
+  return onboardingPrompt + responseFormat;
 }
 
 // Re-export the persona for use in Claude prompts (consistency)
