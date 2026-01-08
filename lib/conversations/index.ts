@@ -45,46 +45,46 @@ export async function getOrCreateConversation(
   const now = new Date();
   const timeWindowStart = new Date(now.getTime() - CONVERSATION_TIME_WINDOW_MS);
 
-  // Find active conversation (within time window)
-  // Note: We don't check endedAt because we want to resume conversations
-  // within the 4-hour window even if user navigated away and came back.
-  // The time window is the primary factor for determining if a conversation
-  // should be resumed.
-  const activeConversation = await prisma.conversation.findFirst({
-    where: {
-      studentProfileId: profileId,
-      lastMessageAt: {
-        gte: timeWindowStart,
-      },
-    },
-    orderBy: {
-      lastMessageAt: "desc",
-    },
-    include: {
-      messages: {
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          role: true,
-          content: true,
-          createdAt: true,
+  // Run both queries IN PARALLEL for better performance
+  const [activeConversation, conversationsNeedingSummary] = await Promise.all([
+    // Find active conversation (within time window)
+    prisma.conversation.findFirst({
+      where: {
+        studentProfileId: profileId,
+        lastMessageAt: {
+          gte: timeWindowStart,
         },
       },
-    },
-  });
-
-  // Find conversations that need summarizing (old, no summary, has messages)
-  const conversationsNeedingSummary = await prisma.conversation.findMany({
-    where: {
-      studentProfileId: profileId,
-      summary: null,
-      messageCount: { gt: 0 },
-      lastMessageAt: {
-        lt: timeWindowStart, // Older than time window
+      orderBy: {
+        lastMessageAt: "desc",
       },
-    },
-    select: { id: true },
-  });
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
+    }),
+    // Find conversations that need summarizing (old, no summary, has messages)
+    // For new users, this returns empty quickly
+    prisma.conversation.findMany({
+      where: {
+        studentProfileId: profileId,
+        summary: null,
+        messageCount: { gt: 0 },
+        lastMessageAt: {
+          lt: timeWindowStart, // Older than time window
+        },
+      },
+      select: { id: true },
+      take: 10, // Limit to avoid fetching too many
+    }),
+  ]);
 
   const pendingSummarization = conversationsNeedingSummary.map((c) => c.id);
 

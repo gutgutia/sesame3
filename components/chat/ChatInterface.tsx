@@ -1,12 +1,30 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Send, ArrowLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { ConfirmationWidget, WidgetType } from "./ConfirmationWidget";
 import { RecommendationCarousel } from "./RecommendationCarousel";
 import { useProfile } from "@/lib/context/ProfileContext";
+
+// Debounce helper
+function useDebouncedCallback<T extends (...args: Parameters<T>) => void>(
+  callback: T,
+  delay: number
+): T {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  return useCallback((...args: Parameters<T>) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]) as T;
+}
 
 // Message type
 type Message = {
@@ -53,6 +71,15 @@ export function ChatInterface({
 
   // Get optimistic update functions from profile context
   const { addSchool, addProgram, refreshProfile } = useProfile();
+
+  // Debounce profile refresh to avoid hammering the API after each widget confirmation
+  // 3 second delay - if user confirms multiple widgets quickly, only refresh once at the end
+  const debouncedRefreshProfile = useDebouncedCallback(() => {
+    refreshProfile();
+  }, 3000);
+
+  // Simple widgets that don't need profile refresh (optimistic update is sufficient)
+  const simpleOnboardingWidgets: WidgetType[] = ["name", "grade", "highschool"];
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -316,9 +343,23 @@ export function ChatInterface({
       }
 
       // Add all collected widgets to state at once (after stream ends)
+      // Deduplicate against existing widgets to avoid showing the same activity/award twice
       if (collectedWidgets.length > 0) {
-        console.log("[Chat] Adding", collectedWidgets.length, "widgets to state:", collectedWidgets.map(w => w.type));
-        setPendingWidgets(prev => [...prev, ...collectedWidgets]);
+        console.log("[Chat] Collected", collectedWidgets.length, "widgets:", collectedWidgets.map(w => w.type));
+        setPendingWidgets(prev => {
+          const newWidgets = collectedWidgets.filter(newWidget => {
+            // Check if a similar widget already exists
+            const isDuplicate = prev.some(existing =>
+              isSimilarWidget(existing, newWidget)
+            );
+            if (isDuplicate) {
+              console.log("[Chat] Skipping duplicate widget:", newWidget.type, newWidget.data);
+            }
+            return !isDuplicate;
+          });
+          console.log("[Chat] Adding", newWidgets.length, "new widgets after dedup");
+          return [...prev, ...newWidgets];
+        });
       }
       
       // Fallback for empty response
@@ -467,8 +508,11 @@ export function ChatInterface({
       });
 
       if (response.ok) {
-        // Refresh profile to get server-generated IDs and any other updates
-        refreshProfile();
+        // Skip refresh for simple onboarding widgets - optimistic update is sufficient
+        // For other widgets, use debounced refresh to avoid hammering API
+        if (!simpleOnboardingWidgets.includes(widget.type)) {
+          debouncedRefreshProfile();
+        }
         onProfileUpdate?.();
       } else {
         console.error("Failed to save:", await response.text());
@@ -501,8 +545,8 @@ export function ChatInterface({
     // The user can manually delete from their profile if needed
     console.log("[Chat] Undo saved widget:", widget.type, widget.data);
 
-    // Refresh profile to show any changes
-    refreshProfile();
+    // Use debounced refresh to avoid hammering API
+    debouncedRefreshProfile();
   };
 
   // Check if input should be blocked (only pending non-recommendation widgets block input)
@@ -552,13 +596,42 @@ export function ChatInterface({
               {msg.content && (
                 <div
                   className={cn(
-                    "rounded-2xl px-5 py-3 text-[15px] leading-relaxed whitespace-pre-wrap",
+                    "rounded-2xl px-5 py-3 text-[15px] leading-relaxed",
                     msg.role === "user"
-                      ? "bg-text-main text-white rounded-br-sm"
+                      ? "bg-text-main text-white rounded-br-sm whitespace-pre-wrap"
                       : "bg-white border border-border-subtle text-text-main rounded-bl-sm shadow-sm"
                   )}
                 >
-                  {msg.content}
+                  {msg.role === "user" ? (
+                    // User messages: plain text
+                    msg.content
+                  ) : (
+                    // Assistant messages: render markdown
+                    <ReactMarkdown
+                      components={{
+                        // Style markdown elements
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        em: ({ children }) => <em className="italic">{children}</em>,
+                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="ml-1">{children}</li>,
+                        a: ({ href, children }) => (
+                          <a href={href} className="text-accent-primary underline" target="_blank" rel="noopener noreferrer">
+                            {children}
+                          </a>
+                        ),
+                        code: ({ children }) => (
+                          <code className="bg-bg-sidebar px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+                        ),
+                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               )}
             </div>
@@ -821,5 +894,65 @@ function getWidgetSummary(widgetType: WidgetType, data: Record<string, unknown>)
       return `Added goal: ${data.title || "Goal"}`;
     default:
       return "Saved";
+  }
+}
+
+/**
+ * Check if two widgets are similar (for deduplication)
+ * Returns true if the widgets represent the same item
+ */
+function isSimilarWidget(existing: PendingWidget, newWidget: PendingWidget): boolean {
+  // Different types are never similar
+  if (existing.type !== newWidget.type) return false;
+
+  // Normalize string for comparison (lowercase, remove common words)
+  const normalize = (s: string | unknown) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/\b(club|team|member|captain|president|treasurer|secretary|vp|vice president)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  switch (existing.type) {
+    case "activity": {
+      const existingTitle = normalize(existing.data.title);
+      const newTitle = normalize(newWidget.data.title);
+      // Check if titles are similar (one contains the other, or share significant words)
+      return (
+        existingTitle.includes(newTitle) ||
+        newTitle.includes(existingTitle) ||
+        newTitle.split(" ").some((word: string) => word.length > 3 && existingTitle.includes(word))
+      );
+    }
+    case "award": {
+      const existingTitle = normalize(existing.data.title);
+      const newTitle = normalize(newWidget.data.title);
+      return existingTitle === newTitle || existingTitle.includes(newTitle) || newTitle.includes(existingTitle);
+    }
+    case "school": {
+      const existingName = normalize(existing.data.schoolName || existing.data.name);
+      const newName = normalize(newWidget.data.schoolName || newWidget.data.name);
+      return existingName === newName || existingName.includes(newName) || newName.includes(existingName);
+    }
+    case "program": {
+      const existingName = normalize(existing.data.name);
+      const newName = normalize(newWidget.data.name);
+      return existingName === newName || existingName.includes(newName) || newName.includes(existingName);
+    }
+    case "goal": {
+      const existingTitle = normalize(existing.data.title);
+      const newTitle = normalize(newWidget.data.title);
+      return existingTitle === newTitle;
+    }
+    // Single-instance widgets (only one can exist)
+    case "name":
+    case "grade":
+    case "highschool":
+    case "sat":
+    case "act":
+    case "transcript":
+      return true; // Always dedupe - only one of each
+    default:
+      return false;
   }
 }

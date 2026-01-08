@@ -55,6 +55,7 @@
     "novel": "^1.0.2",
     "react": "19.2.1",
     "react-dom": "19.2.1",
+    "react-markdown": "^10.1.0",
     "resend": "^6.6.0",
     "stripe": "^20.1.0",
     "tailwind-merge": "^3.4.0",

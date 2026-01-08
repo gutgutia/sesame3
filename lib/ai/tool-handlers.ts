@@ -84,13 +84,67 @@ export async function handleAddActivity(
     yearsActive?: string;
   }
 ) {
-  // Get next display order
+  // Check for existing activity with similar title (case-insensitive, fuzzy match)
+  // This prevents duplicates when the secretary re-mentions the same activity
+  const existingActivities = await prisma.activity.findMany({
+    where: { studentProfileId: profileId },
+    select: { id: true, title: true, organization: true },
+  });
+
+  // Normalize for comparison (lowercase, remove common words)
+  const normalizeTitle = (t: string) =>
+    t.toLowerCase()
+      .replace(/\b(club|team|member|captain|president|treasurer|secretary|vp|vice president)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const normalizedNewTitle = normalizeTitle(params.title);
+
+  // Find similar existing activity
+  const similarActivity = existingActivities.find(existing => {
+    const normalizedExisting = normalizeTitle(existing.title);
+    // Check if one contains the other, or they share a significant word
+    return normalizedExisting.includes(normalizedNewTitle) ||
+           normalizedNewTitle.includes(normalizedExisting) ||
+           (normalizedNewTitle.split(' ').some(word =>
+             word.length > 3 && normalizedExisting.includes(word)
+           ));
+  });
+
+  if (similarActivity) {
+    // Update existing activity with any new details
+    const updated = await prisma.activity.update({
+      where: { id: similarActivity.id },
+      data: {
+        // Only update fields if they provide more info
+        title: params.title.length > similarActivity.title.length ? params.title : undefined,
+        organization: params.organization || undefined,
+        category: params.category || undefined,
+        isLeadership: params.isLeadership ?? undefined,
+        description: params.description || undefined,
+        hoursPerWeek: params.hoursPerWeek || undefined,
+        yearsActive: params.yearsActive || undefined,
+      },
+    });
+
+    console.log(`[Tool] Updated existing activity "${similarActivity.title}" -> "${params.title}"`);
+
+    return {
+      success: true,
+      message: `Updated activity: ${params.title}`,
+      data: updated,
+      requiresConfirmation: false, // Already existed, no need to confirm
+      widgetType: "activity",
+    };
+  }
+
+  // No similar activity found - create new one
   const lastActivity = await prisma.activity.findFirst({
     where: { studentProfileId: profileId },
     orderBy: { displayOrder: "desc" },
     select: { displayOrder: true },
   });
-  
+
   const activity = await prisma.activity.create({
     data: {
       studentProfileId: profileId,
@@ -104,7 +158,7 @@ export async function handleAddActivity(
       displayOrder: (lastActivity?.displayOrder ?? -1) + 1,
     },
   });
-  
+
   return {
     success: true,
     message: `Added activity: ${params.title} at ${params.organization}`,

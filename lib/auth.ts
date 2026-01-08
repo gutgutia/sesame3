@@ -114,32 +114,33 @@ export async function getCurrentProfileId(): Promise<string | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Try to find user's own profile first
-  let profile = await prisma.studentProfile.findFirst({
-    where: { userId: user.id },
-    select: { id: true },
-  });
+  // Run profile lookup and access grant check IN PARALLEL
+  const [profile, accessGrant] = await Promise.all([
+    prisma.studentProfile.findFirst({
+      where: { userId: user.id },
+      select: { id: true },
+    }),
+    prisma.accessGrant.findFirst({
+      where: {
+        grantedToUserId: user.id,
+        revokedAt: null,
+      },
+      select: {
+        studentProfileId: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+  ]);
 
+  // Return user's own profile if it exists
   if (profile) {
     return profile.id;
   }
 
-  // Check if user has access to any shared profiles
-  const accessGrant = await prisma.accessGrant.findFirst({
-    where: {
-      grantedToUserId: user.id,
-      revokedAt: null,
-    },
-    select: {
-      studentProfileId: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
+  // Otherwise return shared profile if user has access
   if (accessGrant) {
-    // User has access to a shared profile - use that
     return accessGrant.studentProfileId;
   }
 
@@ -158,7 +159,7 @@ export async function getCurrentProfileId(): Promise<string | null> {
   // Create profile - use try/catch to handle race condition
   // where multiple requests try to create profile simultaneously
   try {
-    profile = await prisma.studentProfile.create({
+    const newProfile = await prisma.studentProfile.create({
       data: {
         userId: user.id,
         firstName: user.name?.split(" ")[0] || "Student",
@@ -166,7 +167,7 @@ export async function getCurrentProfileId(): Promise<string | null> {
       },
       select: { id: true },
     });
-    return profile.id;
+    return newProfile.id;
   } catch (error) {
     // If unique constraint error (P2002), another request created the profile first
     // Just fetch and return it

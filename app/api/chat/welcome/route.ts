@@ -82,80 +82,80 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Get current user's profile ID
-    const profileId = await getCurrentProfileId();
-    if (!profileId) {
-      // Use mode-specific fallback
-      return NextResponse.json({
-        message: FALLBACK_MESSAGES[mode] || FALLBACK_MESSAGES.general,
-      });
-    }
-    
-    // Check cache first
-    const cachedProfile = getCachedProfile(profileId);
+    // For onboarding, we don't need profile data - skip expensive getCurrentProfileId()
+    const isOnboarding = mode === "onboarding";
+
+    let profileSummary = "";
     let dbTime = 0;
     let cacheHit = false;
 
-    // Profile data (without cachedAt metadata)
-    let profileData: {
-      firstName: string | null;
-      preferredName: string | null;
-      grade: string | null;
-      activities: Array<{ title: string; isLeadership: boolean }>;
-    } | null = null;
+    // Only fetch profile for non-onboarding modes
+    if (!isOnboarding) {
+      const profileId = await getCurrentProfileId();
+      if (!profileId) {
+        return NextResponse.json({
+          message: FALLBACK_MESSAGES[mode] || FALLBACK_MESSAGES.general,
+        });
+      }
 
-    if (cachedProfile) {
-      cacheHit = true;
-      profileData = cachedProfile;
-    } else {
-      // Lightweight profile fetch - only what we need for welcome
-      const dbStart = Date.now();
-      const dbProfile = await prisma.studentProfile.findUnique({
-        where: { id: profileId },
-        select: {
-          firstName: true,
-          preferredName: true,
-          grade: true,
-          activities: {
-            select: { title: true, isLeadership: true },
-            take: 2,
-            orderBy: { displayOrder: "asc" },
+      // Check cache first
+      const cachedProfile = getCachedProfile(profileId);
+
+      let profileData: {
+        firstName: string | null;
+        preferredName: string | null;
+        grade: string | null;
+        activities: Array<{ title: string; isLeadership: boolean }>;
+      } | null = null;
+
+      if (cachedProfile) {
+        cacheHit = true;
+        profileData = cachedProfile;
+      } else {
+        // Lightweight profile fetch - only what we need for welcome
+        const dbStart = Date.now();
+        const dbProfile = await prisma.studentProfile.findUnique({
+          where: { id: profileId },
+          select: {
+            firstName: true,
+            preferredName: true,
+            grade: true,
+            activities: {
+              select: { title: true, isLeadership: true },
+              take: 2,
+              orderBy: { displayOrder: "asc" },
+            },
           },
-        },
-      });
-      dbTime = Date.now() - dbStart;
+        });
+        dbTime = Date.now() - dbStart;
 
-      if (dbProfile) {
-        profileData = {
-          firstName: dbProfile.firstName,
-          preferredName: dbProfile.preferredName,
-          grade: dbProfile.grade,
-          activities: dbProfile.activities,
-        };
-        // Cache for next time
-        setCachedProfile(profileId, profileData);
+        if (dbProfile) {
+          profileData = {
+            firstName: dbProfile.firstName,
+            preferredName: dbProfile.preferredName,
+            grade: dbProfile.grade,
+            activities: dbProfile.activities,
+          };
+          setCachedProfile(profileId, profileData);
+        }
+      }
+
+      // Build minimal context
+      const name = profileData?.preferredName || profileData?.firstName || null;
+      const grade = profileData?.grade || null;
+      const activities = profileData?.activities || [];
+
+      if (name) {
+        profileSummary = `Student: ${name}`;
+        if (grade) profileSummary += `, ${grade}`;
+        if (activities.length > 0) {
+          const activityNames = activities.map(a =>
+            a.isLeadership ? `${a.title} (leadership)` : a.title
+          ).join(", ");
+          profileSummary += `. Activities: ${activityNames}`;
+        }
       }
     }
-    
-    // Build minimal context
-    const name = profileData?.preferredName || profileData?.firstName || null;
-    const grade = profileData?.grade || null;
-    const activities = profileData?.activities || [];
-    
-    let profileSummary = "";
-    if (name) {
-      profileSummary = `Student: ${name}`;
-      if (grade) profileSummary += `, ${grade}`;
-      if (activities.length > 0) {
-        const activityNames = activities.map(a => 
-          a.isLeadership ? `${a.title} (leadership)` : a.title
-        ).join(", ");
-        profileSummary += `. Activities: ${activityNames}`;
-      }
-    }
-    
-    // For onboarding, use a specific approach
-    const isOnboarding = mode === "onboarding";
 
     // Generate personalized welcome
     const systemPrompt = isOnboarding

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { ChatInterface } from "@/components/chat/ChatInterface";
@@ -9,9 +9,14 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const welcomeFetched = useRef(false);
 
   // Fetch personalized welcome message on mount
+  // Use ref to prevent duplicate calls (React Strict Mode runs useEffect twice)
   useEffect(() => {
+    if (welcomeFetched.current) return;
+    welcomeFetched.current = true;
+
     const fetchWelcome = async () => {
       try {
         const response = await fetch("/api/chat/welcome", {
@@ -49,7 +54,7 @@ export default function OnboardingPage() {
       });
 
       // Redirect to dashboard
-      router.push("/?new=true");
+      router.push("/dashboard?new=true");
     } catch (error) {
       console.error("Failed to complete onboarding:", error);
       setIsCompleting(false);
@@ -57,9 +62,9 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-app flex">
-      {/* Left: Brand Anchor */}
-      <div className="hidden md:flex w-[400px] bg-bg-sidebar border-r border-border-subtle flex-col justify-between p-10">
+    <div className="h-screen bg-bg-app flex overflow-hidden">
+      {/* Left: Brand Anchor - fixed sidebar */}
+      <div className="hidden md:flex w-[400px] bg-bg-sidebar border-r border-border-subtle flex-col justify-between p-10 flex-shrink-0">
         <div>
           {/* Logo */}
           <div className="flex items-center gap-3 mb-6">
@@ -85,26 +90,28 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      {/* Right: Chat Interface */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      {/* Right: Chat Interface - takes remaining space, internal scroll */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <div className="md:hidden h-14 bg-bg-sidebar border-b border-border-subtle flex items-center px-4 gap-3">
+        <div className="md:hidden h-14 bg-bg-sidebar border-b border-border-subtle flex items-center px-4 gap-3 flex-shrink-0">
           <div className="w-8 h-8 bg-text-main text-white rounded-lg flex items-center justify-center font-bold text-xs">
             S3
           </div>
           <span className="font-display font-bold text-lg">Sesame</span>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
-          <ChatInterface
-            mode="onboarding"
-            preloadedWelcome={welcomeMessage}
-          />
+        {/* Chat Area - constrained width for readability */}
+        <div className="flex-1 flex flex-col items-center overflow-hidden">
+          <div className="w-full max-w-3xl flex-1 flex flex-col overflow-hidden">
+            <ChatInterface
+              mode="onboarding"
+              preloadedWelcome={welcomeMessage}
+            />
+          </div>
         </div>
 
         {/* "I'm Done" Button */}
-        <div className="p-4 border-t border-border-subtle bg-white">
+        <div className="p-4 border-t border-border-subtle bg-white flex-shrink-0">
           <div className="max-w-3xl mx-auto flex justify-center">
             <button
               onClick={handleComplete}
