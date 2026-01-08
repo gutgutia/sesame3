@@ -904,38 +904,60 @@ function getWidgetSummary(widgetType: WidgetType, data: Record<string, unknown>)
 }
 
 /**
- * Normalize markdown line breaks for proper rendering.
- * Standard markdown ignores single newlines - this converts them to paragraph breaks.
- * Preserves list formatting and existing double newlines.
+ * Normalize markdown for proper rendering.
+ * Adds line breaks where the AI forgot to include them.
  */
 function normalizeMarkdownLineBreaks(content: string): string {
+  let result = content;
+
+  // Add line break before bold text that starts a new section
+  // e.g., "something.**Bold Section:**" → "something.\n\n**Bold Section:**"
+  result = result.replace(/([.!?])\s*(\*\*[A-Z])/g, '$1\n\n$2');
+
+  // Add line break after sentences that end with punctuation followed immediately by bold
+  // e.g., "end of sentence)**Bold" → "end of sentence)\n\n**Bold"
+  result = result.replace(/(\))\s*(\*\*[A-Z])/g, '$1\n\n$2');
+
+  // Add line break before list items if there isn't one
+  // e.g., "some text- List item" → "some text\n\n- List item"
+  result = result.replace(/([^-\n])(\n?)([-*] )/g, '$1\n\n$3');
+
+  // Add line break after list section ends and new paragraph begins
+  // e.g., "list item?**New section" → "list item?\n\n**New section"
+  result = result.replace(/(\?)\s*(\*\*)/g, '$1\n\n$2');
+
+  // Add line break after periods/questions followed by capital letter (new sentence that should be paragraph)
+  // But only if it looks like a section transition (followed by bold or after a long sentence)
+  result = result.replace(/([.!?])\s*(\*\*)/g, '$1\n\n$2');
+
+  // Now handle existing single newlines - convert to paragraph breaks
   // Split into lines
-  const lines = content.split('\n');
-  const result: string[] = [];
+  const lines = result.split('\n');
+  const finalResult: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const nextLine = lines[i + 1];
 
-    result.push(line);
+    finalResult.push(line);
 
     // Add extra newline (paragraph break) if:
-    // - Not already followed by empty line
-    // - Not a list item (- or * or number.)
-    // - Next line exists and is not empty
     // - Current line is not empty
+    // - Next line exists and is not empty
+    // - Not already followed by empty line
+    // - Neither line is a list item
     if (
       line.trim() !== '' &&
       nextLine !== undefined &&
       nextLine.trim() !== '' &&
-      !nextLine.trim().match(/^[-*]|\d+\./) && // Next line is not a list item
-      !line.trim().match(/^[-*]|\d+\./) // Current line is not a list item
+      !nextLine.trim().match(/^[-*•]|\d+\./) && // Next line is not a list item
+      !line.trim().match(/^[-*•]|\d+\./) // Current line is not a list item
     ) {
-      result.push(''); // Add empty line for paragraph break
+      finalResult.push(''); // Add empty line for paragraph break
     }
   }
 
-  return result.join('\n');
+  return finalResult.join('\n');
 }
 
 /**
