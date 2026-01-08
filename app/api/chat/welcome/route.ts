@@ -16,26 +16,26 @@ import { getCurrentProfileId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getCachedProfile, setCachedProfile } from "@/lib/cache/profile-cache";
 
-// Mode descriptions for the AI
+// Mode-specific context and opening prompts for the AI
 const MODE_CONTEXT: Record<string, string> = {
   onboarding: "The student just signed up. This is their FIRST interaction. Warmly welcome them and ask for their name.",
-  chances: "The student wants to check their admission chances.",
-  schools: "The student wants to build their college list.",
-  planning: "The student wants to set goals and plan ahead.",
-  profile: "The student wants to update their profile.",
-  story: "The student wants to share their personal story.",
-  general: "General conversation.",
+  chances: "The student clicked 'Check Chances' - they want to understand their admission odds. Start by asking which schools they're curious about, or if they want a general assessment.",
+  schools: "The student clicked 'Build School List' - they need help discovering and organizing colleges. Ask what they're looking for in a school (size, location, vibe) or if they have any schools in mind already.",
+  planning: "The student clicked 'Need ideas?' from the planning page - they want help brainstorming goals. Ask what area they want to focus on: summer programs, competitions, projects, or something else.",
+  profile: "The student wants to update their profile. Ask what they'd like to add - activities, awards, test scores, or something else.",
+  story: "The student wants to share their personal story. Ask an open-ended question about what makes them unique or what they're passionate about.",
+  general: "General conversation - ask what's on their mind.",
 };
 
 // Fallback messages by mode (when we can't generate personalized ones)
 const FALLBACK_MESSAGES: Record<string, string> = {
   onboarding: "Hi! I'm Sesame, your college prep guide. I'm here to help you navigate the college journey calmly — one step at a time. First things first: what should I call you?",
-  chances: "Hi! I'm Sesame, your college prep advisor. Ready to explore your chances at some schools?",
-  schools: "Hi! I'm Sesame, your college prep advisor. Let's work on your school list!",
-  planning: "Hi! I'm Sesame, your college prep advisor. What goals are you working toward?",
-  profile: "Hi! I'm Sesame, your college prep advisor. Let's update your profile!",
-  story: "Hi! I'm Sesame, your college prep advisor. I'd love to hear your story.",
-  general: "Hi! I'm Sesame, your college prep advisor. What's on your mind today?",
+  chances: "Hey! Ready to explore your admission chances? Which schools are you most curious about — or would you like me to give you a general sense of where you stand?",
+  schools: "Let's build your college list! Are there any schools you're already interested in, or would you like me to suggest some based on what you're looking for?",
+  planning: "Let's brainstorm some goals! What area are you thinking about — summer programs, competitions, passion projects, or something else?",
+  profile: "Let's get your profile updated! What would you like to add — activities, awards, test scores, or something else?",
+  story: "I'd love to hear more about you — beyond the grades and scores. What's something you're really passionate about, or what makes you unique?",
+  general: "Hey! What's on your mind today?",
 };
 
 export async function POST(request: NextRequest) {
@@ -171,17 +171,17 @@ Rules:
 - Keep it SHORT and friendly
 - Do NOT assume you know their name or grade`
       : `You are Sesame, a warm college admissions advisor.
-Generate a brief opening message (2-3 sentences max).
+Generate a brief, contextual opening message (2-3 sentences max).
 
-Mode: ${MODE_CONTEXT[mode] || MODE_CONTEXT.general}
-${profileSummary ? `\nStudent: ${profileSummary}` : "\nNew student - no profile yet."}
+${MODE_CONTEXT[mode] || MODE_CONTEXT.general}
+${profileSummary ? `\nStudent info: ${profileSummary}` : ""}
 
 Rules:
-- Be warm and casual
-- Use their name if known
-- Reference an activity if available
-- End with a question
-- Keep it SHORT`;
+- Be warm and casual, not corporate
+- Use their name naturally if known
+- Get straight to why they're here - ask a relevant question
+- Keep it SHORT - don't over-explain
+- Sound like a helpful friend, not a chatbot`;
 
     const genStart = Date.now();
     
