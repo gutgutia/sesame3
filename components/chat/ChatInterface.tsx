@@ -128,15 +128,35 @@ export function ChatInterface({
 
           // If coming from a specific entry point (not general), add a contextual re-entry message
           // This acknowledges WHY the user came back (e.g., clicked "Need ideas?" from planning)
-          if (mode !== "general" && mode !== "onboarding") {
+          // Only add if the last message was from the assistant (conversation at natural pause)
+          // Don't add if user was waiting for a response
+          const lastMessage = loadedMessages[loadedMessages.length - 1];
+          const shouldAddReentry =
+            mode !== "general" &&
+            mode !== "onboarding" &&
+            lastMessage?.role === "assistant";
+
+          if (shouldAddReentry) {
             const reentryMessage = getReentryMessage(mode);
             if (reentryMessage) {
+              const reentryId = `reentry-${Date.now()}`;
               loadedMessages.push({
-                id: `reentry-${Date.now()}`,
+                id: reentryId,
                 role: "assistant",
                 content: reentryMessage,
               });
               console.log(`[Chat] Added re-entry message for mode: ${mode}`);
+
+              // Save re-entry message to DB so it persists across navigations
+              fetch("/api/chat/message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  conversationId: conversation.id,
+                  role: "assistant",
+                  content: reentryMessage,
+                }),
+              }).catch(err => console.error("[Chat] Failed to save re-entry message:", err));
             }
           }
 
