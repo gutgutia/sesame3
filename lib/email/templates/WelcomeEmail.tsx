@@ -41,11 +41,11 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
 
           {/* Main content */}
           <Text style={paragraph}>
-            We're thrilled to have you on board. Sesame3 is designed to make
+            We&apos;re thrilled to have you on board. Sesame3 is designed to make
             college prep feel manageable, not overwhelming.
           </Text>
 
-          <Text style={paragraph}>Here's what you can do to get started:</Text>
+          <Text style={paragraph}>Here&apos;s what you can do to get started:</Text>
 
           {/* Feature list */}
           <Section style={featureList}>
@@ -88,8 +88,8 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
 
           {/* Closing */}
           <Text style={paragraph}>
-            Remember, college prep doesn't have to be stressful. Take it one
-            step at a time, and we'll be here to help along the way.
+            Remember, college prep doesn&apos;t have to be stressful. Take it one
+            step at a time, and we&apos;ll be here to help along the way.
           </Text>
 
           <Text style={signature}>

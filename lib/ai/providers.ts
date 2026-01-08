@@ -81,11 +81,12 @@ export const modelFor = {
 export type SubscriptionTier = "free" | "standard" | "premium";
 
 /**
- * Check if a tier allows escalation to Claude models.
+ * Check if a tier gets Claude Opus for the counselor role.
  *
- * - Free: Kimi K2 only, no escalation
- * - Standard ($10/mo): Kimi K2 only, no escalation
- * - Premium ($25/mo): Kimi K2 + Opus for complex reasoning
+ * All tiers have secretary → counselor escalation, but the counselor model differs:
+ * - Free: Counselor uses Kimi K2
+ * - Standard ($10/mo): Counselor uses Kimi K2
+ * - Premium ($25/mo): Counselor uses Claude Opus
  *
  * Kimi K2 is Sonnet-equivalent quality, so Free/Standard get great responses.
  * Premium users get Opus for the most complex analysis (chances, essays, strategy).
@@ -95,15 +96,20 @@ export function canEscalateToAdvisor(tier: SubscriptionTier): boolean {
 }
 
 /**
- * Get the advisor model for a subscription tier (only used when escalating).
+ * Get the advisor model for a subscription tier.
  *
- * - Free: N/A (no escalation, Kimi handles everything)
- * - Standard: N/A (no escalation, Kimi handles everything)
+ * - Free: Kimi K2 (Sonnet-equivalent quality)
+ * - Standard: Kimi K2 (Sonnet-equivalent quality)
  * - Premium ($25/mo): Opus 4.5 (exceptional reasoning)
+ *
+ * All tiers use the same counselor architecture, just with different models.
  */
 export function getAdvisorForTier(tier: SubscriptionTier) {
-  // Only premium gets Claude escalation, and it's always Opus
-  return models.claude.opus;
+  if (tier === "premium") {
+    return models.claude.opus;
+  }
+  // Free and standard use Kimi K2 as the counselor
+  return models.groq.kimiK2;
 }
 
 /**

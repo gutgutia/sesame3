@@ -88,6 +88,12 @@ export function ChatInterface({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isResumedConversation, setIsResumedConversation] = useState(false);
 
+  // Track latest preloadedWelcome in a ref (to avoid stale closure issues)
+  const preloadedWelcomeRef = useRef(preloadedWelcome);
+  useEffect(() => {
+    preloadedWelcomeRef.current = preloadedWelcome;
+  }, [preloadedWelcome]);
+
   // Load or resume conversation on mount
   useEffect(() => {
     if (conversationLoaded.current) return;
@@ -172,7 +178,8 @@ export function ChatInterface({
           );
 
           // Use preloaded welcome or a fallback message
-          const welcomeContent = preloadedWelcome || getFallbackWelcome(mode);
+          // Use ref to get latest value (avoids stale closure from async effect)
+          const welcomeContent = preloadedWelcomeRef.current || getFallbackWelcome(mode);
           welcomeSet.current = true;
           setMessages([
             {
@@ -197,7 +204,8 @@ export function ChatInterface({
     };
 
     loadConversation();
-  }, [mode, preloadedWelcome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]); // Don't include preloadedWelcome - we use ref to avoid stale closure
 
   // Handle preloaded welcome message for new conversations
   useEffect(() => {
@@ -253,6 +261,17 @@ export function ChatInterface({
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [conversationId]);
+
+  // Refocus input after loading completes (input is disabled during loading, which causes focus loss)
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      // Small delay to ensure the input is re-enabled before focusing
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   // Send message to API with Parser + Advisor dual-model architecture
   const sendMessage = useCallback(async (content: string) => {

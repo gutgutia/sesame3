@@ -266,7 +266,9 @@ async function updateMasterSummary(
  * Generate the master summary components.
  */
 async function generateMasterSummary(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   profile: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   existingContext: any,
   newConversationSummary: string,
   conversationDate: Date,
@@ -285,6 +287,7 @@ async function generateMasterSummary(
   const sat = profile?.testing?.satScores?.[0]?.total;
   const act = profile?.testing?.actScores?.[0]?.composite;
   const topSchools = profile?.schoolList
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ?.map((s: any) => s.school?.name)
     .filter(Boolean)
     .slice(0, 3);

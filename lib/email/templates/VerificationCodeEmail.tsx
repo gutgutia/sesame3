@@ -55,7 +55,7 @@ export function VerificationCodeEmail({
 
           {/* Expiry notice */}
           <Text style={subtext}>
-            This code expires in 10 minutes. If you didn't request this code,
+            This code expires in 10 minutes. If you didn&apos;t request this code,
             you can safely ignore this email.
           </Text>
 

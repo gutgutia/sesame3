@@ -108,7 +108,7 @@ function ErrorFallback({ error, onRetry, onGoHome, showDetails }: ErrorFallbackP
 
         {/* Message */}
         <p className="text-gray-600 mb-6">
-          We encountered an unexpected error. Don't worry, your data is safe.
+          We encountered an unexpected error. Don&apos;t worry, your data is safe.
           Try refreshing the page or going back to the dashboard.
         </p>
 

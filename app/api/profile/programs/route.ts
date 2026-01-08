@@ -26,6 +26,20 @@ export async function GET() {
 }
 
 /**
+ * Infer program type from name if not provided
+ */
+function inferProgramType(name: string): string {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("research") || lowerName.includes("sra") || lowerName.includes("simr") || lowerName.includes("rsi")) {
+    return "research";
+  }
+  if (lowerName.includes("intern")) {
+    return "internship";
+  }
+  return "summer"; // Default
+}
+
+/**
  * POST /api/profile/programs
  * Create a new program
  */
@@ -33,13 +47,16 @@ export async function POST(request: NextRequest) {
   try {
     const profileId = await requireProfile();
     const body = await request.json();
-    
+
+    // Infer type if not provided
+    const programType = body.type || inferProgramType(body.name || "");
+
     const program = await prisma.program.create({
       data: {
         studentProfileId: profileId,
         name: body.name,
         organization: body.organization,
-        type: body.type,
+        type: programType,
         status: body.status || "interested",
         year: body.year,
         startDate: body.startDate ? new Date(body.startDate) : undefined,

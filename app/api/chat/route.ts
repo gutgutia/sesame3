@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           // Determine if secretary will handle (auto-save) or if we need user confirmation
-          const secretaryWillHandle = secretaryResult?.canHandle && secretaryResult.response;
+          const secretaryWillHandle = !!(secretaryResult?.canHandle && secretaryResult.response);
 
           // Send widget data IMMEDIATELY after parsing (before context assembly)
           // This ensures widgets appear in ~600ms, not 3+ seconds
@@ -207,27 +207,22 @@ export async function POST(request: NextRequest) {
           }
 
           // ==========================================================================
-          // ROUTING DECISION: Secretary handles vs Claude escalation
+          // ROUTING DECISION: Secretary handles vs Counselor escalation
           // ==========================================================================
           //
           // Decision logic:
-          // 1. Secretary says canHandle: true + has response → Kimi handles
-          // 2. Secretary says canHandle: false BUT tier can't escalate → Kimi handles (use secretary response)
-          // 3. Secretary says canHandle: false AND tier can escalate → Claude handles
+          // 1. Secretary says canHandle: true + has response → Secretary (Kimi K2) handles directly
+          // 2. Secretary says canHandle: false → Escalate to Counselor (Kimi K2 for free/standard, Opus for premium)
           //
-          // This ensures free/standard users always get Kimi, premium users get Claude for complex questions.
+          // This preserves the secretary/counselor separation while using tier-appropriate models.
           const secretaryCanHandle = secretaryResult?.canHandle && secretaryResult.response;
-          const forceKimiDueToTier = !canEscalateToAdvisor(tier) && secretaryResult?.response;
 
-          if (secretaryCanHandle || forceKimiDueToTier) {
+          if (secretaryCanHandle) {
             // === FAST PATH: Secretary (Kimi K2) handles this interaction ===
             // At this point, secretaryResult is guaranteed to exist and have a response
             const responseText = secretaryResult!.response!;
             const toolsToExecute = secretaryResult!.tools || [];
-            const reason = forceKimiDueToTier && !secretaryResult!.canHandle
-              ? "Tier restricted (free/standard)"
-              : "Fast Path";
-            console.log(`[Chat] 🤖 RESPONDING: Kimi K2 (Secretary) - ${reason}`);
+            console.log(`[Chat] 🤖 RESPONDING: Kimi K2 (Secretary) - Fast Path`);
             console.log(`[Chat] === RAW SECRETARY RESPONSE START ===`);
             console.log(JSON.stringify(responseText));
             console.log(`[Chat] === RAW SECRETARY RESPONSE END ===`);
@@ -278,12 +273,15 @@ export async function POST(request: NextRequest) {
             return;
           }
 
-          // === SLOW PATH: Escalate to Claude for complex reasoning (Premium tier only) ===
-          console.log(`[Chat] 🧠 RESPONDING: Claude Opus (${modelName}) - Premium Escalation`);
+          // === SLOW PATH: Escalate to Counselor for complex reasoning ===
+          // - Free/Standard: Kimi K2 as counselor
+          // - Premium: Claude Opus as counselor
+          const isPremium = canEscalateToAdvisor(tier);
+          console.log(`[Chat] 🧠 RESPONDING: ${isPremium ? "Claude Opus" : "Kimi K2"} (Counselor) - ${modelName}`);
           if (secretaryResult && !secretaryResult.canHandle) {
             console.log(`[Chat] Escalation reason: ${secretaryResult.escalationReason || "complex reasoning needed"}`);
           }
-          console.log(`[Chat] User tier: ${tier} (escalation allowed: ${canEscalateToAdvisor(tier)})`);
+          console.log(`[Chat] User tier: ${tier}`);
           console.log(`======================================\n`);
 
           // === Get context (use lightweight for onboarding, full for everything else) ===
@@ -338,14 +336,14 @@ export async function POST(request: NextRequest) {
             messages: validMessages,
             tools: allTools,
             onFinish: async ({ text, toolCalls, toolResults, usage }) => {
-              // Log Claude's response with full text and visible newlines
-              console.log(`[Chat] Claude response complete (${text.length} chars)`);
+              // Log counselor response with full text and visible newlines
+              console.log(`[Chat] Counselor (${modelName}) response complete (${text.length} chars)`);
               console.log(`[Chat] === RAW RESPONSE START ===`);
               // Show newlines as \n for visibility
               console.log(JSON.stringify(text));
               console.log(`[Chat] === RAW RESPONSE END ===`);
               if (toolCalls && toolCalls.length > 0) {
-                console.log(`[Chat] Claude tool calls: ${toolCalls.map(t => t.toolName).join(", ")}`);
+                console.log(`[Chat] Counselor tool calls: ${toolCalls.map(t => t.toolName).join(", ")}`);
               }
 
               // Estimate output tokens

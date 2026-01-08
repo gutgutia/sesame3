@@ -4,6 +4,69 @@
 import { prisma } from "@/lib/db";
 
 // =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Infer program type from the program name.
+ * Used when the LLM doesn't specify a type explicitly.
+ */
+function inferProgramType(name: string): string {
+  const lowerName = name.toLowerCase();
+
+  // Research programs
+  if (
+    lowerName.includes("research") ||
+    lowerName.includes("simr") ||
+    lowerName.includes("rsi") ||
+    lowerName.includes("sra") ||
+    lowerName.includes("reu") ||
+    lowerName.includes("simons")
+  ) {
+    return "research";
+  }
+
+  // Internships
+  if (
+    lowerName.includes("internship") ||
+    lowerName.includes("intern")
+  ) {
+    return "internship";
+  }
+
+  // Summer programs (default for most named programs)
+  if (
+    lowerName.includes("summer") ||
+    lowerName.includes("mites") ||
+    lowerName.includes("ssp") ||
+    lowerName.includes("tasp") ||
+    lowerName.includes("yygs") ||
+    lowerName.includes("mostec") ||
+    lowerName.includes("cosmos") ||
+    lowerName.includes("camp")
+  ) {
+    return "summer";
+  }
+
+  // Competition prep
+  if (
+    lowerName.includes("olympiad") ||
+    lowerName.includes("mathcamp") ||
+    lowerName.includes("competition")
+  ) {
+    return "competition_prep";
+  }
+
+  // Online programs
+  if (lowerName.includes("online")) {
+    return "online";
+  }
+
+  // Default to summer program (most common type for college prep)
+  return "summer";
+}
+
+// =============================================================================
 // PROFILE TOOL HANDLERS
 // =============================================================================
 
@@ -249,19 +312,23 @@ export async function handleAddProgram(
   params: {
     name: string;
     organization?: string;
-    type: string;
-    status: string;
+    type?: string;
+    status?: string;
     year?: number;
     description?: string;
   }
 ) {
+  // Infer type from name if not provided
+  const inferredType = params.type || inferProgramType(params.name);
+  const status = params.status || "considering";
+
   const program = await prisma.program.create({
     data: {
       studentProfileId: profileId,
       name: params.name,
       organization: params.organization,
-      type: params.type,
-      status: params.status,
+      type: inferredType,
+      status: status,
       year: params.year,
       description: params.description,
     },

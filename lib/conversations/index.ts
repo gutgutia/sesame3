@@ -47,10 +47,12 @@ export async function getOrCreateConversation(
 
   // Run both queries IN PARALLEL for better performance
   const [activeConversation, conversationsNeedingSummary] = await Promise.all([
-    // Find active conversation (within time window)
+    // Find active conversation (within time window, same mode)
+    // Mode-specific so clicking "Chat with Advisor" from schools vs planning gives appropriate context
     prisma.conversation.findFirst({
       where: {
         studentProfileId: profileId,
+        mode: mode, // Must match the requested mode
         lastMessageAt: {
           gte: timeWindowStart,
         },
