@@ -15,6 +15,29 @@ const anthropic = createAnthropic();
 const SUMMARIZATION_MODEL = anthropic("claude-3-5-haiku-latest");
 
 /**
+ * Extract JSON from a response that might contain extra text.
+ * Handles cases where LLM includes "I apologize" or other preamble.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractJson(text: string): any {
+  // First try direct parse
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Try to find JSON object in the text
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        // Fall through to error
+      }
+    }
+    throw new Error(`Could not extract JSON from response: ${text.slice(0, 100)}...`);
+  }
+}
+
+/**
  * Trigger conversation summarization in the background.
  * Fire-and-forget - doesn't block the caller.
  *
@@ -134,7 +157,7 @@ Create a structured summary with:
 - decisionsReached: Array of any decisions made (or empty if none)
 - actionItems: Array of next steps or commitments (or empty if none)
 
-Respond in JSON format:
+IMPORTANT: Respond ONLY with valid JSON, no other text. Do not apologize or explain.
 {
   "advisorSummary": "prose summary here...",
   "studentSummary": {
@@ -153,7 +176,7 @@ Respond in JSON format:
       maxOutputTokens: 800,
     });
 
-    const parsed = JSON.parse(result.text);
+    const parsed = extractJson(result.text);
 
     return {
       summary: parsed.advisorSummary,
@@ -356,7 +379,7 @@ List any active commitments or action items:
 - Follow-ups needed
 Remove completed items, add new ones.
 
-Respond in JSON:
+IMPORTANT: Respond ONLY with valid JSON, no other text.
 {
   "recentSessions": "...",
   "studentUnderstanding": "...",
@@ -371,7 +394,7 @@ Respond in JSON:
       maxOutputTokens: 600,
     });
 
-    const parsed = JSON.parse(result.text);
+    const parsed = extractJson(result.text);
 
     // Handle openCommitments - LLM might return array or string
     let openCommitments = parsed.openCommitments;
