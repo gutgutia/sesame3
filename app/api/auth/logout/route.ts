@@ -18,13 +18,18 @@ const cookieOptions = {
 export async function POST() {
   const cookieStore = await cookies();
 
-  // Clear auth cookies by setting them to empty with immediate expiry
+  // Clear ALL auth cookies by setting them to empty with immediate expiry
   // This is more reliable than delete() across different browsers
   cookieStore.set("sesame_session", "", {
     ...cookieOptions,
     maxAge: 0,
   });
   cookieStore.set("sesame_user_id", "", {
+    ...cookieOptions,
+    maxAge: 0,
+  });
+  // IMPORTANT: Also clear cached profile ID to prevent stale data on re-login
+  cookieStore.set("sesame_profile_id", "", {
     ...cookieOptions,
     maxAge: 0,
   });
@@ -36,12 +41,16 @@ export async function POST() {
 export async function GET() {
   const cookieStore = await cookies();
 
-  // Clear auth cookies by setting them to empty with immediate expiry
+  // Clear ALL auth cookies by setting them to empty with immediate expiry
   cookieStore.set("sesame_session", "", {
     ...cookieOptions,
     maxAge: 0,
   });
   cookieStore.set("sesame_user_id", "", {
+    ...cookieOptions,
+    maxAge: 0,
+  });
+  cookieStore.set("sesame_profile_id", "", {
     ...cookieOptions,
     maxAge: 0,
   });
