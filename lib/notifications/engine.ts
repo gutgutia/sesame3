@@ -164,7 +164,7 @@ async function makeNotificationDecision(
       system: input.systemInstructions,
       prompt,
       temperature: 0.3, // Lower temperature for more consistent decisions
-      maxTokens: 800,
+      maxOutputTokens: 800,
     });
 
     // Parse the JSON response
