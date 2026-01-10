@@ -59,6 +59,7 @@ export async function GET() {
           select: { email: true, name: true },
         },
         permission: true,
+        relationship: true,
         createdAt: true,
       },
     });
@@ -73,6 +74,7 @@ export async function GET() {
       select: {
         id: true,
         inviteeEmail: true,
+        relationship: true,
         createdAt: true,
         expiresAt: true,
       },
@@ -86,6 +88,7 @@ export async function GET() {
         email: grant.grantedTo.email,
         name: grant.grantedTo.name,
         permission: grant.permission,
+        relationship: grant.relationship,
         createdAt: grant.createdAt,
       })),
       ...invitations.map((inv) => ({
@@ -94,6 +97,7 @@ export async function GET() {
         email: inv.inviteeEmail,
         name: null,
         permission: "view",
+        relationship: inv.relationship,
         createdAt: inv.createdAt,
         expiresAt: inv.expiresAt,
       })),
@@ -119,10 +123,19 @@ export async function POST(request: NextRequest) {
     const profileId = await requireProfile();
 
     const body = await request.json();
-    const { email } = body;
+    const { email, relationship } = body;
 
     if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // Validate relationship if provided
+    const validRelationships = ["parent", "counselor", "tutor", "other"];
+    if (relationship && !validRelationships.includes(relationship)) {
+      return NextResponse.json(
+        { error: "Invalid relationship type" },
+        { status: 400 }
+      );
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -196,6 +209,7 @@ export async function POST(request: NextRequest) {
           grantedToUserId: inviteeUser.id,
           permission: "view",
           scope: "full",
+          relationship: relationship || null,
         },
       });
 
@@ -238,6 +252,7 @@ export async function POST(request: NextRequest) {
         inviteeEmail: normalizedEmail,
         token,
         expiresAt,
+        relationship: relationship || null,
       },
     });
 

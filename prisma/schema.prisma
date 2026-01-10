@@ -49,7 +49,10 @@ model User {
   authProvider   String?  // "email" | "google" | "apple"
   emailVerified  Boolean  @default(false)
   lastLoginAt    DateTime?
-  
+
+  // Account type - who is this user?
+  accountType    String   @default("student")  // "student" | "parent" | "counselor"
+
   // Preferences
   preferences Json?    // { theme, notifications, etc. }
   
@@ -1309,6 +1312,9 @@ model Invitation {
 
   // Status
   status           String @default("pending")  // "pending" | "accepted" | "expired" | "revoked"
+
+  // Relationship type (for when the invitation is accepted)
+  relationship     String?   // "parent" | "counselor" | "tutor" | "other"
 
   // Timestamps
   expiresAt        DateTime

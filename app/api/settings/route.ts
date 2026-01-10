@@ -31,6 +31,7 @@ export async function GET() {
         user: {
           select: {
             email: true,
+            accountType: true,
             subscriptionTier: true,
             subscriptionEndsAt: true,
             stripeCustomerId: true,
@@ -171,10 +172,63 @@ export async function GET() {
     
     return NextResponse.json({
       email: user.email,
+      accountType: user.accountType || "student",
       subscription,
     });
   } catch (error) {
     console.error("Settings error:", error);
+    if (error instanceof Error && error.message === "Profile not found") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * PUT /api/settings
+ * Update user settings (accountType)
+ */
+export async function PUT(request: Request) {
+  try {
+    const profileId = await requireProfile();
+    const body = await request.json();
+
+    const profile = await prisma.studentProfile.findUnique({
+      where: { id: profileId },
+      select: { userId: true },
+    });
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    // Validate accountType
+    const validAccountTypes = ["student", "parent", "counselor"];
+    if (body.accountType && !validAccountTypes.includes(body.accountType)) {
+      return NextResponse.json(
+        { error: "Invalid account type. Must be 'student', 'parent', or 'counselor'" },
+        { status: 400 }
+      );
+    }
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: profile.userId },
+      data: {
+        ...(body.accountType && { accountType: body.accountType }),
+      },
+      select: {
+        email: true,
+        accountType: true,
+      },
+    });
+
+    return NextResponse.json({
+      email: updatedUser.email,
+      accountType: updatedUser.accountType,
+    });
+  } catch (error) {
+    console.error("Settings update error:", error);
     if (error instanceof Error && error.message === "Profile not found") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

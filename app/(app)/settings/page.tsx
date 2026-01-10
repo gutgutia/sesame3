@@ -46,8 +46,11 @@ type SubscriptionData = {
   amount: number | null;
 };
 
+type AccountType = "student" | "parent" | "counselor";
+
 type UserSettings = {
   email: string;
+  accountType: AccountType;
   subscription: SubscriptionData;
 };
 
@@ -427,6 +430,10 @@ export default function SettingsPage() {
   const [editResidencyStatus, setEditResidencyStatus] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Account type state
+  const [accountType, setAccountType] = useState<AccountType>("student");
+  const [isSavingAccountType, setIsSavingAccountType] = useState(false);
+
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -463,6 +470,7 @@ export default function SettingsPage() {
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setSettings(data);
+        setAccountType(data.accountType || "student");
         settingsCache.settings = data;
       }
 
@@ -806,6 +814,34 @@ export default function SettingsPage() {
     }
   };
 
+  // Account type save handler
+  const saveAccountType = async (newType: AccountType) => {
+    setIsSavingAccountType(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountType: newType }),
+      });
+
+      if (res.ok) {
+        setAccountType(newType);
+        setSuccessMessage("Account type updated!");
+        // Update cached settings
+        if (settingsCache.settings) {
+          settingsCache.settings.accountType = newType;
+        }
+      } else {
+        alert("Failed to update account type");
+      }
+    } catch (error) {
+      console.error("Save account type error:", error);
+      alert("Failed to update account type");
+    } finally {
+      setIsSavingAccountType(false);
+    }
+  };
+
   const GRADE_OPTIONS = ["9th", "10th", "11th", "12th"];
 
   const RESIDENCY_OPTIONS = [
@@ -1139,6 +1175,72 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Account Type Section */}
+                <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-5 h-5 text-text-muted" />
+                    <h2 className="text-lg font-semibold text-text-primary">
+                      Account Type
+                    </h2>
+                  </div>
+                  <p className="text-sm text-text-muted mb-6">
+                    Let us know who you are so we can personalize your experience.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      {
+                        type: "student" as AccountType,
+                        title: "Student",
+                        description: "I'm a high school student working on my college applications.",
+                        emoji: "🎓",
+                      },
+                      {
+                        type: "parent" as AccountType,
+                        title: "Parent",
+                        description: "I'm a parent helping my child with college prep.",
+                        emoji: "👨‍👩‍👧",
+                      },
+                      {
+                        type: "counselor" as AccountType,
+                        title: "Counselor",
+                        description: "I'm a counselor or advisor guiding students.",
+                        emoji: "📋",
+                      },
+                    ].map((option) => (
+                      <button
+                        key={option.type}
+                        onClick={() => saveAccountType(option.type)}
+                        disabled={isSavingAccountType}
+                        className={cn(
+                          "text-left p-4 rounded-xl border-2 transition-all",
+                          accountType === option.type
+                            ? "border-accent-primary bg-accent-surface"
+                            : "border-border-subtle bg-surface-primary hover:border-border-medium",
+                          isSavingAccountType && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <div className="text-2xl mb-2">{option.emoji}</div>
+                        <h3 className="font-medium text-text-primary mb-1">
+                          {option.title}
+                        </h3>
+                        <p className="text-sm text-text-muted">
+                          {option.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {accountType !== "student" && (
+                    <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
+                      <p>
+                        <strong>Note:</strong> As a {accountType}, you&apos;re managing this profile on behalf of a student.
+                        All profile information should reflect the student&apos;s details.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Account Access Section */}
@@ -1590,21 +1692,32 @@ function AdvisorPreferencesTab({
 // ACCOUNT ACCESS SECTION
 // =============================================================================
 
+type RelationshipType = "parent" | "counselor" | "tutor" | "other";
+
 type AccessEntry = {
   id: string;
   type: "active" | "pending";
   email: string;
   name: string | null;
   permission: string;
+  relationship: RelationshipType | null;
   createdAt: string;
   expiresAt?: string;
 };
+
+const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
+  { value: "parent", label: "Parent" },
+  { value: "counselor", label: "Counselor" },
+  { value: "tutor", label: "Tutor" },
+  { value: "other", label: "Other" },
+];
 
 function AccountAccessSection() {
   const [accessList, setAccessList] = useState<AccessEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [newRelationship, setNewRelationship] = useState<RelationshipType>("parent");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -1638,7 +1751,10 @@ function AccountAccessSection() {
       const res = await fetch("/api/account-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newEmail.trim() }),
+        body: JSON.stringify({
+          email: newEmail.trim(),
+          relationship: newRelationship,
+        }),
       });
 
       const data = await res.json();
@@ -1649,6 +1765,7 @@ function AccountAccessSection() {
 
       setSuccessMessage(data.message || "Invitation sent!");
       setNewEmail("");
+      setNewRelationship("parent");
       loadAccessList();
 
       // Clear success message after 3 seconds
@@ -1719,27 +1836,40 @@ function AccountAccessSection() {
       )}
 
       {/* Add email form */}
-      <form onSubmit={handleAddEmail} className="flex gap-2 mb-6">
-        <div className="relative flex-1">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="Enter email address"
-            className="w-full pl-10 pr-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
-          />
+      <form onSubmit={handleAddEmail} className="space-y-3 mb-6">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Enter email address"
+              className="w-full pl-10 pr-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+            />
+          </div>
+          <select
+            value={newRelationship}
+            onChange={(e) => setNewRelationship(e.target.value as RelationshipType)}
+            className="px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+          >
+            {RELATIONSHIP_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <Button type="submit" disabled={isAdding || !newEmail.trim()}>
+            {isAdding ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add
+              </>
+            )}
+          </Button>
         </div>
-        <Button type="submit" disabled={isAdding || !newEmail.trim()}>
-          {isAdding ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <Plus className="w-4 h-4 mr-1.5" />
-              Add
-            </>
-          )}
-        </Button>
       </form>
 
       {/* Access list */}
@@ -1772,8 +1902,13 @@ function AccountAccessSection() {
                   )}
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-text-primary">
+                  <div className="text-sm font-medium text-text-primary flex items-center gap-2">
                     {entry.email}
+                    {entry.relationship && (
+                      <span className="text-xs px-2 py-0.5 bg-surface-tertiary text-text-muted rounded-full capitalize">
+                        {entry.relationship}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-text-muted">
                     {entry.type === "active" ? (
