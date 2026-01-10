@@ -389,7 +389,7 @@ const CACHE_TTL = 60000; // 1 minute
 
 export default function SettingsPage() {
   const { profile } = useProfile();
-  const [activeTab, setActiveTab] = useState<"profile" | "subscription" | "advisor">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "subscription" | "preferences">("profile");
   const [isYearly, setIsYearly] = useState(true);
   const [settings, setSettings] = useState<UserSettings | null>(() => {
     if (Date.now() - settingsCache.timestamp < CACHE_TTL) return settingsCache.settings;
@@ -943,16 +943,16 @@ export default function SettingsPage() {
             Subscription
           </button>
           <button
-            onClick={() => setActiveTab("advisor")}
+            onClick={() => setActiveTab("preferences")}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              activeTab === "advisor"
+              activeTab === "preferences"
                 ? "bg-white text-text-primary shadow-sm"
                 : "text-text-muted hover:text-text-primary"
             )}
           >
-            <MessageSquare className="w-4 h-4 inline mr-2" />
-            Advisor
+            <Settings className="w-4 h-4 inline mr-2" />
+            Preferences
           </button>
         </div>
 
@@ -1486,9 +1486,9 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Advisor Tab */}
-            {activeTab === "advisor" && (
-              <AdvisorPreferencesTab
+            {/* Preferences Tab */}
+            {activeTab === "preferences" && (
+              <PreferencesTab
                 accountabilityLevel={accountabilityLevel}
                 setAccountabilityLevel={setAccountabilityLevel}
                 advisorPreferences={advisorPreferences}
@@ -1508,10 +1508,117 @@ export default function SettingsPage() {
 }
 
 // =============================================================================
-// ADVISOR PREFERENCES TAB
+// PREFERENCES TAB
 // =============================================================================
 
-function AdvisorPreferencesTab({
+function PreferencesTab({
+  accountabilityLevel,
+  setAccountabilityLevel,
+  advisorPreferences,
+  setAdvisorPreferences,
+  isSaving,
+  setIsSaving,
+  advisorLoaded,
+  setAdvisorLoaded,
+  setSuccessMessage,
+}: {
+  accountabilityLevel: "light" | "moderate" | "high";
+  setAccountabilityLevel: (level: "light" | "moderate" | "high") => void;
+  advisorPreferences: string;
+  setAdvisorPreferences: (prefs: string) => void;
+  isSaving: boolean;
+  setIsSaving: (saving: boolean) => void;
+  advisorLoaded: boolean;
+  setAdvisorLoaded: (loaded: boolean) => void;
+  setSuccessMessage: (msg: string | null) => void;
+}) {
+  const [expandedSection, setExpandedSection] = useState<"coaching" | "notifications" | null>(null);
+
+  return (
+    <div className="space-y-4">
+      {/* Coaching Preferences Section */}
+      <CollapsibleSection
+        title="Coaching Preferences"
+        description="Customize how your advisor communicates with you"
+        icon={<MessageSquare className="w-5 h-5" />}
+        isExpanded={expandedSection === "coaching"}
+        onToggle={() => setExpandedSection(expandedSection === "coaching" ? null : "coaching")}
+      >
+        <CoachingPreferencesContent
+          accountabilityLevel={accountabilityLevel}
+          setAccountabilityLevel={setAccountabilityLevel}
+          advisorPreferences={advisorPreferences}
+          setAdvisorPreferences={setAdvisorPreferences}
+          isSaving={isSaving}
+          setIsSaving={setIsSaving}
+          advisorLoaded={advisorLoaded}
+          setAdvisorLoaded={setAdvisorLoaded}
+          setSuccessMessage={setSuccessMessage}
+        />
+      </CollapsibleSection>
+
+      {/* Notification Preferences Section */}
+      <CollapsibleSection
+        title="Notification Preferences"
+        description="Control when and how you receive reminders"
+        icon={<Mail className="w-5 h-5" />}
+        isExpanded={expandedSection === "notifications"}
+        onToggle={() => setExpandedSection(expandedSection === "notifications" ? null : "notifications")}
+      >
+        <NotificationPreferencesContent />
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+// Collapsible Section Component
+function CollapsibleSection({
+  title,
+  description,
+  icon,
+  isExpanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-surface-secondary border border-border-subtle rounded-2xl overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full px-6 py-5 flex items-center justify-between hover:bg-surface-tertiary/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="text-text-muted">{icon}</div>
+          <div className="text-left">
+            <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+            <p className="text-sm text-text-muted">{description}</p>
+          </div>
+        </div>
+        <div className="text-text-muted">
+          {isExpanded ? (
+            <ChevronUp className="w-5 h-5" />
+          ) : (
+            <ChevronDown className="w-5 h-5" />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="px-6 pb-6 border-t border-border-subtle">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Coaching Preferences Content
+function CoachingPreferencesContent({
   accountabilityLevel,
   setAccountabilityLevel,
   advisorPreferences,
@@ -1570,7 +1677,7 @@ function AdvisorPreferencesTab({
       });
 
       if (res.ok) {
-        setSuccessMessage("Advisor preferences saved!");
+        setSuccessMessage("Coaching preferences saved!");
       } else {
         alert("Failed to save preferences");
       }
@@ -1584,41 +1691,41 @@ function AdvisorPreferencesTab({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-primary animate-spin" />
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Accountability Level */}
-      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
+    <div className="space-y-6 pt-6">
+      {/* Coaching Style */}
+      <div>
+        <h3 className="text-base font-medium text-text-primary mb-2">
           Coaching Style
-        </h2>
-        <p className="text-sm text-text-muted mb-6">
+        </h3>
+        <p className="text-sm text-text-muted mb-4">
           Choose how proactive you want your advisor to be about follow-ups and accountability.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
             {
               level: "light" as const,
               title: "Light Touch",
-              description: "Gentle suggestions without pushing. Good for independent students who prefer to set their own pace.",
+              description: "Gentle suggestions without pushing",
               emoji: "🌱",
             },
             {
               level: "moderate" as const,
               title: "Balanced",
-              description: "Helpful reminders and encouragement. A good mix of support and autonomy.",
+              description: "Helpful reminders and encouragement",
               emoji: "⚖️",
             },
             {
               level: "high" as const,
               title: "High Accountability",
-              description: "Proactive follow-ups and direct challenges. Best for students who want to be pushed toward their goals.",
+              description: "Proactive follow-ups and challenges",
               emoji: "🔥",
             },
           ].map((option) => (
@@ -1626,17 +1733,19 @@ function AdvisorPreferencesTab({
               key={option.level}
               onClick={() => setAccountabilityLevel(option.level)}
               className={cn(
-                "text-left p-4 rounded-xl border-2 transition-all",
+                "text-left p-3 rounded-xl border-2 transition-all",
                 accountabilityLevel === option.level
                   ? "border-accent-primary bg-accent-surface"
                   : "border-border-subtle bg-surface-primary hover:border-border-medium"
               )}
             >
-              <div className="text-2xl mb-2">{option.emoji}</div>
-              <h3 className="font-medium text-text-primary mb-1">
-                {option.title}
-              </h3>
-              <p className="text-sm text-text-muted">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{option.emoji}</span>
+                <h4 className="font-medium text-text-primary text-sm">
+                  {option.title}
+                </h4>
+              </div>
+              <p className="text-xs text-text-muted">
                 {option.description}
               </p>
             </button>
@@ -1644,12 +1753,12 @@ function AdvisorPreferencesTab({
         </div>
       </div>
 
-      {/* Custom Preferences */}
-      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
+      {/* Custom Instructions */}
+      <div>
+        <h3 className="text-base font-medium text-text-primary mb-2">
           Custom Instructions
-        </h2>
-        <p className="text-sm text-text-muted mb-4">
+        </h3>
+        <p className="text-sm text-text-muted mb-3">
           Tell your advisor anything specific about how you like to work or communicate.
         </p>
 
@@ -1657,45 +1766,29 @@ function AdvisorPreferencesTab({
           value={advisorPreferences}
           onChange={(e) => setAdvisorPreferences(e.target.value)}
           placeholder="Example: I'm an early bird so morning check-ins work best. I prefer direct feedback over sugarcoating..."
-          className="w-full h-32 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none"
+          className="w-full h-28 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none text-sm"
         />
-
-        <div className="mt-4 flex justify-end">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Save Preferences
-          </Button>
-        </div>
       </div>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-        <h3 className="font-medium text-blue-900 mb-2">
-          How this affects your advisor
-        </h3>
-        <ul className="text-sm text-blue-800 space-y-1.5">
-          <li>• Your preferences are included in every conversation</li>
-          <li>• The advisor will adapt its communication style accordingly</li>
-          <li>• High accountability enables proactive check-ins on commitments</li>
-          <li>• You can change these settings anytime</li>
-        </ul>
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          Save Preferences
+        </Button>
       </div>
-
-      {/* Notification Preferences */}
-      <NotificationPreferencesSection />
     </div>
   );
 }
 
 // =============================================================================
-// NOTIFICATION PREFERENCES SECTION
+// NOTIFICATION PREFERENCES CONTENT
 // =============================================================================
 
-function NotificationPreferencesSection() {
+function NotificationPreferencesContent() {
   const [preferences, setPreferences] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1745,28 +1838,20 @@ function NotificationPreferencesSection() {
 
   if (isLoading) {
     return (
-      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
-        </div>
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
-      <div className="flex items-center gap-2 mb-2">
-        <Mail className="w-5 h-5 text-text-muted" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          Notification Preferences
-        </h2>
-      </div>
-      <p className="text-sm text-text-muted mb-4">
+    <div className="space-y-4 pt-6">
+      <p className="text-sm text-text-muted">
         Tell us how you&apos;d like to receive reminders and updates. We use AI to interpret your preferences, so feel free to be specific.
       </p>
 
       {successMessage && (
-        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 mb-4">
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
           <Check className="w-4 h-4" />
           {successMessage}
         </div>
@@ -1781,10 +1866,10 @@ function NotificationPreferencesSection() {
 • I prefer encouragement over reminders
 • Send me a weekly summary on Sundays
 • Keep messages short and to the point"
-        className="w-full h-36 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none"
+        className="w-full h-32 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none text-sm"
       />
 
-      <div className="mt-4 flex justify-end">
+      <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
