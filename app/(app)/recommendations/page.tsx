@@ -414,6 +414,18 @@ function RecommendationCard({
   onAddToList: () => void;
 }) {
   const [showNextSteps, setShowNextSteps] = useState(false);
+  const [isReasoningExpanded, setIsReasoningExpanded] = useState(false);
+  const [isReasoningClamped, setIsReasoningClamped] = useState(false);
+  const reasoningRef = React.useRef<HTMLParagraphElement>(null);
+
+  // Detect if reasoning text is clamped (exceeds 6 lines)
+  React.useEffect(() => {
+    const el = reasoningRef.current;
+    if (el && !isReasoningExpanded) {
+      // Compare scrollHeight to clientHeight to detect overflow
+      setIsReasoningClamped(el.scrollHeight > el.clientHeight);
+    }
+  }, [recommendation.reasoning, isReasoningExpanded]);
 
   // Match level colors (High match = green/good, Low match = yellow/uncertain)
   const matchLevelColors = {
@@ -490,11 +502,33 @@ function RecommendationCard({
         <p className="text-sm text-text-muted mb-3">{recommendation.subtitle}</p>
       )}
 
-      {/* Why - Full reasoning, no truncation */}
+      {/* Why - Limited to 6 lines with expand option */}
       <div className="mb-4">
-        <p className="text-sm text-text-main leading-relaxed">
+        <p
+          ref={reasoningRef}
+          className={cn(
+            "text-sm text-text-main leading-relaxed",
+            !isReasoningExpanded && "line-clamp-6"
+          )}
+        >
           {recommendation.reasoning}
         </p>
+        {isReasoningClamped && !isReasoningExpanded && (
+          <button
+            onClick={() => setIsReasoningExpanded(true)}
+            className="text-sm text-accent-primary hover:text-accent-primary/80 font-medium mt-1"
+          >
+            Show more
+          </button>
+        )}
+        {isReasoningExpanded && (
+          <button
+            onClick={() => setIsReasoningExpanded(false)}
+            className="text-sm text-text-muted hover:text-text-main font-medium mt-1"
+          >
+            Show less
+          </button>
+        )}
       </div>
 
       {/* Expiry - show inline if present */}

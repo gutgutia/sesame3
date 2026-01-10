@@ -148,8 +148,9 @@ function AuthPageContent() {
         throw new Error(data.error || "Invalid code");
       }
 
-      // Success! Redirect based on whether it's a new user
-      router.push(data.redirectTo || redirect);
+      // Success! Use full page reload to ensure fresh session state
+      // This clears any cached profile data from a previous session
+      window.location.href = data.redirectTo || redirect;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
     } finally {
