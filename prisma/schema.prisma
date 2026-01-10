@@ -55,6 +55,10 @@ model User {
 
   // Preferences
   preferences Json?    // { theme, notifications, etc. }
+
+  // Notification preferences (free-form text, interpreted by LLM)
+  // e.g., "Don't message me on weekends" or "Only send deadline reminders"
+  notificationPreferences String?   @db.Text
   
   // ==========================================================================
   // SUBSCRIPTION & USAGE
@@ -85,6 +89,9 @@ model User {
 
   // Future: Organization membership
   organizationMemberships OrganizationMember[]
+
+  // Notifications received
+  notifications Notification[]
 }
 
 // =============================================================================
@@ -1615,4 +1622,57 @@ model DataRequest {
   @@index([type])
   @@index([status])
   @@index([studentProfileId])
+}
+
+// =============================================================================
+// LAYER 8: NOTIFICATIONS
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Notification - Proactive notifications sent to users
+// Tracks all notifications sent by the LLM-based notification engine
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id              String   @id @default(uuid())
+
+  // Recipient - always a User (could be student or parent)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Recipient type context (for LLM and analytics)
+  recipientType   String   // "student" | "parent" | "counselor"
+
+  // What type of notification was this?
+  type            String   // "deadline_reminder" | "encouragement" | "check_in" |
+                           // "celebration" | "gentle_nudge" | "weekly_summary"
+
+  // Channel(s) used
+  channel         String   // "email" | "mobile" | "both"
+
+  // Content - what was actually sent
+  mobileMessage   String?              // Short message for push notification
+  emailSubject    String?
+  emailBody       String?  @db.Text    // Full email content
+
+  // LLM decision context (for debugging and improvement)
+  reasoning       String?  @db.Text    // Why the LLM decided to send this
+  contextSnapshot Json?                // Snapshot of context used for decision
+
+  // Delivery status
+  status          String   @default("pending")  // "pending" | "sent" | "failed" | "skipped"
+  sentAt          DateTime?
+  failureReason   String?
+
+  // For linking to what triggered the notification
+  relatedGoalId   String?
+  relatedTaskId   String?
+  relatedSchoolId String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([createdAt])
 }

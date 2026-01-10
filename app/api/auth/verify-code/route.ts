@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/resend";
-import { WelcomeEmail } from "@/lib/email/templates";
+import { SignupNotificationEmail, WelcomeEmail } from "@/lib/email/templates";
 import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
@@ -113,6 +113,16 @@ export async function POST(request: NextRequest) {
         text: "Welcome to Sesame3! We're excited to help you on your college prep journey.",
       }).catch((err) => {
         console.error("[Auth] Failed to send welcome email:", err);
+      });
+
+      // Notify admin of new signup (async, don't block)
+      sendEmail({
+        to: "abhishek.gutgutia@gmail.com",
+        subject: `New signup: ${normalizedEmail}`,
+        react: SignupNotificationEmail({ userEmail: normalizedEmail }),
+        text: `New user signed up: ${normalizedEmail}`,
+      }).catch((err) => {
+        console.error("[Auth] Failed to send signup notification:", err);
       });
     } else {
       // Update last login

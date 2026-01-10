@@ -1684,6 +1684,116 @@ function AdvisorPreferencesTab({
           <li>• You can change these settings anytime</li>
         </ul>
       </div>
+
+      {/* Notification Preferences */}
+      <NotificationPreferencesSection />
+    </div>
+  );
+}
+
+// =============================================================================
+// NOTIFICATION PREFERENCES SECTION
+// =============================================================================
+
+function NotificationPreferencesSection() {
+  const [preferences, setPreferences] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Load preferences on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const res = await fetch("/api/notification-preferences");
+        if (res.ok) {
+          const data = await res.json();
+          setPreferences(data.notificationPreferences || "");
+        }
+      } catch (error) {
+        console.error("Failed to load notification preferences:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPreferences();
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/notification-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationPreferences: preferences }),
+      });
+
+      if (res.ok) {
+        setSuccessMessage("Notification preferences saved!");
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        alert("Failed to save preferences");
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      alert("Failed to save preferences");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Mail className="w-5 h-5 text-text-muted" />
+        <h2 className="text-lg font-semibold text-text-primary">
+          Notification Preferences
+        </h2>
+      </div>
+      <p className="text-sm text-text-muted mb-4">
+        Tell us how you&apos;d like to receive reminders and updates. We use AI to interpret your preferences, so feel free to be specific.
+      </p>
+
+      {successMessage && (
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2 mb-4">
+          <Check className="w-4 h-4" />
+          {successMessage}
+        </div>
+      )}
+
+      <textarea
+        value={preferences}
+        onChange={(e) => setPreferences(e.target.value)}
+        placeholder="Examples:
+• Don't send me notifications on weekends
+• Only remind me about urgent deadlines (within 3 days)
+• I prefer encouragement over reminders
+• Send me a weekly summary on Sundays
+• Keep messages short and to the point"
+        className="w-full h-36 px-4 py-3 border border-border-subtle rounded-xl text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent resize-none"
+      />
+
+      <div className="mt-4 flex justify-end">
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          Save Preferences
+        </Button>
+      </div>
     </div>
   );
 }
