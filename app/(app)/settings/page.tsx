@@ -1692,7 +1692,7 @@ function AdvisorPreferencesTab({
 // ACCOUNT ACCESS SECTION
 // =============================================================================
 
-type RelationshipType = "parent" | "counselor" | "tutor" | "other";
+type RelationshipType = "student" | "parent" | "counselor" | "tutor" | "other";
 
 type AccessEntry = {
   id: string;
@@ -1705,7 +1705,8 @@ type AccessEntry = {
   expiresAt?: string;
 };
 
-const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
+const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string; requiresNoStudent?: boolean }[] = [
+  { value: "student", label: "Student", requiresNoStudent: true },
   { value: "parent", label: "Parent" },
   { value: "counselor", label: "Counselor" },
   { value: "tutor", label: "Tutor" },
@@ -1714,6 +1715,7 @@ const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
 
 function AccountAccessSection() {
   const [accessList, setAccessList] = useState<AccessEntry[]>([]);
+  const [hasStudent, setHasStudent] = useState(true); // Default to true (hide student option)
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -1728,6 +1730,7 @@ function AccountAccessSection() {
       if (res.ok) {
         const data = await res.json();
         setAccessList(data.accessList || []);
+        setHasStudent(data.hasStudent ?? true);
       }
     } catch (err) {
       console.error("Failed to load access list:", err);
@@ -1851,13 +1854,15 @@ function AccountAccessSection() {
           <select
             value={newRelationship}
             onChange={(e) => setNewRelationship(e.target.value as RelationshipType)}
-            className="px-3 py-2 border border-border-subtle rounded-lg text-text-primary bg-surface-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+            className="h-10 px-3 pr-8 bg-surface-primary border border-border-subtle rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent-primary focus:ring-2 focus:ring-accent-surface transition-all duration-150 appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236B665E%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_8px_center]"
           >
-            {RELATIONSHIP_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
+            {RELATIONSHIP_OPTIONS
+              .filter((opt) => !opt.requiresNoStudent || !hasStudent)
+              .map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
           </select>
           <Button type="submit" disabled={isAdding || !newEmail.trim()}>
             {isAdding ? (

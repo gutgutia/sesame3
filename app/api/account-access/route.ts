@@ -37,10 +37,15 @@ export async function GET() {
     const user = await requireAuth();
     const profileId = await requireProfile();
 
-    // Get the profile to check ownership
+    // Get the profile to check ownership and owner's account type
     const profile = await prisma.studentProfile.findUnique({
       where: { id: profileId },
-      select: { userId: true, firstName: true, lastName: true },
+      select: {
+        userId: true,
+        firstName: true,
+        lastName: true,
+        user: { select: { accountType: true } },
+      },
     });
 
     if (!profile || profile.userId !== user.id) {
@@ -103,7 +108,13 @@ export async function GET() {
       })),
     ];
 
-    return NextResponse.json({ accessList });
+    // Check if there's already a student associated with this profile
+    // Either the owner is a student, or someone has "student" relationship
+    const ownerIsStudent = profile.user.accountType === "student";
+    const hasStudentAccess = accessGrants.some((g) => g.relationship === "student");
+    const hasStudent = ownerIsStudent || hasStudentAccess;
+
+    return NextResponse.json({ accessList, hasStudent });
   } catch (error) {
     console.error("[Account Access] GET error:", error);
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -130,12 +141,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate relationship if provided
-    const validRelationships = ["parent", "counselor", "tutor", "other"];
+    const validRelationships = ["student", "parent", "counselor", "tutor", "other"];
     if (relationship && !validRelationships.includes(relationship)) {
       return NextResponse.json(
         { error: "Invalid relationship type" },
         { status: 400 }
       );
+    }
+
+    // If trying to add a student, check if one already exists
+    if (relationship === "student") {
+      const profile = await prisma.studentProfile.findUnique({
+        where: { id: profileId },
+        select: { user: { select: { accountType: true } } },
+      });
+
+      const existingStudentGrant = await prisma.accessGrant.findFirst({
+        where: {
+          studentProfileId: profileId,
+          relationship: "student",
+          revokedAt: null,
+        },
+      });
+
+      if (profile?.user.accountType === "student" || existingStudentGrant) {
+        return NextResponse.json(
+          { error: "This profile already has a student associated" },
+          { status: 400 }
+        );
+      }
     }
 
     const normalizedEmail = email.toLowerCase().trim();
