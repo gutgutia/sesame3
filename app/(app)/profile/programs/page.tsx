@@ -2,13 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { 
-  FlaskConical, 
+import {
+  FlaskConical,
   ChevronLeft,
   Plus,
   Trash2,
   Pencil,
-  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -172,31 +171,16 @@ export default function ProgramsPage() {
                           <div className="text-text-muted mb-1">{program.organization}</div>
                         )}
                         
-                        <div className="flex flex-wrap gap-3 text-sm text-text-muted">
-                          {program.type && (
-                            <span className="capitalize">{program.type.replace("_", " ")}</span>
-                          )}
-                          {program.selectivity && (
-                            <span className="capitalize">{program.selectivity} selectivity</span>
-                          )}
-                        </div>
-
-                        {program.description && (
-                          <p className="mt-3 text-sm text-text-main line-clamp-2">
-                            {program.description}
-                          </p>
+                        {program.summerProgram?.category && (
+                          <div className="text-sm text-text-muted capitalize">
+                            {program.summerProgram.category.replace("_", " ")}
+                          </div>
                         )}
 
-                        {program.url && (
-                          <a 
-                            href={program.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-2 text-sm text-accent-primary hover:underline"
-                          >
-                            Visit website
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                        {(program.description || program.whyInterested) && (
+                          <p className="mt-3 text-sm text-text-main line-clamp-2">
+                            {program.whyInterested || program.description}
+                          </p>
                         )}
                       </div>
 

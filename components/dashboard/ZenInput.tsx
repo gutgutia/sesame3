@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, Paperclip, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -24,12 +24,6 @@ export function ZenInput() {
         className="flex-1 border-none px-4 py-3 text-base outline-none text-text-main placeholder:text-text-light bg-transparent font-body"
       />
       <div className="flex gap-1">
-        <button type="button" className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:bg-bg-app hover:text-text-main transition-colors cursor-pointer">
-          <Mic className="w-5 h-5" />
-        </button>
-        <button type="button" className="w-11 h-11 flex items-center justify-center rounded-lg text-text-muted hover:bg-bg-app hover:text-text-main transition-colors cursor-pointer">
-          <Paperclip className="w-5 h-5" />
-        </button>
         <button type="submit" className="w-11 h-11 flex items-center justify-center rounded-lg text-accent-primary hover:bg-accent-surface transition-colors cursor-pointer">
           <ArrowRight className="w-5 h-5" />
         </button>

@@ -115,12 +115,10 @@ async function getEligiblePrograms(
   // Convert grade to number for comparison
   const gradeNumber = gradeToNumber(profile.grade);
 
-  // Get current year
+  // Get current year and target summer year
+  // In fall, students look ahead to next summer; in winter/spring they're applying for this summer
   const currentYear = new Date().getFullYear();
-  const targetYear =
-    stage.season === "fall" || stage.season === "winter" || stage.season === "spring"
-      ? currentYear + 1
-      : currentYear;
+  const targetYear = stage.season === "fall" ? currentYear + 1 : currentYear;
 
   const programs = await prisma.summerProgram.findMany({
     where: {

@@ -88,30 +88,70 @@ function ChancesPageLoading() {
 // MAIN PAGE CONTENT
 // =============================================================================
 
+const STORAGE_KEY_PREFIX = "sesame_chances_schools_";
+
 function ChancesPageContent() {
   const searchParams = useSearchParams();
   const initialSchoolId = searchParams.get("school");
-  const { profile } = useProfile();
-  
+  const { profile, addSchool: addSchoolToProfile } = useProfile();
+
+  // Storage key is user-specific to prevent data leaking between users
+  const storageKey = profile?.id ? `${STORAGE_KEY_PREFIX}${profile.id}` : null;
+
   // Schools state (both assessed and pending)
   const [schools, setSchools] = useState<SchoolEntry[]>([]);
   const [expandedSchoolId, setExpandedSchoolId] = useState<string | null>(null);
-  
+  const [isInitialized, setIsInitialized] = useState(false);
+
   // Add card state
   const [isAddingSchool, setIsAddingSchool] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<School[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  
+
   // Calculation state
   const [calculatingSchoolId, setCalculatingSchoolId] = useState<string | null>(null);
   const [calculationProgress, setCalculationProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
-  
+  const [addingToListId, setAddingToListId] = useState<string | null>(null);
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const addCardRef = useRef<HTMLDivElement>(null);
+
+  // Get set of school IDs already in user's school list
+  const schoolsInList = new Set(
+    profile?.schoolList?.map(s => s.school?.id).filter(Boolean) || []
+  );
+
+  // Load from localStorage on mount (wait for profile to load first)
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setSchools(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load chances from storage:", e);
+    }
+    setIsInitialized(true);
+  }, [storageKey]);
+
+  // Save to localStorage when schools change (after initialization)
+  useEffect(() => {
+    if (isInitialized && storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(schools));
+      } catch (e) {
+        console.error("Failed to save chances to storage:", e);
+      }
+    }
+  }, [schools, isInitialized, storageKey]);
 
   // Load initial school if provided via URL
   const loadSchoolById = useCallback(async (schoolId: string) => {
@@ -283,6 +323,52 @@ function ChancesPageContent() {
     }
   };
 
+  // Add school to user's school list (with calculated chances)
+  const addToMySchools = async (schoolId: string) => {
+    const entry = schools.find(s => s.schoolId === schoolId);
+    if (!entry) return;
+
+    setAddingToListId(schoolId);
+    try {
+      // Determine tier based on chances result
+      let tier = "target";
+      if (entry.result) {
+        if (entry.result.probability >= 70) tier = "safety";
+        else if (entry.result.probability >= 50) tier = "target";
+        else tier = "reach";
+      }
+
+      // Add to user's school list
+      const res = await fetch("/api/profile/schools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schoolId,
+          tier,
+          calculatedChance: entry.result ? entry.result.probability / 100 : null,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to add school");
+      }
+
+      const newSchool = await res.json();
+
+      // Update profile context optimistically
+      addSchoolToProfile({
+        id: newSchool.id,
+        tier,
+        school: entry.school,
+      });
+    } catch (error) {
+      console.error("Failed to add school to list:", error);
+      setError("Failed to add school to your list");
+    } finally {
+      setAddingToListId(null);
+    }
+  };
+
   // Format relative date
   const formatCheckedDate = (date: Date | string) => {
     const d = new Date(date);
@@ -436,9 +522,12 @@ function ChancesPageContent() {
               isExpanded={expandedSchoolId === schoolId}
               isCalculating={calculatingSchoolId === schoolId}
               calculationProgress={calculationProgress}
+              isInSchoolList={schoolsInList.has(schoolId)}
+              isAddingToList={addingToListId === schoolId}
               onToggle={() => toggleExpand(schoolId)}
               onCalculate={() => calculateForSchool(schoolId)}
               onRemove={() => removeSchool(schoolId)}
+              onAddToList={() => addToMySchools(schoolId)}
               formatCheckedDate={formatCheckedDate}
             />
           ))}
@@ -470,21 +559,27 @@ interface SchoolCardProps {
   isExpanded: boolean;
   isCalculating: boolean;
   calculationProgress: string;
+  isInSchoolList: boolean;
+  isAddingToList: boolean;
   onToggle: () => void;
   onCalculate: () => void;
   onRemove: () => void;
+  onAddToList: () => void;
   formatCheckedDate: (date: Date | string) => string;
 }
 
-function SchoolCard({ 
-  school, 
-  result, 
-  isExpanded, 
+function SchoolCard({
+  school,
+  result,
+  isExpanded,
   isCalculating,
   calculationProgress,
+  isInSchoolList,
+  isAddingToList,
   onToggle,
   onCalculate,
   onRemove,
+  onAddToList,
   formatCheckedDate,
 }: SchoolCardProps) {
   const tierColors: Record<string, string> = {
@@ -674,16 +769,49 @@ function SchoolCard({
           
           {/* Footer */}
           <div className="flex items-center justify-between">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
-              className="text-sm text-text-muted hover:text-red-400 underline transition-colors"
-            >
-              Remove
-            </button>
-            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                className="text-sm text-text-muted hover:text-red-400 underline transition-colors"
+              >
+                Remove
+              </button>
+
+              {/* Add to My Schools button */}
+              {!isInSchoolList && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToList();
+                  }}
+                  disabled={isAddingToList}
+                >
+                  {isAddingToList ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3 h-3" />
+                      Add to My Schools
+                    </>
+                  )}
+                </Button>
+              )}
+              {isInSchoolList && (
+                <span className="text-sm text-green-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  In your list
+                </span>
+              )}
+            </div>
+
             <div className="flex items-center gap-3 text-sm text-text-muted">
               <span>Checked {formatCheckedDate(result.calculatedAt)}</span>
               <button

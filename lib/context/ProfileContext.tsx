@@ -101,17 +101,24 @@ export interface ProfileData {
   }>;
   programs?: Array<{
     id: string;
-    name: string;
+    name?: string | null;
     organization?: string | null;
-    type?: string | null;
+    description?: string | null;
     status?: string | null;
     year?: number | null;
-    selectivity?: string | null;
-    description?: string | null;
-    url?: string | null;
-    startDate?: string | null;
-    endDate?: string | null;
-    duration?: string | null;
+    notes?: string | null;
+    whyInterested?: string | null;
+    outcome?: string | null;
+    isCustom?: boolean;
+    summerProgramId?: string | null;
+    summerProgram?: {
+      id: string;
+      name: string;
+      organization: string;
+      category?: string | null;
+      focusAreas?: string[];
+    } | null;
+    displayOrder?: number;
   }>;
   goals?: Array<{
     id: string;

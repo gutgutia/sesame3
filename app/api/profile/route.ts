@@ -45,8 +45,22 @@ export async function GET() {
         awards: {
           orderBy: { displayOrder: "asc" },
         },
-        programs: {
-          orderBy: { year: "desc" },
+        summerProgramList: {
+          include: {
+            summerProgram: {
+              select: {
+                id: true,
+                name: true,
+                organization: true,
+                category: true,
+                focusAreas: true,
+              },
+            },
+          },
+          orderBy: [
+            { applicationYear: "desc" },
+            { displayOrder: "asc" },
+          ],
         },
         goals: {
           include: {
@@ -92,7 +106,29 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(profile, {
+    // Transform summerProgramList to programs for backward compatibility
+    const transformedProfile = {
+      ...profile,
+      programs: profile.summerProgramList.map((p) => ({
+        id: p.id,
+        name: p.isCustom ? p.customName : p.summerProgram?.name,
+        organization: p.isCustom ? p.customOrganization : p.summerProgram?.organization,
+        description: p.isCustom ? p.customDescription : null,
+        status: p.status,
+        year: p.applicationYear,
+        notes: p.notes,
+        whyInterested: p.whyInterested,
+        outcome: p.outcome,
+        isCustom: p.isCustom,
+        summerProgramId: p.summerProgramId,
+        summerProgram: p.summerProgram,
+        displayOrder: p.displayOrder,
+      })),
+      // Keep summerProgramList for recommendations engine
+      summerProgramList: profile.summerProgramList,
+    };
+
+    return NextResponse.json(transformedProfile, {
       headers: {
         // Cache for 30 seconds, allow stale for 5 minutes while revalidating
         "Cache-Control": "private, max-age=30, stale-while-revalidate=300",

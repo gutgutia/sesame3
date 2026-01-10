@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const profileId = await requireProfile();
     const body = await request.json();
 
-    const { schoolId, customName, customLocation, tier, isDream, interestLevel, applicationType, whyInterested } = body;
+    const { schoolId, customName, customLocation, tier, isDream, interestLevel, applicationType, whyInterested, calculatedChance } = body;
 
     // Must have either schoolId (linked) or customName (custom)
     if (!schoolId && !customName) {
@@ -111,6 +111,8 @@ export async function POST(request: NextRequest) {
             interestLevel: interestLevel ?? existing.interestLevel,
             applicationType: applicationType ?? existing.applicationType,
             whyInterested: whyInterested ?? existing.whyInterested,
+            calculatedChance: calculatedChance ?? existing.calculatedChance,
+            chanceUpdatedAt: calculatedChance !== undefined ? new Date() : existing.chanceUpdatedAt,
           },
           include: { school: true },
         });
@@ -129,6 +131,8 @@ export async function POST(request: NextRequest) {
           applicationType,
           whyInterested,
           displayOrder: nextOrder,
+          calculatedChance,
+          chanceUpdatedAt: calculatedChance !== undefined ? new Date() : undefined,
         },
         include: { school: true },
       });

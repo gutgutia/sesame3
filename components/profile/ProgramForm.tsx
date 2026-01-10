@@ -6,19 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 
-const TYPE_OPTIONS = [
-  { value: "", label: "Select type..." },
-  { value: "summer", label: "Summer Program" },
-  { value: "research", label: "Research" },
-  { value: "internship", label: "Internship" },
-  { value: "online", label: "Online Course/Program" },
-  { value: "competition_prep", label: "Competition Prep" },
-  { value: "other", label: "Other" },
-];
-
 const STATUS_OPTIONS = [
   { value: "", label: "Select status..." },
   { value: "interested", label: "Interested" },
+  { value: "researching", label: "Researching" },
+  { value: "preparing", label: "Preparing Application" },
   { value: "applying", label: "Applying" },
   { value: "applied", label: "Applied" },
   { value: "accepted", label: "Accepted" },
@@ -26,35 +18,28 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "Completed" },
   { value: "rejected", label: "Rejected" },
   { value: "waitlisted", label: "Waitlisted" },
-];
-
-const SELECTIVITY_OPTIONS = [
-  { value: "", label: "Select selectivity..." },
-  { value: "highly_selective", label: "Highly Selective (<10%)" },
-  { value: "selective", label: "Selective (10-25%)" },
-  { value: "moderate", label: "Moderate (25-50%)" },
-  { value: "open", label: "Open Admission" },
+  { value: "declined", label: "Declined Offer" },
 ];
 
 interface ProgramFormProps {
   initialData?: {
     id?: string;
-    name?: string;
+    name?: string | null;
     organization?: string | null;
-    type?: string | null;
     status?: string | null;
     year?: number | null;
-    selectivity?: string | null;
     description?: string | null;
+    notes?: string | null;
+    whyInterested?: string | null;
   };
   onSubmit: (data: {
     name: string;
     organization?: string;
-    type?: string;
     status?: string;
     year?: number;
-    selectivity?: string;
     description?: string;
+    notes?: string;
+    whyInterested?: string;
   }) => Promise<void>;
   onCancel: () => void;
 }
@@ -63,27 +48,25 @@ export function ProgramForm({ initialData, onSubmit, onCancel }: ProgramFormProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(initialData?.name || "");
   const [organization, setOrganization] = useState(initialData?.organization || "");
-  const [type, setType] = useState(initialData?.type || "");
-  const [status, setStatus] = useState(initialData?.status || "");
+  const [status, setStatus] = useState(initialData?.status || "interested");
   const [year, setYear] = useState(initialData?.year?.toString() || new Date().getFullYear().toString());
-  const [selectivity, setSelectivity] = useState(initialData?.selectivity || "");
   const [description, setDescription] = useState(initialData?.description || "");
+  const [whyInterested, setWhyInterested] = useState(initialData?.whyInterested || "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       await onSubmit({
         name: name.trim(),
         organization: organization.trim() || undefined,
-        type: type || undefined,
         status: status || undefined,
         year: year ? parseInt(year) : undefined,
-        selectivity: selectivity || undefined,
         description: description.trim() || undefined,
+        whyInterested: whyInterested.trim() || undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -119,10 +102,10 @@ export function ProgramForm({ initialData, onSubmit, onCancel }: ProgramFormProp
 
       <div className="grid grid-cols-2 gap-4">
         <Select
-          label="Type"
-          options={TYPE_OPTIONS}
-          value={type}
-          onChange={(e) => setType(e.target.value)}
+          label="Year"
+          options={yearOptions}
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
         />
         <Select
           label="Status"
@@ -132,38 +115,32 @@ export function ProgramForm({ initialData, onSubmit, onCancel }: ProgramFormProp
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Select
-          label="Year"
-          options={yearOptions}
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-        />
-        <Select
-          label="Selectivity"
-          options={SELECTIVITY_OPTIONS}
-          value={selectivity}
-          onChange={(e) => setSelectivity(e.target.value)}
-        />
-      </div>
+      <Textarea
+        label="Why are you interested?"
+        placeholder="What draws you to this program?"
+        value={whyInterested}
+        onChange={(e) => setWhyInterested(e.target.value)}
+        rows={2}
+      />
 
       <Textarea
         label="Description / Notes (optional)"
         placeholder="What did you do? What did you learn?"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
+        rows={3}
       />
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-4 border-t border-border-subtle">
-        <Link 
+        <Link
           href="/advisor?mode=profile&q=help me find summer programs"
           className="flex items-center gap-1.5 text-sm text-text-muted hover:text-accent-primary transition-colors"
         >
           <MessageCircle className="w-4 h-4" />
           <span>Find programs for me</span>
         </Link>
-        
+
         <div className="flex gap-3">
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
@@ -176,4 +153,3 @@ export function ProgramForm({ initialData, onSubmit, onCancel }: ProgramFormProp
     </form>
   );
 }
-
