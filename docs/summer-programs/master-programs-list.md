@@ -1,9 +1,9 @@
 # Master Summer Programs List
 
 **Target Year**: 2026
-**Last Updated**: January 10, 2026
+**Last Updated**: January 11, 2026
 **Goal**: 100+ programs in database
-**Current Count**: 41 programs (21 original + 20 batch 1)
+**Current Count**: 60 programs (21 original + 20 batch 1 + 19 batch 2)
 
 This document tracks all summer programs to be added to the database. Programs are organized by category with priority levels.
 
@@ -165,14 +165,14 @@ This document tracks all summer programs to be added to the database. Programs a
 | Program | Organization | Priority | Notes |
 |---------|--------------|----------|-------|
 | [ ] Telluride Association Summer Programs (TASP) | Telluride | P1 | If different from TASS |
-| [ ] Stanford Humanities Summer Institute | Stanford | P1 | 3 weeks, grades 10-11 |
-| [ ] Great Books Summer Program | Various locations | P2 | Classical texts |
+| [x] Stanford Humanities Summer Institute | Stanford | P1 | ADDED - Batch 2 |
+| [x] Great Books Summer Program | Various locations | P2 | ADDED - Batch 2 |
 | [x] Northwestern Medill Cherubs | Northwestern | P1 | ADDED - Batch 1 |
 | [x] Iowa Young Writers' Studio | U of Iowa | P1 | ADDED - Batch 1 |
 | [x] Kenyon Review Young Writers | Kenyon College | P1 | ADDED - Batch 1 |
-| [ ] Sewanee Young Writers' Conference | Sewanee | P2 | Writing |
-| [ ] Adroit Journal Summer Mentorship | Online | P2 | Poetry/prose mentorship |
-| [ ] Princeton Summer Journalism Program | Princeton | P1 | FREE, low-income students |
+| [x] Sewanee Young Writers' Conference | Sewanee | P2 | ADDED - Batch 2 |
+| [x] Adroit Journal Summer Mentorship | Online | P2 | ADDED - Batch 2 |
+| [x] Princeton Summer Journalism Program | Princeton | P1 | ADDED - Batch 2 |
 | [ ] Reynolds Young Writers Workshop | Denison | P2 | Small cohort |
 | [ ] JCamp | Various | P2 | Journalism, diversity focus |
 
@@ -244,12 +244,11 @@ This document tracks all summer programs to be added to the database. Programs a
 
 | Program | Organization | Priority | Notes |
 |---------|--------------|----------|-------|
-| [ ] Interlochen Arts Camp - Music | Interlochen | P1 | Orchestra, band, voice |
-| [ ] Interlochen Arts Camp - Theater | Interlochen | P1 | Acting, design |
-| [ ] Boston University Tanglewood Institute (BUTI) | BU/Tanglewood | P1 | Classical music |
-| [ ] Idyllwild Arts Summer | Idyllwild | P2 | Multiple disciplines |
-| [ ] Berklee 5-Week Summer Program | Berklee | P2 | Contemporary music |
-| [ ] Juilliard Pre-College Summer | Juilliard | P1 | Very selective |
+| [x] Interlochen Arts Camp | Interlochen | P1 | ADDED - Batch 2 |
+| [x] Boston University Tanglewood Institute (BUTI) | BU/Tanglewood | P1 | ADDED - Batch 2 |
+| [x] Idyllwild Arts Summer | Idyllwild | P2 | ADDED - Batch 2 |
+| [x] Berklee 5-Week Summer Program | Berklee | P2 | ADDED - Batch 2 |
+| [x] Juilliard Pre-College Summer | Juilliard | P1 | ADDED - Batch 2 |
 | [ ] Walnut Hill Summer Programs | Walnut Hill | P2 | Dance, music, theater |
 | [ ] American Ballet Theatre Summer Intensive | ABT | P2 | Dance |
 
@@ -261,12 +260,11 @@ This document tracks all summer programs to be added to the database. Programs a
 
 | Program | Organization | Priority | Notes |
 |---------|--------------|----------|-------|
-| [ ] Interlochen Arts Camp - Visual Arts | Interlochen | P2 | Drawing, painting, etc. |
-| [ ] RISD Pre-College | RISD | P1 | Very prestigious |
-| [ ] MICA Pre-College | Maryland Institute | P2 | Art & design |
-| [ ] Pratt Pre-College | Pratt | P2 | Brooklyn-based |
-| [ ] CSSSA Visual Arts | CSSSA | P2 | California state program |
-| [ ] Savannah College SCAD Rising Star | SCAD | P2 | Design focus |
+| [x] RISD Pre-College | RISD | P1 | ADDED - Batch 2 |
+| [x] MICA Pre-College | Maryland Institute | P2 | ADDED - Batch 2 |
+| [x] Pratt Pre-College | Pratt | P2 | ADDED - Batch 2 |
+| [x] CSSSA | CSSSA | P2 | ADDED - Batch 2 (all tracks) |
+| [x] Savannah College SCAD Rising Star | SCAD | P2 | ADDED - Batch 2 |
 | [ ] Art Center College Summer | ArtCenter | P2 | Pasadena, design |
 
 ---
@@ -277,12 +275,10 @@ This document tracks all summer programs to be added to the database. Programs a
 
 | Program | Organization | Priority | Notes |
 |---------|--------------|----------|-------|
-| [ ] NYU Tisch Filmmakers Workshop | NYU | P1 | Very selective, juniors only |
-| [ ] USC School of Cinematic Arts Summer | USC | P1 | 6 weeks, comprehensive |
-| [ ] UCLA Emerging Filmmakers | UCLA | P2 | 3 weeks |
-| [ ] Interlochen Filmmaking | Interlochen | P2 | 3 weeks |
+| [x] NYU Tisch Filmmakers Workshop | NYU | P1 | ADDED - Batch 2 |
+| [x] USC School of Cinematic Arts Summer | USC | P1 | ADDED - Batch 2 |
+| [x] UCLA Film & Television Summer | UCLA | P2 | ADDED - Batch 2 |
 | [ ] UNCSA Filmmaking Intensive | UNC School of Arts | P2 | Screenwriting, directing |
-| [ ] CSSSA Film | CSSSA | P2 | California state program |
 | [ ] SOCAPA Film Camp | SOCAPA | P3 | NYC, beginner-friendly |
 | [ ] New York Film Academy Teen Camp | NYFA | P3 | Various locations |
 
@@ -308,7 +304,7 @@ This document tracks all summer programs to be added to the database. Programs a
 
 | Program | Organization | Priority | Notes |
 |---------|--------------|----------|-------|
-| [ ] Columbia Science Honors Program (SHP) | Columbia | P1 | Saturdays, NYC/NJ/CT only |
+| [x] Columbia Science Honors Program (SHP) | Columbia | P1 | ADDED - Batch 2 |
 | [ ] NYU GSTEM | NYU | P2 | Academic year |
 | [ ] MIT THINK Scholars | MIT | P2 | Research mentorship |
 
@@ -339,7 +335,7 @@ This document tracks all summer programs to be added to the database. Programs a
 
 ## Batch Plan
 
-### Batch 1 (Priority: P1 STEM/Research)
+### Batch 1 (Priority: P1 STEM/Research) - COMPLETED
 1. Clark Scholars Program
 2. MITES Summer
 3. Yale Young Global Scholars (YYGS)
@@ -361,15 +357,26 @@ This document tracks all summer programs to be added to the database. Programs a
 19. Iowa Young Writers' Studio
 20. Kenyon Review Young Writers
 
-### Batch 2 (Arts & Humanities)
-- Interlochen programs (multiple)
-- BUTI
-- RISD Pre-College
-- NYU Tisch
-- USC Cinematic Arts
-- Stanford Humanities
-- Princeton Summer Journalism
-- More TBD
+### Batch 2 (Arts & Humanities) - COMPLETED
+1. Interlochen Arts Camp
+2. Boston University Tanglewood Institute (BUTI)
+3. RISD Pre-College
+4. NYU Tisch Filmmakers Workshop
+5. USC School of Cinematic Arts Summer
+6. Stanford Summer Humanities Institute
+7. Princeton Summer Journalism Program (PSJP)
+8. California State Summer School for the Arts (CSSSA)
+9. Berklee Aspire: Five-Week Music Performance Intensive
+10. Idyllwild Arts Summer Program
+11. MICA Pre-College Summer Intensive
+12. Pratt Institute PreCollege Summer Intensive
+13. Columbia Science Honors Program (SHP)
+14. Sewanee Young Writers' Conference
+15. UCLA Film and Television Summer Institutes
+16. Adroit Journal Summer Mentorship Program
+17. SCAD Rising Star
+18. Juilliard Summer Programs
+19. Great Books Summer Program
 
 ### Batch 3 (More Research & Engineering)
 - Rockefeller SURF

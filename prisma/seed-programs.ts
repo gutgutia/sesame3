@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { batchPrograms as batch1Programs } from "./seeds/batch-1-programs";
+import { batchPrograms as batch2Programs } from "./seeds/batch-2-programs";
 
 const prisma = new PrismaClient();
 
@@ -1284,6 +1285,7 @@ async function seedSummerPrograms() {
   const allPrograms = [
     ...summerPrograms2026,
     ...batch1Programs,
+    ...batch2Programs,
   ];
 
   for (const programData of allPrograms) {
