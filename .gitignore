@@ -45,3 +45,26 @@ yarn-error.log*
 next-env.d.ts
 
 /misc/*
+
+# Capacitor / Mobile
+# iOS
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Android
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/*.iml
+android/.idea/
+
+# Capacitor generated
+capacitor.config.json

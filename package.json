@@ -35,7 +35,12 @@
     "ux-audit:mobile": "playwright test e2e/tests/ux-audit.spec.ts --project='Mobile Safari'",
     "test:uat": "playwright test e2e/tests/uat-student-journeys.spec.ts --project='Desktop Chrome'",
     "test:uat:all": "playwright test e2e/tests/uat-student-journeys.spec.ts",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "mobile:sync": "npx cap sync",
+    "mobile:ios": "npx cap open ios",
+    "mobile:android": "npx cap open android",
+    "mobile:run:ios": "npx cap run ios",
+    "mobile:run:android": "npx cap run android"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.56",
@@ -43,6 +48,12 @@
     "@ai-sdk/groq": "^2.0.33",
     "@ai-sdk/openai": "^2.0.86",
     "@ai-sdk/react": "^2.0.115",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@react-email/components": "^1.0.2",
