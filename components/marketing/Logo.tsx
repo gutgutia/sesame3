@@ -4,17 +4,9 @@ interface LogoProps {
   darkMode?: boolean;
 }
 
-export function Logo({ variant = "full", size = "md", darkMode = false }: LogoProps) {
-  const sizes = {
-    sm: { mark: 24, text: "text-lg", fontSize: 11 },
-    md: { mark: 32, text: "text-2xl", fontSize: 14 },
-    lg: { mark: 48, text: "text-4xl", fontSize: 22 },
-  };
-
-  const { mark: markSize, text: textSize, fontSize } = sizes[size];
-  const textColor = darkMode ? "text-white" : "text-[var(--text-main)]";
-
-  const LogoMark = () => (
+// Logo mark SVG - separated to avoid creating components during render
+function LogoMarkSvg({ markSize, fontSize }: { markSize: number; fontSize: number }) {
+  return (
     <svg
       width={markSize}
       height={markSize}
@@ -37,14 +29,25 @@ export function Logo({ variant = "full", size = "md", darkMode = false }: LogoPr
       </text>
     </svg>
   );
+}
+
+export function Logo({ variant = "full", size = "md", darkMode = false }: LogoProps) {
+  const sizes = {
+    sm: { mark: 24, text: "text-lg", fontSize: 11 },
+    md: { mark: 32, text: "text-2xl", fontSize: 14 },
+    lg: { mark: 48, text: "text-4xl", fontSize: 22 },
+  };
+
+  const { mark: markSize, text: textSize, fontSize } = sizes[size];
+  const textColor = darkMode ? "text-white" : "text-[var(--text-main)]";
 
   if (variant === "mark") {
-    return <LogoMark />;
+    return <LogoMarkSvg markSize={markSize} fontSize={fontSize} />;
   }
 
   return (
     <div className="flex items-center gap-1.5">
-      <LogoMark />
+      <LogoMarkSvg markSize={markSize} fontSize={fontSize} />
       <span className={`font-['Inter'] font-bold ${textSize} ${textColor}`}>
         Sesame3
       </span>
@@ -54,7 +57,6 @@ export function Logo({ variant = "full", size = "md", darkMode = false }: LogoPr
 
 // Standalone minimal mark for use in other components
 export function LogoMinimal({ size = 32 }: { size?: number }) {
-  const fontSize = Math.round(size * 0.46);
   return (
     <svg
       width={size}

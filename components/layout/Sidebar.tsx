@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, startTransition } from "react";
 import {
   LayoutGrid,
   Compass,
@@ -100,7 +100,10 @@ export function Sidebar() {
         }
       }
     });
-    setExpandedItems(newExpanded);
+    // Use startTransition to avoid cascading renders warning
+    startTransition(() => {
+      setExpandedItems(newExpanded);
+    });
   }, [pathname]);
 
   // Close dropdown when clicking outside

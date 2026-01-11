@@ -12,6 +12,7 @@ import {
   useContext,
   useEffect,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 import { detectPlatform, type PlatformInfo } from "@/lib/platform";
@@ -36,8 +37,10 @@ export function PlatformProvider({ children }: PlatformProviderProps) {
     useState<PlatformInfo>(defaultPlatformInfo);
 
   useEffect(() => {
-    // Detect platform on client side
-    setPlatformInfo(detectPlatform());
+    // Detect platform on client side using transition to avoid cascading renders
+    startTransition(() => {
+      setPlatformInfo(detectPlatform());
+    });
   }, []);
 
   return (

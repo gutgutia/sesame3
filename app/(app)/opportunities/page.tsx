@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   Sun,
@@ -432,6 +432,8 @@ function ProgramCard({
 }) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  // Capture current time once on mount to avoid impure Date.now() calls during render
+  const [currentTime] = useState(() => Date.now());
 
   const program = tracked.summerProgram;
   const isCustom = tracked.isCustom || !program;
@@ -456,8 +458,9 @@ function ProgramCard({
       })
     : null;
 
+  // Check if deadline is within 30 days - currentTime is stable (set once on mount)
   const isDeadlineSoon = program?.applicationDeadline
-    ? new Date(program.applicationDeadline).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000
+    ? new Date(program.applicationDeadline).getTime() - currentTime < 30 * 24 * 60 * 60 * 1000
     : false;
 
   return (
