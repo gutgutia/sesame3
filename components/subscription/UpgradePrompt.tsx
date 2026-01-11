@@ -1,9 +1,17 @@
 "use client";
 
+/**
+ * UpgradePrompt - Shows usage limit message with upgrade options
+ *
+ * NOTE: In native mobile apps (iOS/Android), upgrade buttons are hidden
+ * to avoid Apple's 30% commission. Users see only the limit message
+ * and reset timer.
+ */
+
 import React, { useState } from "react";
-import { 
-  Sparkles, 
-  Crown, 
+import {
+  Sparkles,
+  Crown,
   ArrowRight,
   X,
   Clock,
@@ -12,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { useShowUpgradeUI } from "@/lib/context/PlatformContext";
 
 // =============================================================================
 // TYPES
@@ -65,6 +74,7 @@ export function UpgradePrompt({
   showDismiss = true,
 }: UpgradePromptProps) {
   const [isLoading, setIsLoading] = useState<"standard" | "premium" | null>(null);
+  const showUpgradeUI = useShowUpgradeUI();
 
   // Determine next tier to upgrade to
   const nextTier = currentTier === "free" ? "standard" : "premium";
@@ -118,60 +128,69 @@ export function UpgradePrompt({
           <div className="w-12 h-12 rounded-xl bg-accent-primary/10 flex items-center justify-center shrink-0">
             <Zap className="w-6 h-6 text-accent-primary" />
           </div>
-          
+
           <div className="flex-1">
             <h3 className="font-semibold text-text-primary mb-1">
               {message}
             </h3>
-            
+
             {resetTime && (
               <p className="text-sm text-text-muted mb-4 flex items-center gap-1">
                 <Clock className="w-4 h-4" />
                 Resets in {formatResetTime(resetTime)}
               </p>
             )}
-            
-            <p className="text-sm text-text-secondary mb-4">
-              Upgrade to {nextTierName} for more messages and a more powerful advisor.
-            </p>
-            
-            <div className="flex flex-wrap gap-3">
-              <Button
-                onClick={() => handleUpgrade(nextTier)}
-                disabled={!!isLoading}
-                className="gap-2"
-              >
-                {isLoading === nextTier ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <NextTierIcon className="w-4 h-4" />
-                    Upgrade to {nextTierName}
-                    <span className="text-white/70">{nextTierPrice}/mo</span>
-                  </>
-                )}
-              </Button>
-              
-              {currentTier === "free" && (
-                <Button
-                  variant="secondary"
-                  onClick={() => handleUpgrade("premium")}
-                  disabled={!!isLoading}
-                  className="gap-2"
-                >
-                  {isLoading === "premium" ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Crown className="w-4 h-4" />
-                      Go Premium
-                    </>
+
+            {/* Only show upgrade text and buttons on web */}
+            {showUpgradeUI ? (
+              <>
+                <p className="text-sm text-text-secondary mb-4">
+                  Upgrade to {nextTierName} for more messages and a more powerful advisor.
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={() => handleUpgrade(nextTier)}
+                    disabled={!!isLoading}
+                    className="gap-2"
+                  >
+                    {isLoading === nextTier ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <NextTierIcon className="w-4 h-4" />
+                        Upgrade to {nextTierName}
+                        <span className="text-white/70">{nextTierPrice}/mo</span>
+                      </>
+                    )}
+                  </Button>
+
+                  {currentTier === "free" && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleUpgrade("premium")}
+                      disabled={!!isLoading}
+                      className="gap-2"
+                    >
+                      {isLoading === "premium" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Crown className="w-4 h-4" />
+                          Go Premium
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
-              )}
-            </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-text-secondary">
+                Your limit will reset automatically. Check back soon!
+              </p>
+            )}
           </div>
-          
+
           {showDismiss && onDismiss && (
             <button
               onClick={onDismiss}
@@ -199,25 +218,28 @@ export function UpgradePrompt({
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleUpgrade(nextTier)}
-              disabled={!!isLoading}
-              className="bg-white text-accent-primary hover:bg-white/90"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Upgrade to {nextTierName}
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              )}
-            </Button>
-            
+            {/* Only show upgrade button on web */}
+            {showUpgradeUI && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleUpgrade(nextTier)}
+                disabled={!!isLoading}
+                className="bg-white text-accent-primary hover:bg-white/90"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Upgrade to {nextTierName}
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </>
+                )}
+              </Button>
+            )}
+
             {showDismiss && onDismiss && (
               <button onClick={onDismiss} className="text-white/70 hover:text-white">
                 <X className="w-5 h-5" />
@@ -241,16 +263,16 @@ export function UpgradePrompt({
             <X className="w-5 h-5" />
           </button>
         )}
-        
+
         <div className="text-center mb-6">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-accent-primary to-yellow-400 flex items-center justify-center mb-4">
             <Zap className="w-8 h-8 text-white" />
           </div>
-          
+
           <h2 className="text-xl font-semibold text-text-primary mb-2">
             {message}
           </h2>
-          
+
           {resetTime && (
             <p className="text-text-muted flex items-center justify-center gap-1">
               <Clock className="w-4 h-4" />
@@ -258,54 +280,75 @@ export function UpgradePrompt({
             </p>
           )}
         </div>
-        
-        <p className="text-center text-text-secondary mb-6">
-          Upgrade your plan for more messages and access to our most powerful AI advisor.
-        </p>
-        
-        <div className="space-y-3">
-          <Button
-            className="w-full gap-2"
-            onClick={() => handleUpgrade(nextTier)}
-            disabled={!!isLoading}
-          >
-            {isLoading === nextTier ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                <NextTierIcon className="w-4 h-4" />
-                Upgrade to {nextTierName} — {nextTierPrice}/mo
-              </>
-            )}
-          </Button>
-          
-          {currentTier === "free" && (
-            <Button
-              variant="secondary"
-              className="w-full gap-2"
-              onClick={() => handleUpgrade("premium")}
-              disabled={!!isLoading}
-            >
-              {isLoading === "premium" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Crown className="w-4 h-4" />
-                  Go Premium — $24.99/mo
-                </>
+
+        {/* Only show upgrade options on web */}
+        {showUpgradeUI ? (
+          <>
+            <p className="text-center text-text-secondary mb-6">
+              Upgrade your plan for more messages and access to our most powerful AI advisor.
+            </p>
+
+            <div className="space-y-3">
+              <Button
+                className="w-full gap-2"
+                onClick={() => handleUpgrade(nextTier)}
+                disabled={!!isLoading}
+              >
+                {isLoading === nextTier ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <NextTierIcon className="w-4 h-4" />
+                    Upgrade to {nextTierName} — {nextTierPrice}/mo
+                  </>
+                )}
+              </Button>
+
+              {currentTier === "free" && (
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2"
+                  onClick={() => handleUpgrade("premium")}
+                  disabled={!!isLoading}
+                >
+                  {isLoading === "premium" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Crown className="w-4 h-4" />
+                      Go Premium — $24.99/mo
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
-          )}
-          
-          {onDismiss && (
-            <button
-              onClick={onDismiss}
-              className="w-full text-center text-sm text-text-muted hover:text-text-primary transition-colors py-2"
-            >
-              Maybe later
-            </button>
-          )}
-        </div>
+
+              {onDismiss && (
+                <button
+                  onClick={onDismiss}
+                  className="w-full text-center text-sm text-text-muted hover:text-text-primary transition-colors py-2"
+                >
+                  Maybe later
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-center text-text-secondary mb-6">
+              Your limit will reset automatically. Check back soon!
+            </p>
+
+            {onDismiss && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={onDismiss}
+              >
+                Got it
+              </Button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

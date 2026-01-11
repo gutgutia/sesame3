@@ -2,6 +2,9 @@
 
 /**
  * PlanBadge - Shows current plan and upgrade link in sidebar
+ *
+ * NOTE: This component is hidden in native mobile apps (iOS/Android)
+ * to avoid Apple's 30% commission on in-app purchases.
  */
 
 import React, { useState, useEffect } from "react";
@@ -10,6 +13,7 @@ import { Zap, Sparkles, Crown, ArrowRight, X, Check, Loader2 } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { PLANS, TIER_LEVELS, type SubscriptionTier } from "@/lib/subscription/plans";
+import { useShowUpgradeUI } from "@/lib/context/PlatformContext";
 
 // =============================================================================
 // PLAN SELECTOR MODAL
@@ -260,6 +264,7 @@ export function PlanBadge() {
   const [currentTier, setCurrentTier] = useState<SubscriptionTier>("free");
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const showUpgradeUI = useShowUpgradeUI();
 
   // Fetch current subscription
   useEffect(() => {
@@ -278,6 +283,11 @@ export function PlanBadge() {
     }
     fetchSubscription();
   }, []);
+
+  // Hide entire component in native apps to avoid Apple's 30% cut
+  if (!showUpgradeUI) {
+    return null;
+  }
 
   const currentPlan = PLANS.find(p => p.id === currentTier) || PLANS[0];
   const Icon = currentPlan.icon;

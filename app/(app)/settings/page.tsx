@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { PLANS, TIER_LEVELS, type SubscriptionTier } from "@/lib/subscription/plans";
+import { useShowUpgradeUI } from "@/lib/context/PlatformContext";
 
 // =============================================================================
 // TYPES
@@ -389,6 +390,7 @@ const CACHE_TTL = 60000; // 1 minute
 
 export default function SettingsPage() {
   const { profile } = useProfile();
+  const showUpgradeUI = useShowUpgradeUI();
   const [activeTab, setActiveTab] = useState<"profile" | "subscription" | "preferences">("profile");
   const [isYearly, setIsYearly] = useState(true);
   const [settings, setSettings] = useState<UserSettings | null>(() => {
@@ -930,18 +932,21 @@ export default function SettingsPage() {
             <User className="w-4 h-4 inline mr-2" />
             Profile
           </button>
-          <button
-            onClick={() => setActiveTab("subscription")}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              activeTab === "subscription"
-                ? "bg-white text-text-primary shadow-sm"
-                : "text-text-muted hover:text-text-primary"
-            )}
-          >
-            <CreditCard className="w-4 h-4 inline mr-2" />
-            Subscription
-          </button>
+          {/* Hide subscription tab in native apps to avoid Apple's 30% cut */}
+          {showUpgradeUI && (
+            <button
+              onClick={() => setActiveTab("subscription")}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                activeTab === "subscription"
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-muted hover:text-text-primary"
+              )}
+            >
+              <CreditCard className="w-4 h-4 inline mr-2" />
+              Subscription
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("preferences")}
             className={cn(
@@ -1248,8 +1253,8 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Subscription Tab */}
-            {activeTab === "subscription" && (
+            {/* Subscription Tab - Hidden in native apps */}
+            {showUpgradeUI && activeTab === "subscription" && (
               <div className="space-y-6">
                 {/* Current Plan Card */}
                 <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
