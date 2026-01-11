@@ -78,37 +78,33 @@ export const modelFor = {
 // TIER-BASED MODEL SELECTION
 // =============================================================================
 
-export type SubscriptionTier = "free" | "standard" | "premium";
+export type SubscriptionTier = "free" | "paid";
 
 /**
  * Check if a tier gets Claude Opus for the counselor role.
  *
- * All tiers have secretary → counselor escalation, but the counselor model differs:
- * - Free: Counselor uses Kimi K2
- * - Standard ($10/mo): Counselor uses Kimi K2
- * - Premium ($25/mo): Counselor uses Claude Opus
- *
- * Kimi K2 is Sonnet-equivalent quality, so Free/Standard get great responses.
- * Premium users get Opus for the most complex analysis (chances, essays, strategy).
+ * Two-tier system:
+ * - Free: Uses Kimi K2 only (no secretary/counselor split)
+ * - Paid ($25/mo): Kimi K2 as secretary + Claude Opus as counselor
  */
 export function canEscalateToAdvisor(tier: SubscriptionTier): boolean {
-  return tier === "premium";
+  return tier === "paid";
 }
 
 /**
  * Get the advisor model for a subscription tier.
  *
- * - Free: Kimi K2 (Sonnet-equivalent quality)
- * - Standard: Kimi K2 (Sonnet-equivalent quality)
- * - Premium ($25/mo): Opus 4.5 (exceptional reasoning)
+ * - Free: Kimi K2 (Sonnet-equivalent quality, handles everything)
+ * - Paid ($25/mo): Opus 4.5 (exceptional reasoning for complex analysis)
  *
- * All tiers use the same counselor architecture, just with different models.
+ * Free tier uses Kimi K2 as a single-model setup.
+ * Paid tier uses Kimi K2 as secretary + Opus as counselor.
  */
 export function getAdvisorForTier(tier: SubscriptionTier) {
-  if (tier === "premium") {
+  if (tier === "paid") {
     return models.claude.opus;
   }
-  // Free and standard use Kimi K2 as the counselor
+  // Free tier uses Kimi K2 only
   return models.groq.kimiK2;
 }
 
@@ -116,7 +112,7 @@ export function getAdvisorForTier(tier: SubscriptionTier) {
  * Get the model name string for a tier (for logging/tracking).
  */
 export function getAdvisorModelName(tier: SubscriptionTier): string {
-  if (tier === "premium") {
+  if (tier === "paid") {
     return "claude-opus-4-5";
   }
   return "kimi-k2";
@@ -126,7 +122,7 @@ export function getAdvisorModelName(tier: SubscriptionTier): string {
  * Map tier to usage tracking model type.
  */
 export function getTierModelType(tier: SubscriptionTier): "kimi_k2" | "opus" {
-  if (tier === "premium") {
+  if (tier === "paid") {
     return "opus";
   }
   return "kimi_k2";

@@ -82,11 +82,11 @@ model User {
   // SUBSCRIPTION & USAGE
   // ==========================================================================
   
-  // Subscription Tier
-  subscriptionTier    String    @default("free")  // "free" | "standard" | "premium"
+  // Subscription Tier (two-tier system)
+  subscriptionTier    String    @default("free")  // "free" | "paid"
   subscriptionEndsAt  DateTime?                   // When current subscription expires
-  stripeCustomerId    String?                     // For payment processing (future)
-  stripeSubscriptionId String?                    // Active Stripe subscription (future)
+  stripeCustomerId    String?                     // For payment processing
+  stripeSubscriptionId String?                    // Active Stripe subscription
   
   // Admin Overrides (set via admin panel)
   // These override the global tier limits if set
@@ -1455,25 +1455,20 @@ model UsageRecord {
 
 model GlobalConfig {
   id        String   @id @default("default")  // Always "default" - single row
-  
+
   // ==========================================================================
-  // TIER LIMITS
+  // TIER LIMITS (Two-tier system: free and paid)
   // ==========================================================================
-  
+
   // Free Tier
-  freeDailyCostLimit    Float   @default(1.00)   // $1.00/day
-  freeWeeklyCostLimit   Float   @default(5.00)   // $5.00/week
-  freeMessageLimit      Int     @default(100)    // 100 messages/day
-  
-  // Standard Tier ($10/month)
-  standardDailyCostLimit  Float   @default(1.00)   // $1.00/day
-  standardWeeklyCostLimit Float   @default(5.00)   // $5.00/week
-  standardMessageLimit    Int     @default(100)    // 100 messages/day
-  
-  // Premium Tier ($25/month)
-  premiumDailyCostLimit   Float   @default(5.00)   // $5.00/day
-  premiumWeeklyCostLimit  Float   @default(25.00)  // $25.00/week
-  premiumMessageLimit     Int     @default(500)    // 500 messages/day
+  freeDailyCostLimit    Float   @default(0.50)   // $0.50/day (Kimi K2 is cheap)
+  freeWeeklyCostLimit   Float   @default(2.00)   // $2.00/week
+  freeMessageLimit      Int     @default(20)     // 20 messages/day
+
+  // Paid Tier ($25/month or $250/year)
+  paidDailyCostLimit    Float   @default(10.00)  // $10.00/day (abuse prevention)
+  paidWeeklyCostLimit   Float   @default(50.00)  // $50.00/week (abuse prevention)
+  paidMessageLimit      Int     @default(500)    // 500 messages/day (abuse prevention)
   
   // ==========================================================================
   // MODEL COSTS (per 1M tokens)

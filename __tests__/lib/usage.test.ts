@@ -65,16 +65,12 @@ describe("Usage Tracking", () => {
   });
 
   describe("getAdvisorModelForTier", () => {
-    it("should return haiku for free tier", () => {
-      expect(getAdvisorModelForTier("free")).toBe("haiku");
+    it("should return kimi_k2 for free tier", () => {
+      expect(getAdvisorModelForTier("free")).toBe("kimi_k2");
     });
 
-    it("should return sonnet for standard tier", () => {
-      expect(getAdvisorModelForTier("standard")).toBe("sonnet");
-    });
-
-    it("should return opus for premium tier", () => {
-      expect(getAdvisorModelForTier("premium")).toBe("opus");
+    it("should return opus for paid tier", () => {
+      expect(getAdvisorModelForTier("paid")).toBe("opus");
     });
   });
 

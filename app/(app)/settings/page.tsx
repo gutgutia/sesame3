@@ -577,7 +577,7 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-text-muted pt-2">
                 {preview.isNewSubscription
-                  ? `Then $${isYearly ? (planId === "premium" ? "249" : "99") : (planId === "premium" ? "24.99" : "9.99")}/${isYearly ? "year" : "month"} starting ${isYearly ? "next year" : "next month"}.`
+                  ? `Then $${isYearly ? "250" : "25"}/${isYearly ? "year" : "month"} starting ${isYearly ? "next year" : "next month"}.`
                   : `Your billing cycle remains unchanged.`}
               </p>
             </div>

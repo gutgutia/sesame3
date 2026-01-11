@@ -16,19 +16,18 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // Price IDs from Stripe Dashboard (set these after creating products)
+// Two-tier system: free and paid ($25/mo or $250/year)
 const PRICE_IDS = {
-  standard_monthly: process.env.STRIPE_PRICE_STANDARD_MONTHLY,
-  standard_yearly: process.env.STRIPE_PRICE_STANDARD_YEARLY,
-  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
-  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY,
+  paid_monthly: process.env.STRIPE_PRICE_PAID_MONTHLY || process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+  paid_yearly: process.env.STRIPE_PRICE_PAID_YEARLY || process.env.STRIPE_PRICE_PREMIUM_YEARLY,
 };
 
 /**
  * POST /api/stripe/checkout
  * Create a Stripe Checkout Session for subscription upgrade
  * OR update existing subscription if user already has one
- * 
- * Body: { plan: "standard" | "premium", yearly: boolean }
+ *
+ * Body: { plan: "paid", yearly: boolean }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -38,20 +37,21 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     const profileId = await requireProfile();
     const { plan, yearly } = await request.json();
-    
-    // Validate plan
-    if (!["standard", "premium"].includes(plan)) {
+
+    // Validate plan - only "paid" is valid now (also accept legacy "premium"/"standard")
+    const normalizedPlan = ["paid", "premium", "standard"].includes(plan) ? "paid" : null;
+    if (!normalizedPlan) {
       return NextResponse.json(
-        { error: "Invalid plan. Must be 'standard' or 'premium'." },
+        { error: "Invalid plan. Must be 'paid'." },
         { status: 400 }
       );
     }
-    
+
     // Get price ID
-    const priceKey = `${plan}_${yearly ? "yearly" : "monthly"}` as keyof typeof PRICE_IDS;
+    const priceKey = `paid_${yearly ? "yearly" : "monthly"}` as keyof typeof PRICE_IDS;
     const priceId = PRICE_IDS[priceKey];
     
     if (!priceId) {
@@ -131,27 +131,26 @@ export async function POST(request: NextRequest) {
           );
           
           // Update our database with new tier
-          const tier = plan === "premium" ? "premium" : "standard";
           const sub = updatedSubscription as unknown as StripeSubscription;
           const subscriptionEndsAt = sub.current_period_end
             ? new Date(sub.current_period_end * 1000)
             : null;
-          
+
           await prisma.user.update({
             where: { id: profile.user.id },
             data: {
-              subscriptionTier: tier,
+              subscriptionTier: "paid",
               subscriptionEndsAt,
             },
           });
-          
-          console.log(`[Stripe] Updated subscription for user ${profile.user.id} to ${plan}`);
-          
+
+          console.log(`[Stripe] Updated subscription for user ${profile.user.id} to paid`);
+
           // Return success without redirect (subscription updated inline)
-          return NextResponse.json({ 
-            success: true, 
+          return NextResponse.json({
+            success: true,
             message: "Subscription updated successfully",
-            tier,
+            tier: "paid",
           });
         }
       } catch (err) {
@@ -175,11 +174,11 @@ export async function POST(request: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?canceled=true`,
       metadata: {
         userId: profile.user.id,
-        plan,
+        plan: "paid",
         yearly: yearly ? "true" : "false",
       },
     });
-    
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Checkout error:", error);

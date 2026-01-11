@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentProfileId } from "@/lib/auth";
 
+/**
+ * Helper to check if user has paid subscription
+ */
+async function checkPaidAccess(profileId: string): Promise<boolean> {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { id: profileId },
+    select: {
+      user: {
+        select: { subscriptionTier: true },
+      },
+    },
+  });
+  return profile?.user.subscriptionTier === "paid";
+}
+
 type SchoolTier = "reach" | "target" | "safety";
 
 interface SchoolMatch {
@@ -93,6 +108,8 @@ function calculateSchoolMatch(
 /**
  * GET - Fetch schools by names (provided by LLM) or discover based on profile
  *
+ * PAID FEATURE: School recommendations require a paid subscription.
+ *
  * Query params:
  * - schools: Comma-separated school names from LLM (e.g., "MIT,Stanford,CMU")
  * - tier: Filter by tier (reach/target/safety) - only for discovery mode
@@ -103,6 +120,20 @@ export async function GET(request: Request) {
     const profileId = await getCurrentProfileId();
     if (!profileId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check subscription tier
+    const isPaid = await checkPaidAccess(profileId);
+    if (!isPaid) {
+      return NextResponse.json(
+        {
+          error: "paid_feature",
+          message:
+            "School recommendations are a Premium feature. Upgrade to get personalized school suggestions based on your profile.",
+          feature: "recommendations",
+        },
+        { status: 403 }
+      );
     }
 
     const url = new URL(request.url);

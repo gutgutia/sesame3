@@ -8,8 +8,30 @@ import {
 import { prisma } from "@/lib/db";
 
 /**
+ * Helper to check if user has paid subscription
+ */
+async function checkPaidAccess(profileId: string): Promise<{
+  isPaid: boolean;
+  tier: string;
+}> {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { id: profileId },
+    select: {
+      user: {
+        select: { subscriptionTier: true },
+      },
+    },
+  });
+
+  const tier = profile?.user.subscriptionTier || "free";
+  return { isPaid: tier === "paid", tier };
+}
+
+/**
  * GET /api/recommendations
  * Get the current user's recommendations
+ *
+ * PAID FEATURE: Personalized recommendations require a paid subscription.
  */
 export async function GET() {
   try {
@@ -19,6 +41,21 @@ export async function GET() {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
+      );
+    }
+
+    // Check subscription tier
+    const { isPaid } = await checkPaidAccess(profileId);
+
+    if (!isPaid) {
+      return NextResponse.json(
+        {
+          error: "paid_feature",
+          message:
+            "Personalized recommendations are a Premium feature. Upgrade to get AI-powered school and program recommendations tailored to your profile.",
+          feature: "recommendations",
+        },
+        { status: 403 }
       );
     }
 
@@ -53,6 +90,8 @@ export async function GET() {
 /**
  * POST /api/recommendations
  * Generate new recommendations for the current user
+ *
+ * PAID FEATURE: Personalized recommendations require a paid subscription.
  */
 export async function POST() {
   try {
@@ -62,6 +101,21 @@ export async function POST() {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
+      );
+    }
+
+    // Check subscription tier
+    const { isPaid } = await checkPaidAccess(profileId);
+
+    if (!isPaid) {
+      return NextResponse.json(
+        {
+          error: "paid_feature",
+          message:
+            "Personalized recommendations are a Premium feature. Upgrade to get AI-powered school and program recommendations tailored to your profile.",
+          feature: "recommendations",
+        },
+        { status: 403 }
       );
     }
 

@@ -41,7 +41,7 @@ npm run test:uat     # User acceptance tests
 - **Styling**: Tailwind CSS v4
 - **Fonts**: Inter, JetBrains Mono, Satoshi
 - **AI**: Multi-model (Claude, GPT, Gemini, Kimi K2 via Groq)
-- **Payments**: Stripe (3 tiers: Free, Standard $10/mo, Premium $25/mo)
+- **Payments**: Stripe (2 tiers: Free, Premium $25/mo or $250/year)
 - **Email**: Resend for transactional emails
 - **Testing**: Playwright (E2E), Vitest (unit)
 
@@ -132,10 +132,9 @@ Protected routes: `/dashboard`, `/plan`, `/profile`, `/schools`, `/discover`, `/
 - **Parser** (Kimi K2 via Groq, ~50ms): Fast intent detection, extracts user intent
 - **Advisor** (tier-based Claude): Quality responses with context
 
-**Tier-Based Model Selection:**
-- Free: Claude Haiku
-- Standard ($10/mo): Claude Sonnet
-- Premium ($25/mo): Claude Opus
+**Tier-Based Model Selection (Two-tier system):**
+- Free: Kimi K2 only (20 messages/day, 3 schools for chances, no recommendations)
+- Premium ($25/mo or $250/year): Kimi K2 (parser) + Claude Opus (counselor), unlimited
 
 **Key Files:**
 - `lib/ai/providers.ts` - Model configuration

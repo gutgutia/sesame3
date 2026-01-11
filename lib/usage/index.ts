@@ -4,10 +4,11 @@
 
 /**
  * Tracks AI usage per user for billing and rate limiting.
- * 
+ *
  * Key concepts:
- * - Each user has a subscription tier (free, standard, premium)
- * - Each tier has limits (daily cost, weekly cost, messages/day)
+ * - Two-tier system: free and paid
+ * - Free tier: 20 messages/day, cost limits to prevent abuse
+ * - Paid tier: Unlimited messages (with high abuse-prevention cap)
  * - Usage is tracked per day in UsageRecord
  * - Admin can override limits per user
  */
@@ -19,7 +20,7 @@ import { Prisma } from "@prisma/client";
 // TYPES
 // =============================================================================
 
-export type SubscriptionTier = "free" | "standard" | "premium";
+export type SubscriptionTier = "free" | "paid";
 
 export type ModelType = 
   | "haiku" 
@@ -265,12 +266,9 @@ type GlobalConfigData = {
   freeDailyCostLimit: number;
   freeWeeklyCostLimit: number;
   freeMessageLimit: number;
-  standardDailyCostLimit: number;
-  standardWeeklyCostLimit: number;
-  standardMessageLimit: number;
-  premiumDailyCostLimit: number;
-  premiumWeeklyCostLimit: number;
-  premiumMessageLimit: number;
+  paidDailyCostLimit: number;
+  paidWeeklyCostLimit: number;
+  paidMessageLimit: number;
 };
 
 function getTierLimit(
@@ -286,14 +284,10 @@ function getTierLimit(
  * Get the advisor model for a user's tier.
  */
 export function getAdvisorModelForTier(tier: SubscriptionTier): ModelType {
-  switch (tier) {
-    case "free":
-      return "haiku";
-    case "standard":
-      return "sonnet";
-    case "premium":
-      return "opus";
+  if (tier === "paid") {
+    return "opus";
   }
+  return "kimi_k2";
 }
 
 // =============================================================================
@@ -330,12 +324,9 @@ async function getGlobalConfig(): Promise<GlobalConfigData> {
     freeDailyCostLimit: config.freeDailyCostLimit,
     freeWeeklyCostLimit: config.freeWeeklyCostLimit,
     freeMessageLimit: config.freeMessageLimit,
-    standardDailyCostLimit: config.standardDailyCostLimit,
-    standardWeeklyCostLimit: config.standardWeeklyCostLimit,
-    standardMessageLimit: config.standardMessageLimit,
-    premiumDailyCostLimit: config.premiumDailyCostLimit,
-    premiumWeeklyCostLimit: config.premiumWeeklyCostLimit,
-    premiumMessageLimit: config.premiumMessageLimit,
+    paidDailyCostLimit: config.paidDailyCostLimit,
+    paidWeeklyCostLimit: config.paidWeeklyCostLimit,
+    paidMessageLimit: config.paidMessageLimit,
   };
   
   configCachedAt = now;

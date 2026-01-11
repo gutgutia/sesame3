@@ -1,11 +1,12 @@
 // =============================================================================
 // SUBSCRIPTION MANAGEMENT API
 // =============================================================================
-// Handles: upgrade, downgrade, cancel, reactivate
-// 
+// Handles: upgrade, cancel, reactivate
+//
+// Two-tier system: free and paid ($25/mo or $250/year)
+//
 // Proration Strategy:
 // - Upgrade: Immediate effect, charge prorated difference
-// - Downgrade: Scheduled for end of period (user keeps current tier until then)
 // - Cancel: Access until period ends, no refund
 // - Reactivate: Removes cancel_at_period_end
 
@@ -25,34 +26,24 @@ type StripeSubscription = {
 };
 
 // Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY 
+const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
-// Price IDs
-const PRICE_IDS: Record<string, string | undefined> = {
-  standard_monthly: process.env.STRIPE_PRICE_STANDARD_MONTHLY,
-  standard_yearly: process.env.STRIPE_PRICE_STANDARD_YEARLY,
-  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
-  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY,
-};
-
-// Tier hierarchy for upgrade/downgrade detection
-const TIER_LEVELS: Record<string, number> = {
-  free: 0,
-  standard: 1,
-  premium: 2,
+// Price IDs (two-tier system)
+const PRICE_IDS = {
+  paid_monthly: process.env.STRIPE_PRICE_PAID_MONTHLY || process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+  paid_yearly: process.env.STRIPE_PRICE_PAID_YEARLY || process.env.STRIPE_PRICE_PREMIUM_YEARLY,
 };
 
 /**
  * POST /api/subscription
- * 
+ *
  * Actions:
- * - upgrade: Upgrade to a higher tier (immediate, with proration)
- * - downgrade: Downgrade to a lower tier (scheduled for end of period)
+ * - upgrade: Upgrade from free to paid (immediate)
  * - cancel: Cancel subscription (access until period ends)
  * - reactivate: Undo cancellation
- * 
+ *
  * Body: { action: string, plan?: string, yearly?: boolean }
  */
 export async function POST(request: NextRequest) {
@@ -63,19 +54,19 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     const profileId = await requireProfile();
     const body = await request.json();
     const { action, plan, yearly = true, returnUrl = "/" } = body;
-    
+
     // Validate action
-    if (!["upgrade", "downgrade", "cancel", "reactivate"].includes(action)) {
+    if (!["upgrade", "cancel", "reactivate"].includes(action)) {
       return NextResponse.json(
-        { error: "Invalid action" },
+        { error: "Invalid action. Must be 'upgrade', 'cancel', or 'reactivate'." },
         { status: 400 }
       );
     }
-    
+
     // Get user with subscription info
     const profile = await prisma.studentProfile.findUnique({
       where: { id: profileId },
@@ -91,19 +82,17 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-    
+
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
-    
+
     const user = profile.user;
-    
+
     // Route to appropriate handler
     switch (action) {
       case "upgrade":
-        return handleUpgrade(user, plan, yearly, returnUrl);
-      case "downgrade":
-        return handleDowngrade(user, plan, yearly);
+        return handleUpgrade(user, yearly, returnUrl);
       case "cancel":
         return handleCancel(user);
       case "reactivate":
@@ -136,64 +125,52 @@ type UserData = {
 };
 
 /**
- * Handle upgrade to a higher tier
+ * Handle upgrade from free to paid
  * - If no subscription: Return checkout URL
  * - If has subscription: Update inline with proration
  */
-async function handleUpgrade(user: UserData, plan: string, yearly: boolean, returnUrl: string = "/") {
+async function handleUpgrade(user: UserData, yearly: boolean, returnUrl: string = "/") {
   if (!stripe) throw new Error("Stripe not configured");
-  
-  // Validate plan
-  if (!["standard", "premium"].includes(plan)) {
+
+  // Check if already paid
+  if (user.subscriptionTier === "paid") {
     return NextResponse.json(
-      { error: "Invalid plan. Must be 'standard' or 'premium'." },
+      { error: "You already have a paid subscription." },
       { status: 400 }
     );
   }
-  
-  // Check it's actually an upgrade
-  const currentLevel = TIER_LEVELS[user.subscriptionTier] || 0;
-  const newLevel = TIER_LEVELS[plan];
-  
-  if (newLevel <= currentLevel) {
-    return NextResponse.json(
-      { error: "This is not an upgrade. Use downgrade action instead." },
-      { status: 400 }
-    );
-  }
-  
+
   // Get price ID
-  const priceKey = `${plan}_${yearly ? "yearly" : "monthly"}`;
+  const priceKey = `paid_${yearly ? "yearly" : "monthly"}` as keyof typeof PRICE_IDS;
   const priceId = PRICE_IDS[priceKey];
-  
+
   if (!priceId) {
     return NextResponse.json(
-      { error: `Price not configured for ${plan}` },
+      { error: "Price not configured. Please contact support." },
       { status: 500 }
     );
   }
-  
+
   // If user has no subscription, create checkout session
   if (!user.stripeSubscriptionId || user.subscriptionTier === "free") {
-    return createCheckoutSession(user, plan, priceId, yearly, returnUrl);
+    return createCheckoutSession(user, priceId, yearly, returnUrl);
   }
-  
+
   // User has subscription - update it inline
   try {
     const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-    
+
     if (subscription.status !== "active" && subscription.status !== "trialing") {
       // Subscription not active, create new checkout
-      return createCheckoutSession(user, plan, priceId, yearly);
+      return createCheckoutSession(user, priceId, yearly, returnUrl);
     }
-    
+
     // If subscription is managed by a schedule, release it first
     if (subscription.schedule) {
       try {
         await stripe.subscriptionSchedules.release(subscription.schedule as string);
         console.log(`[Subscription] Released existing schedule ${subscription.schedule}`);
-      } catch (scheduleErr) {
-        // If release fails, try to cancel
+      } catch {
         try {
           await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
           console.log(`[Subscription] Canceled existing schedule ${subscription.schedule}`);
@@ -202,7 +179,7 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean, retu
         }
       }
     }
-    
+
     // Update subscription with proration (immediate charge for difference)
     const updatedSubscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
@@ -218,170 +195,33 @@ async function handleUpgrade(user: UserData, plan: string, yearly: boolean, retu
         cancel_at_period_end: false,
       }
     );
-    
+
     // Update database
-    const tier = plan as "standard" | "premium";
     const sub = updatedSubscription as unknown as StripeSubscription;
     const subscriptionEndsAt = sub.current_period_end
       ? new Date(sub.current_period_end * 1000)
       : null;
-    
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        subscriptionTier: tier,
+        subscriptionTier: "paid",
         subscriptionEndsAt,
       },
     });
-    
-    console.log(`[Subscription] User ${user.id} upgraded to ${plan}`);
-    
+
+    console.log(`[Subscription] User ${user.id} upgraded to paid`);
+
     return NextResponse.json({
       success: true,
-      message: `Successfully upgraded to ${plan}!`,
-      tier,
+      message: "Successfully upgraded to Premium!",
+      tier: "paid",
       immediate: true,
     });
   } catch (err) {
     console.error("[Subscription] Upgrade error:", err);
     // Fallback to checkout
-    return createCheckoutSession(user, plan, priceId, yearly, returnUrl);
-  }
-}
-
-/**
- * Handle downgrade to a lower tier
- * - For simplicity, we update the subscription immediately but with no proration
- * - This means the user pays the new lower price at their next billing date
- * - They get the new (lower) tier immediately
- * 
- * Alternative: Use subscription schedules for true "keep current tier until period end"
- * but that's complex and error-prone with the Stripe API.
- */
-async function handleDowngrade(user: UserData, plan: string, yearly: boolean) {
-  if (!stripe) throw new Error("Stripe not configured");
-  
-  // Validate plan
-  if (!["standard"].includes(plan)) {
-    return NextResponse.json(
-      { error: "Can only downgrade to 'standard'. To cancel entirely, use cancel action." },
-      { status: 400 }
-    );
-  }
-  
-  // Check it's actually a downgrade
-  const currentLevel = TIER_LEVELS[user.subscriptionTier] || 0;
-  const newLevel = TIER_LEVELS[plan];
-  
-  if (newLevel >= currentLevel) {
-    return NextResponse.json(
-      { error: "This is not a downgrade. Use upgrade action instead." },
-      { status: 400 }
-    );
-  }
-  
-  if (!user.stripeSubscriptionId) {
-    return NextResponse.json(
-      { error: "No active subscription to downgrade" },
-      { status: 400 }
-    );
-  }
-  
-  // Get price ID
-  const priceKey = `${plan}_${yearly ? "yearly" : "monthly"}`;
-  const priceId = PRICE_IDS[priceKey];
-  
-  if (!priceId) {
-    return NextResponse.json(
-      { error: `Price not configured for ${plan}` },
-      { status: 500 }
-    );
-  }
-  
-  try {
-    const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-    
-    // If subscription is managed by a schedule, release it first
-    if (subscription.schedule) {
-      try {
-        await stripe.subscriptionSchedules.release(subscription.schedule as string);
-        console.log(`[Subscription] Released existing schedule ${subscription.schedule}`);
-      } catch (scheduleErr) {
-        // If release fails, try to cancel
-        try {
-          await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
-          console.log(`[Subscription] Canceled existing schedule ${subscription.schedule}`);
-        } catch {
-          console.log(`[Subscription] Could not release/cancel schedule, continuing...`);
-        }
-      }
-    }
-    
-    // Update subscription with no proration (change takes effect at next billing)
-    // Using proration_behavior: 'none' means no immediate charge/credit
-    const updatedSubscription = await stripe.subscriptions.update(
-      user.stripeSubscriptionId,
-      {
-        items: [
-          {
-            id: subscription.items.data[0].id,
-            price: priceId,
-          },
-        ],
-        proration_behavior: "none",
-        // Remove any pending cancellation
-        cancel_at_period_end: false,
-      }
-    );
-    
-    // Update database
-    const tier = plan as "standard" | "premium";
-    
-    // Calculate when the new price takes effect
-    const rawSub = updatedSubscription as unknown as Record<string, unknown>;
-    const periodEnd = rawSub.current_period_end as number | undefined;
-    
-    let subscriptionEndsAt: Date | null = null;
-    if (periodEnd) {
-      subscriptionEndsAt = new Date(periodEnd * 1000);
-    } else if (updatedSubscription.billing_cycle_anchor) {
-      // Calculate from billing anchor
-      const anchor = new Date(updatedSubscription.billing_cycle_anchor * 1000);
-      const interval = yearly ? "year" : "month";
-      const now = new Date();
-      let nextBilling = new Date(anchor);
-      while (nextBilling <= now) {
-        if (interval === "month") {
-          nextBilling.setMonth(nextBilling.getMonth() + 1);
-        } else {
-          nextBilling.setFullYear(nextBilling.getFullYear() + 1);
-        }
-      }
-      subscriptionEndsAt = nextBilling;
-    }
-    
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        subscriptionTier: tier,
-        subscriptionEndsAt,
-      },
-    });
-    
-    console.log(`[Subscription] User ${user.id} switched to ${plan}`);
-    
-    return NextResponse.json({
-      success: true,
-      message: `Successfully switched to ${plan}!`,
-      tier,
-      immediate: true,
-    });
-  } catch (err) {
-    console.error("[Subscription] Downgrade error:", err);
-    return NextResponse.json(
-      { error: "Failed to switch plan. Please try again." },
-      { status: 500 }
-    );
+    return createCheckoutSession(user, priceId, yearly, returnUrl);
   }
 }
 
@@ -392,30 +232,30 @@ async function handleDowngrade(user: UserData, plan: string, yearly: boolean) {
  */
 async function handleCancel(user: UserData) {
   if (!stripe) throw new Error("Stripe not configured");
-  
+
   if (!user.stripeSubscriptionId || user.subscriptionTier === "free") {
     return NextResponse.json(
       { error: "No active subscription to cancel" },
       { status: 400 }
     );
   }
-  
+
   try {
     const subscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
       { cancel_at_period_end: true }
     );
-    
+
     console.log(`[Subscription] User ${user.id} scheduled cancellation`);
 
     const cancelledSub = subscription as unknown as StripeSubscription;
     const accessUntil = cancelledSub.current_period_end
       ? new Date(cancelledSub.current_period_end * 1000)
       : null;
-    
+
     return NextResponse.json({
       success: true,
-      message: accessUntil 
+      message: accessUntil
         ? `Your subscription will end on ${accessUntil.toLocaleDateString()}. You'll have access until then.`
         : "Your subscription has been canceled.",
       accessUntil: accessUntil?.toISOString() || null,
@@ -435,27 +275,27 @@ async function handleCancel(user: UserData) {
  */
 async function handleReactivate(user: UserData) {
   if (!stripe) throw new Error("Stripe not configured");
-  
+
   if (!user.stripeSubscriptionId) {
     return NextResponse.json(
       { error: "No subscription to reactivate" },
       { status: 400 }
     );
   }
-  
+
   try {
     const subscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
       { cancel_at_period_end: false }
     );
-    
+
     console.log(`[Subscription] User ${user.id} reactivated subscription`);
 
     const reactivatedSub = subscription as unknown as StripeSubscription;
     const nextBilling = reactivatedSub.current_period_end
       ? new Date(reactivatedSub.current_period_end * 1000)
       : null;
-    
+
     return NextResponse.json({
       success: true,
       message: "Your subscription has been reactivated!",
@@ -479,7 +319,6 @@ async function handleReactivate(user: UserData) {
  */
 async function createCheckoutSession(
   user: UserData,
-  plan: string,
   priceId: string,
   yearly: boolean,
   returnUrl: string = "/"
@@ -510,11 +349,11 @@ async function createCheckoutSession(
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}${returnUrl}?upgraded=true&plan=${plan}`,
+    success_url: `${baseUrl}${returnUrl}?upgraded=true&plan=paid`,
     cancel_url: `${baseUrl}${returnUrl}?canceled=true`,
     metadata: {
       userId: user.id,
-      plan,
+      plan: "paid",
       yearly: yearly ? "true" : "false",
     },
   });

@@ -23,12 +23,17 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// Map Stripe price IDs to tiers
-const PRICE_TO_TIER: Record<string, "standard" | "premium"> = {
-  [process.env.STRIPE_PRICE_STANDARD_MONTHLY || ""]: "standard",
-  [process.env.STRIPE_PRICE_STANDARD_YEARLY || ""]: "standard",
-  [process.env.STRIPE_PRICE_PREMIUM_MONTHLY || ""]: "premium",
-  [process.env.STRIPE_PRICE_PREMIUM_YEARLY || ""]: "premium",
+// Map Stripe price IDs to tiers (two-tier system: free and paid)
+// All paid price IDs map to "paid" tier
+const PRICE_TO_TIER: Record<string, "paid"> = {
+  // New price IDs
+  [process.env.STRIPE_PRICE_PAID_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PAID_YEARLY || ""]: "paid",
+  // Legacy price IDs (for backwards compatibility)
+  [process.env.STRIPE_PRICE_STANDARD_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_STANDARD_YEARLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PREMIUM_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PREMIUM_YEARLY || ""]: "paid",
 };
 
 export async function POST(request: NextRequest) {
@@ -97,10 +102,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   console.log("[Webhook] Checkout completed:", session.id);
 
   const userId = session.metadata?.userId;
-  const plan = session.metadata?.plan as "standard" | "premium" | undefined;
 
-  if (!userId || !plan) {
-    console.error("[Webhook] Missing userId or plan in checkout metadata");
+  if (!userId) {
+    console.error("[Webhook] Missing userId in checkout metadata");
     return;
   }
 
@@ -112,17 +116,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  // Update user with subscription info
+  // Update user with subscription info (always "paid" in two-tier system)
   await prisma.user.update({
     where: { id: userId },
     data: {
-      subscriptionTier: plan,
+      subscriptionTier: "paid",
       stripeSubscriptionId: subscriptionId,
       stripeCustomerId: session.customer as string,
     },
   });
 
-  console.log(`[Webhook] User ${userId} upgraded to ${plan}`);
+  console.log(`[Webhook] User ${userId} upgraded to paid`);
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
