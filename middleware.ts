@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const protectedRoutes = ["/dashboard", "/plan", "/profile", "/schools", "/discover", "/advisor", "/chances", "/settings", "/onboarding", "/opportunities", "/summer-programs", "/recommendations"];
+const protectedRoutes = ["/dashboard", "/plan", "/profile", "/schools", "/discover", "/advisor", "/chances", "/settings", "/onboarding", "/opportunities", "/summer-programs", "/recommendations", "/admin"];
 const authRoutes = ["/login", "/auth"];
 
 // Session cookie names
