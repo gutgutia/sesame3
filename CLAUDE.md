@@ -194,6 +194,10 @@ GOOGLE_GENERATIVE_AI_API_KEY=  # Gemini (optional)
 RESEND_API_KEY=         # Email
 STRIPE_SECRET_KEY=      # Payments
 STRIPE_WEBHOOK_SECRET=  # Stripe webhooks
+
+# Analytics (PostHog)
+NEXT_PUBLIC_POSTHOG_KEY=       # PostHog project API key
+NEXT_PUBLIC_POSTHOG_HOST=      # PostHog host (default: https://us.i.posthog.com)
 ```
 
 ## Testing

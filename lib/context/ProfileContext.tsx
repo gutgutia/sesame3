@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { identifyUser, resetUser } from "./PostHogContext";
 
 /**
  * Profile data structure (matches API response)
@@ -223,6 +224,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setProfile(data);
       setIsFullyLoaded(true);
 
+      // Identify user in PostHog for analytics
+      if (data.id) {
+        identifyUser(data.id, {
+          grade: data.grade,
+          graduationYear: data.graduationYear,
+          highSchoolState: data.highSchoolState,
+        });
+      }
+
       console.log(`[ProfileContext] Full profile loaded in ${Date.now() - startTime}ms`);
     } catch (err) {
       console.error("[ProfileContext] Error loading full profile:", err);
@@ -319,6 +329,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setIsFullyLoaded(false);
     setError(null);
+    // Reset PostHog user identity
+    resetUser();
   }, []);
 
   // Optimistic task toggle
