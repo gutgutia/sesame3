@@ -68,10 +68,13 @@ function AuthPageContent() {
     try {
       const supabase = createClient();
 
+      // Store redirect in sessionStorage before OAuth (query params can get lost)
+      sessionStorage.setItem("auth_redirect", redirect);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",

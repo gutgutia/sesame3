@@ -93,8 +93,10 @@ function AuthCallbackContent() {
     };
 
     const completeAuth = async (accessToken: string) => {
-      // Get redirect from URL params
-      const redirect = searchParams.get("redirect") || "/dashboard";
+      // Get redirect from sessionStorage (set before OAuth) or URL params as fallback
+      const redirect = sessionStorage.getItem("auth_redirect") || searchParams.get("redirect") || "/dashboard";
+      // Clear the stored redirect
+      sessionStorage.removeItem("auth_redirect");
 
       // Call our API to create/update user and set session cookies
       const response = await fetch("/api/auth/google-callback", {

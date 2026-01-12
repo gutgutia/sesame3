@@ -14,6 +14,8 @@ import {
   AlertCircle,
   Plus,
   Check,
+  Crown,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -49,10 +51,20 @@ interface StageInfo {
   priorities: string[];
 }
 
+interface UsageInfo {
+  canGenerate: boolean;
+  hasGeneratedThisMonth: boolean;
+  resetDate: string;
+  limit: number;
+  used: number;
+}
+
 interface RecommendationsResponse {
   recommendations: Recommendation[];
   stage: StageInfo;
   lastGenerated: string | null;
+  tier: string;
+  usageInfo: UsageInfo | null;
 }
 
 // =============================================================================
@@ -63,9 +75,14 @@ export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [stage, setStage] = useState<StageInfo | null>(null);
   const [lastGenerated, setLastGenerated] = useState<string | null>(null);
+  const [tier, setTier] = useState<string>("free");
+  const [usageInfo, setUsageInfo] = useState<UsageInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isPaid = tier === "paid";
+  const canGenerate = isPaid || (usageInfo?.canGenerate ?? true);
 
   // Fetch existing recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -78,6 +95,8 @@ export default function RecommendationsPage() {
       setRecommendations(data.recommendations);
       setStage(data.stage);
       setLastGenerated(data.lastGenerated);
+      setTier(data.tier);
+      setUsageInfo(data.usageInfo);
     } catch (err) {
       setError("Failed to load recommendations");
       console.error(err);
@@ -92,11 +111,24 @@ export default function RecommendationsPage() {
       setIsGenerating(true);
       setError(null);
       const res = await fetch("/api/recommendations", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to generate recommendations");
       const data = await res.json();
+
+      // Handle monthly limit error
+      if (!res.ok) {
+        if (data.error === "monthly_limit_reached") {
+          setUsageInfo(data.usageInfo);
+          setError(data.message);
+        } else {
+          throw new Error(data.message || "Failed to generate recommendations");
+        }
+        return;
+      }
+
       setRecommendations(data.recommendations);
       setStage(data.stage);
       setLastGenerated(new Date().toISOString());
+      setTier(data.tier);
+      setUsageInfo(data.usageInfo);
     } catch (err) {
       setError("Failed to generate recommendations");
       console.error(err);
@@ -197,10 +229,16 @@ export default function RecommendationsPage() {
     );
   }
 
+  // Format reset date
+  const formatResetDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  };
+
   return (
     <>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 className="font-display font-bold text-3xl text-text-main mb-2">
             Recommendations
@@ -223,8 +261,9 @@ export default function RecommendationsPage() {
           )}
           <Button
             onClick={generateRecommendations}
-            disabled={isGenerating}
+            disabled={isGenerating || !canGenerate}
             variant="primary"
+            title={!canGenerate ? "Monthly limit reached" : undefined}
           >
             <RefreshCw
               className={cn("w-4 h-4", isGenerating && "animate-spin")}
@@ -233,6 +272,51 @@ export default function RecommendationsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Free tier usage banner */}
+      {!isPaid && usageInfo && (
+        <div className={cn(
+          "rounded-xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+          usageInfo.canGenerate
+            ? "bg-blue-50 border border-blue-200"
+            : "bg-amber-50 border border-amber-200"
+        )}>
+          <div className="flex items-start gap-3">
+            {usageInfo.canGenerate ? (
+              <Sparkles className="w-5 h-5 text-blue-600 mt-0.5" />
+            ) : (
+              <Calendar className="w-5 h-5 text-amber-600 mt-0.5" />
+            )}
+            <div>
+              <p className={cn(
+                "font-medium",
+                usageInfo.canGenerate ? "text-blue-900" : "text-amber-900"
+              )}>
+                {usageInfo.canGenerate
+                  ? "You have 1 free recommendation this month"
+                  : "You've used your free recommendation this month"}
+              </p>
+              <p className={cn(
+                "text-sm",
+                usageInfo.canGenerate ? "text-blue-700" : "text-amber-700"
+              )}>
+                {usageInfo.canGenerate
+                  ? "Generate personalized school and program recommendations."
+                  : `Resets on ${formatResetDate(usageInfo.resetDate)}. Upgrade for unlimited recommendations.`}
+              </p>
+            </div>
+          </div>
+          {!usageInfo.canGenerate && (
+            <a
+              href="/settings"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors whitespace-nowrap"
+            >
+              <Crown className="w-4 h-4" />
+              Upgrade to Premium
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Error State */}
       {error && (
@@ -244,19 +328,50 @@ export default function RecommendationsPage() {
 
       {/* Stage Context Card */}
       {stage && (
-        <div className="bg-accent-surface/50 border border-accent-border rounded-[20px] p-5 mb-8">
+        <div className={cn(
+          "border rounded-[20px] p-5 mb-8",
+          stage.grade === "unknown"
+            ? "bg-amber-50/50 border-amber-200"
+            : "bg-accent-surface/50 border-accent-border"
+        )}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              <Sparkles className="w-5 h-5 text-accent-primary" />
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm",
+              stage.grade === "unknown" ? "bg-amber-100" : "bg-white"
+            )}>
+              {stage.grade === "unknown" ? (
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              ) : (
+                <Sparkles className="w-5 h-5 text-accent-primary" />
+              )}
             </div>
-            <div>
-              <h2 className="font-display font-bold text-text-main">
-                {stage.grade} - {stage.season.charAt(0).toUpperCase() + stage.season.slice(1)}
-              </h2>
-              <p className="text-sm text-text-muted">{stage.description}</p>
+            <div className="flex-1">
+              {stage.grade === "unknown" ? (
+                <>
+                  <h2 className="font-display font-bold text-text-main">
+                    Grade Not Set
+                  </h2>
+                  <p className="text-sm text-amber-700">{stage.description}</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-display font-bold text-text-main">
+                    {stage.grade} Grade - {stage.season.charAt(0).toUpperCase() + stage.season.slice(1)}
+                  </h2>
+                  <p className="text-sm text-text-muted">{stage.description}</p>
+                </>
+              )}
             </div>
+            {stage.grade === "unknown" && (
+              <a
+                href="/profile"
+                className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                Update Profile
+              </a>
+            )}
           </div>
-          {stage.priorities.length > 0 && (
+          {stage.priorities.length > 0 && stage.grade !== "unknown" && (
             <div className="flex flex-wrap gap-2 mt-3">
               {stage.priorities.map((priority, i) => (
                 <span
@@ -280,14 +395,32 @@ export default function RecommendationsPage() {
           <h2 className="font-display font-bold text-xl text-text-main mb-2">
             No Recommendations Yet
           </h2>
-          <p className="text-text-muted mb-6 max-w-md mx-auto">
-            Click the Refresh button to generate personalized recommendations
-            based on your profile.
-          </p>
-          <Button onClick={generateRecommendations} disabled={isGenerating}>
-            <Sparkles className="w-4 h-4" />
-            Generate Recommendations
-          </Button>
+          {canGenerate ? (
+            <>
+              <p className="text-text-muted mb-6 max-w-md mx-auto">
+                Click the button below to generate personalized recommendations
+                based on your profile.
+              </p>
+              <Button onClick={generateRecommendations} disabled={isGenerating}>
+                <Sparkles className="w-4 h-4" />
+                Generate Recommendations
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-text-muted mb-6 max-w-md mx-auto">
+                You've used your free recommendation for this month.
+                {usageInfo?.resetDate && ` Resets on ${formatResetDate(usageInfo.resetDate)}.`}
+              </p>
+              <a
+                href="/settings"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-accent-primary text-white rounded-xl font-medium hover:bg-accent-primary/90 transition-colors"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade to Premium
+              </a>
+            </>
+          )}
         </div>
       )}
 

@@ -130,13 +130,30 @@ export function getStudentStage(
   options: { date?: Date; grade?: string | null } = {}
 ): StageInfo {
   const date = options.date ?? new Date();
+  const season = getSeason(date);
 
-  // Default to junior if no graduation year provided
+  // If neither grade nor graduation year is provided, return unknown state
+  if (!graduationYear && !options.grade) {
+    return {
+      stage: "junior_fall", // Default stage for query purposes, but UI will handle "unknown" grade
+      grade: "unknown",
+      season,
+      graduationYear: getCurrentAcademicYear(date) + 1,
+      description: "Add your grade to get personalized recommendations",
+      priorities: [
+        "Update your profile with your grade level",
+        "Explore schools and programs",
+        "Build your activity list",
+      ],
+      recommendationTypes: ["school", "program", "activity", "general"],
+    };
+  }
+
+  // Calculate effective graduation year
   const effectiveGradYear = graduationYear ?? getCurrentAcademicYear(date) + 1;
 
   // Use provided grade if available, otherwise calculate from graduation year
   const grade = options.grade || calculateGrade(effectiveGradYear, date);
-  const season = getSeason(date);
 
   // Determine stage and recommendations based on grade and season
   if (grade === "graduated" || grade === "pre-high-school") {

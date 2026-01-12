@@ -225,7 +225,7 @@ function PlanSelectorModal({
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-2xl max-w-3xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl max-w-2xl w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -270,7 +270,7 @@ function PlanSelectorModal({
         </div>
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
           {PLANS.map((plan) => {
             const isCurrentPlan = currentTier === plan.id;
             const planLevel = TIER_LEVELS[plan.id];

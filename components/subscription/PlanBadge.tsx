@@ -113,12 +113,12 @@ function PlanSelectorModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 flex items-start justify-center p-4 pt-8 pb-8 overflow-y-auto"
       style={{ zIndex: 9999 }}
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-2xl max-w-lg w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+        className="bg-white rounded-2xl max-w-lg w-full p-6 relative animate-in fade-in zoom-in-95 duration-200 shadow-2xl my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
