@@ -228,48 +228,44 @@ export async function POST(request: NextRequest) {
             console.log(`[Chat] === RAW SECRETARY RESPONSE END ===`);
             console.log(`======================================\n`);
 
-            // Stream secretary's response IMMEDIATELY (no blocking operations!)
+            // Stream secretary's response first
             controller.enqueue(encoder.encode(responseText));
+
+            // Execute tool calls BEFORE closing the stream
+            // IMPORTANT: In serverless environments, the function terminates after controller.close()
+            // so we must execute tools synchronously before closing, not in setImmediate
+            for (const tool of toolsToExecute) {
+              try {
+                await executeToolCall(profileId, tool.name, tool.args);
+                console.log(`[Chat] Executed tool: ${tool.name}`);
+              } catch (err) {
+                console.error(`[Chat] Tool execution error for ${tool.name}:`, err);
+              }
+            }
+
+            // Record usage and save conversation in parallel (still before closing)
+            await Promise.all([
+              recordUsage({
+                userId,
+                model: "kimi_k2",
+                tokensInput: parserTokens.input,
+                tokensOutput: Math.ceil(responseText.length / 4),
+                messageCount: 1,
+              }).catch(err => console.error("Error recording secretary usage:", err)),
+              saveConversation({
+                profileId,
+                conversationId,
+                mode,
+                messages,
+                assistantText: responseText,
+                toolCalls: toolsToExecute,
+                parserResult,
+                modelName: "kimi-k2",
+                tokensUsed: parserTokens.input + Math.ceil(responseText.length / 4),
+              }).catch(err => console.error("Error saving conversation:", err)),
+            ]);
+
             controller.close();
-
-            // Fire-and-forget: Use setImmediate to truly detach from request lifecycle
-            // This ensures the response is sent BEFORE any background work starts
-            setImmediate(() => {
-              (async () => {
-                // Execute tool calls
-                for (const tool of toolsToExecute) {
-                  try {
-                    await executeToolCall(profileId, tool.name, tool.args);
-                    console.log(`[Chat] Executed tool: ${tool.name}`);
-                  } catch (err) {
-                    console.error(`[Chat] Tool execution error for ${tool.name}:`, err);
-                  }
-                }
-
-                // Record usage and save conversation in parallel
-                await Promise.all([
-                  recordUsage({
-                    userId,
-                    model: "kimi_k2",
-                    tokensInput: parserTokens.input,
-                    tokensOutput: Math.ceil(responseText.length / 4),
-                    messageCount: 1,
-                  }).catch(err => console.error("Error recording secretary usage:", err)),
-                  saveConversation({
-                    profileId,
-                    conversationId,
-                    mode,
-                    messages,
-                    assistantText: responseText,
-                    toolCalls: toolsToExecute,
-                    parserResult,
-                    modelName: "kimi-k2",
-                    tokensUsed: parserTokens.input + Math.ceil(responseText.length / 4),
-                  }).catch(err => console.error("Error saving conversation:", err)),
-                ]);
-              })().catch(err => console.error("Error in background tasks:", err));
-            });
-
             return;
           }
 
