@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ProfileProvider } from "@/lib/context/ProfileContext";
 import { ToastProvider } from "@/components/ui/Toast";
+import { PostHogProvider } from "@/lib/context/PostHogContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,11 +36,15 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <ToastProvider>
-          <ProfileProvider>
-            {children}
-          </ProfileProvider>
-        </ToastProvider>
+        <Suspense fallback={null}>
+          <PostHogProvider>
+            <ToastProvider>
+              <ProfileProvider>
+                {children}
+              </ProfileProvider>
+            </ToastProvider>
+          </PostHogProvider>
+        </Suspense>
       </body>
     </html>
   );
