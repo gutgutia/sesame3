@@ -6,6 +6,11 @@ import {
   getStudentStage,
 } from "@/lib/recommendations";
 import { prisma } from "@/lib/db";
+import {
+  getCachedRecommendations,
+  setCachedRecommendations,
+  invalidateRecommendationsCache,
+} from "@/lib/cache/recommendations-cache";
 
 /**
  * Helper to check subscription tier
@@ -73,6 +78,33 @@ export async function GET() {
       );
     }
 
+    // Check cache first for fast response
+    const cached = getCachedRecommendations(profileId);
+    if (cached) {
+      // Still need to get fresh tier/usage info (fast queries)
+      const tier = await getSubscriptionTier(profileId);
+      const isPaid = tier === "paid";
+
+      let usageInfo = null;
+      if (!isPaid) {
+        const { hasGenerated, resetDate } = await hasGeneratedThisMonth(profileId);
+        usageInfo = {
+          canGenerate: !hasGenerated,
+          hasGeneratedThisMonth: hasGenerated,
+          resetDate: resetDate.toISOString(),
+          limit: 1,
+          used: hasGenerated ? 1 : 0,
+        };
+      }
+
+      return NextResponse.json({
+        ...cached,
+        tier,
+        usageInfo,
+        fromCache: true,
+      });
+    }
+
     // Get subscription tier and usage info
     const tier = await getSubscriptionTier(profileId);
     const isPaid = tier === "paid";
@@ -91,6 +123,15 @@ export async function GET() {
       grade: profile?.grade,
     });
 
+    const lastGenerated = recommendations[0]?.generatedAt?.toISOString() ?? null;
+
+    // Cache the results
+    setCachedRecommendations(profileId, {
+      recommendations,
+      stage,
+      lastGenerated,
+    });
+
     // For free users, include usage limit info
     let usageInfo = null;
     if (!isPaid) {
@@ -107,7 +148,7 @@ export async function GET() {
     return NextResponse.json({
       recommendations,
       stage,
-      lastGenerated: recommendations[0]?.generatedAt ?? null,
+      lastGenerated,
       tier,
       usageInfo,
     });
@@ -166,11 +207,21 @@ export async function POST() {
       }
     }
 
+    // Invalidate cache before generating
+    invalidateRecommendationsCache(profileId);
+
     // Generate new recommendations
     const result = await generateRecommendations(profileId);
 
     // Fetch the saved recommendations (with IDs) from database
     const savedRecommendations = await getRecommendations(profileId);
+
+    // Cache the new results
+    setCachedRecommendations(profileId, {
+      recommendations: savedRecommendations,
+      stage: result.stage,
+      lastGenerated: new Date().toISOString(),
+    });
 
     // Return usage info for free users
     let usageInfo = null;

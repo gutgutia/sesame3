@@ -85,11 +85,11 @@ export default function RecommendationsPage() {
   const canGenerate = isPaid || (usageInfo?.canGenerate ?? true);
 
   // Fetch existing recommendations
-  const fetchRecommendations = useCallback(async () => {
+  const fetchRecommendations = useCallback(async (signal?: AbortSignal) => {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetch("/api/recommendations");
+      const res = await fetch("/api/recommendations", { signal });
       if (!res.ok) throw new Error("Failed to fetch recommendations");
       const data: RecommendationsResponse = await res.json();
       setRecommendations(data.recommendations);
@@ -98,6 +98,8 @@ export default function RecommendationsPage() {
       setTier(data.tier);
       setUsageInfo(data.usageInfo);
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === "AbortError") return;
       setError("Failed to load recommendations");
       console.error(err);
     } finally {
@@ -213,7 +215,9 @@ export default function RecommendationsPage() {
   };
 
   useEffect(() => {
-    fetchRecommendations();
+    const controller = new AbortController();
+    fetchRecommendations(controller.signal);
+    return () => controller.abort();
   }, [fetchRecommendations]);
 
   // Group recommendations by category
