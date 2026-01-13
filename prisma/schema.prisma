@@ -900,9 +900,10 @@ model StudentSchool {
   whyInterested    String?   // Why this school
   concerns         String?   // Hesitations
 
-  // Calculated
-  calculatedChance Float?    // Our calculated admission probability
-  chanceUpdatedAt  DateTime?
+  // Calculated Chances
+  calculatedChance  Float?    // Our calculated admission probability (0-1)
+  chanceBreakdown   Json?     // Full breakdown: factors, summary, improvements, tier
+  chanceUpdatedAt   DateTime?
 
   // Display
   displayOrder     Int       @default(0)

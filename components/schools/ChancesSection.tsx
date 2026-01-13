@@ -25,10 +25,25 @@ import { ChancesResult } from "@/lib/chances/types";
 // TYPES
 // =============================================================================
 
+interface SavedBreakdown {
+  tier: string;
+  factors: {
+    academics: { score: number; impact: string; details: string };
+    testing: { score: number; impact: string; details: string };
+    activities: { score: number; impact: string; details: string };
+    awards: { score: number; impact: string; details: string };
+  };
+  summary: string;
+  improvements: Array<{ action: string; potentialImpact: string; priority: string; category: string }>;
+  confidence: string;
+  confidenceReason: string;
+}
+
 interface ChancesSectionProps {
   schoolId: string;
   schoolName: string;
   calculatedChance: number | null;
+  chanceBreakdown: SavedBreakdown | null;
   chanceUpdatedAt: string | null;
   profileChangedSinceChanceCheck: boolean;
   onChanceCalculated: (result: ChancesResult) => void;
@@ -42,6 +57,7 @@ export function ChancesSection({
   schoolId,
   schoolName,
   calculatedChance,
+  chanceBreakdown,
   chanceUpdatedAt,
   profileChangedSinceChanceCheck,
   onChanceCalculated,
@@ -100,7 +116,12 @@ export function ChancesSection({
   // Use fresh result if available, otherwise construct from stored data
   const displayResult = result || (hasExistingChance ? {
     probability: Math.round(calculatedChance * 100),
-    tier: getTierFromProbability(calculatedChance * 100),
+    tier: chanceBreakdown?.tier || getTierFromProbability(calculatedChance * 100),
+    factors: chanceBreakdown?.factors,
+    summary: chanceBreakdown?.summary,
+    improvements: chanceBreakdown?.improvements,
+    confidence: chanceBreakdown?.confidence,
+    confidenceReason: chanceBreakdown?.confidenceReason,
     calculatedAt: chanceUpdatedAt ? new Date(chanceUpdatedAt) : new Date(),
   } as Partial<ChancesResult> : null);
 
@@ -260,14 +281,14 @@ export function ChancesSection({
                 </span>
                 <TierBadge tier={displayResult?.tier || "target"} />
               </div>
-              {result?.summary && (
-                <p className="text-sm text-text-muted mt-2">{result.summary}</p>
+              {displayResult?.summary && (
+                <p className="text-sm text-text-muted mt-2">{displayResult.summary}</p>
               )}
             </div>
           </div>
 
-          {/* Factor breakdown - only if we have full result */}
-          {result?.factors ? (
+          {/* Factor breakdown - show if we have factors from fresh result or saved breakdown */}
+          {displayResult?.factors ? (
             <div className="bg-bg-sidebar rounded-xl p-4 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-4 h-4 text-accent-primary" />
@@ -277,31 +298,31 @@ export function ChancesSection({
               <div className="space-y-3">
                 <FactorBar
                   label="Academics"
-                  score={result.factors.academics.score}
-                  impact={result.factors.academics.impact}
-                  details={result.factors.academics.details}
+                  score={displayResult.factors.academics.score}
+                  impact={displayResult.factors.academics.impact}
+                  details={displayResult.factors.academics.details}
                 />
                 <FactorBar
                   label="Testing"
-                  score={result.factors.testing.score}
-                  impact={result.factors.testing.impact}
-                  details={result.factors.testing.details}
+                  score={displayResult.factors.testing.score}
+                  impact={displayResult.factors.testing.impact}
+                  details={displayResult.factors.testing.details}
                 />
                 <FactorBar
                   label="Activities"
-                  score={result.factors.activities.score}
-                  impact={result.factors.activities.impact}
-                  details={result.factors.activities.details}
+                  score={displayResult.factors.activities.score}
+                  impact={displayResult.factors.activities.impact}
+                  details={displayResult.factors.activities.details}
                 />
                 <FactorBar
                   label="Awards"
-                  score={result.factors.awards.score}
-                  impact={result.factors.awards.impact}
-                  details={result.factors.awards.details}
+                  score={displayResult.factors.awards.score}
+                  impact={displayResult.factors.awards.impact}
+                  details={displayResult.factors.awards.details}
                 />
               </div>
             </div>
-          ) : hasExistingChance && !result && (
+          ) : hasExistingChance && !displayResult?.factors && (
             <div className="bg-bg-sidebar rounded-xl p-4 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-text-muted" />
@@ -313,8 +334,8 @@ export function ChancesSection({
             </div>
           )}
 
-          {/* Improvements - only if we have full result */}
-          {result?.improvements && result.improvements.length > 0 && (
+          {/* Improvements - show if we have improvements from fresh result or saved breakdown */}
+          {displayResult?.improvements && displayResult.improvements.length > 0 && (
             <div className="bg-bg-sidebar rounded-xl p-4 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <Lightbulb className="w-4 h-4 text-amber-500" />
@@ -322,7 +343,7 @@ export function ChancesSection({
               </div>
 
               <div className="space-y-2">
-                {result.improvements.slice(0, 3).map((improvement, index) => (
+                {displayResult.improvements.slice(0, 3).map((improvement, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <div
                       className={cn(

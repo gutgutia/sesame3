@@ -75,6 +75,20 @@ interface School {
   deadlineRd: string | null;
 }
 
+interface ChanceBreakdown {
+  tier: string;
+  factors: {
+    academics: { score: number; impact: string; details: string };
+    testing: { score: number; impact: string; details: string };
+    activities: { score: number; impact: string; details: string };
+    awards: { score: number; impact: string; details: string };
+  };
+  summary: string;
+  improvements: Array<{ action: string; potentialImpact: string; priority: string; category: string }>;
+  confidence: string;
+  confidenceReason: string;
+}
+
 interface StudentSchoolData {
   id: string;
   tier: string;
@@ -83,6 +97,7 @@ interface StudentSchoolData {
   interestLevel: string | null;
   applicationType: string | null;
   calculatedChance: number | null;
+  chanceBreakdown: ChanceBreakdown | null;
   chanceUpdatedAt: string | null;
   profileChangedSinceChanceCheck: boolean;
   school: School;
@@ -244,6 +259,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
             schoolId={school.id}
             schoolName={school.shortName || school.name}
             calculatedChance={data.calculatedChance}
+            chanceBreakdown={data.chanceBreakdown}
             chanceUpdatedAt={data.chanceUpdatedAt}
             profileChangedSinceChanceCheck={data.profileChangedSinceChanceCheck}
             onChanceCalculated={handleChanceCalculated}

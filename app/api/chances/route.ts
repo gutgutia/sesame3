@@ -95,7 +95,17 @@ export async function POST(request: NextRequest) {
       useQuantitative,
     });
 
-    // Save the calculated chance to the StudentSchool record
+    // Save the calculated chance and full breakdown to the StudentSchool record
+    // Serialize the breakdown as JSON-compatible object
+    const breakdown = JSON.parse(JSON.stringify({
+      tier: result.tier,
+      factors: result.factors,
+      summary: result.summary,
+      improvements: result.improvements,
+      confidence: result.confidence,
+      confidenceReason: result.confidenceReason,
+    }));
+
     await prisma.studentSchool.updateMany({
       where: {
         studentProfileId: profileId,
@@ -103,6 +113,7 @@ export async function POST(request: NextRequest) {
       },
       data: {
         calculatedChance: result.probability / 100, // Store as decimal (0-1)
+        chanceBreakdown: breakdown,
         chanceUpdatedAt: new Date(),
       },
     });
