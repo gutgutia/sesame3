@@ -63,6 +63,7 @@ export const ToolCallSchema = z.object({
     // Profile tools
     "saveGpa",
     "saveTestScores",
+    "saveAPScore",       // { subject, score, year }
     "addActivity",
     "addAward",
     "addCourse",
@@ -71,6 +72,9 @@ export const ToolCallSchema = z.object({
     "saveProfileInfo",   // Legacy combined profile tool
     "addGoal",
     "uploadTranscript",
+    // Recommendation tools
+    "showProgramRecommendations",  // { programs: string[], reason? }
+    "showSchoolRecommendations",   // { schools: string[], reason? }
   ]),
   args: z.record(z.string(), z.unknown()),
 });
@@ -90,6 +94,7 @@ export const WidgetTypeSchema = z.enum([
   // Input widgets - collect data from user
   "sat",
   "act",
+  "ap",          // AP exam scores
   "activity",
   "award",
   "transcript",  // Replaces "course" - triggers transcript upload flow
@@ -215,6 +220,7 @@ export const toolToWidgetType: Record<string, WidgetType> = {
   // Standard widgets
   saveGpa: "transcript",        // GPA mention triggers transcript upload
   saveTestScores: "sat",        // Will be refined to "act" based on args
+  saveAPScore: "ap",            // AP exam scores
   addActivity: "activity",
   addAward: "award",
   addCourse: "transcript",      // Course mention triggers transcript upload

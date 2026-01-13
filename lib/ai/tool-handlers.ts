@@ -135,6 +135,65 @@ export async function handleSaveTestScores(
   };
 }
 
+export async function handleSaveAPScore(
+  profileId: string,
+  params: {
+    subject: string;
+    score: number;
+    year?: number;
+  }
+) {
+  // Get or create Testing container for this profile
+  const testing = await prisma.testing.upsert({
+    where: { studentProfileId: profileId },
+    create: { studentProfileId: profileId },
+    update: {},
+  });
+
+  // Check for existing AP score with same subject
+  const existing = await prisma.aPScore.findFirst({
+    where: {
+      testingId: testing.id,
+      subject: params.subject,
+    },
+  });
+
+  if (existing) {
+    // Update existing score
+    const updated = await prisma.aPScore.update({
+      where: { id: existing.id },
+      data: {
+        score: params.score,
+        year: params.year || existing.year,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Updated ${params.subject} score to ${params.score}`,
+      data: updated,
+    };
+  }
+
+  // Create new AP score
+  const apScore = await prisma.aPScore.create({
+    data: {
+      testingId: testing.id,
+      subject: params.subject,
+      score: params.score,
+      year: params.year || new Date().getFullYear(),
+    },
+  });
+
+  return {
+    success: true,
+    message: `Added ${params.subject}: ${params.score}`,
+    data: apScore,
+    requiresConfirmation: true,
+    widgetType: "ap",
+  };
+}
+
 export async function handleAddActivity(
   profileId: string,
   params: {
@@ -559,6 +618,8 @@ export async function executeToolCall(
       return handleSaveGpa(profileId, args as Parameters<typeof handleSaveGpa>[1]);
     case "saveTestScores":
       return handleSaveTestScores(profileId, args as Parameters<typeof handleSaveTestScores>[1]);
+    case "saveAPScore":
+      return handleSaveAPScore(profileId, args as Parameters<typeof handleSaveAPScore>[1]);
     case "addActivity":
       return handleAddActivity(profileId, args as Parameters<typeof handleAddActivity>[1]);
     case "addAward":

@@ -27,6 +27,13 @@ const testScoresSchema = z.object({
   psatTotal: z.number().min(320).max(1520).optional().describe("PSAT/NMSQT total score"),
 });
 
+// AP score schema
+const apScoreSchema = z.object({
+  subject: z.string().describe("AP subject name (e.g., 'AP Computer Science A', 'AP Calculus BC')"),
+  score: z.number().min(1).max(5).describe("AP exam score (1-5)"),
+  year: z.number().optional().describe("Year the exam was taken"),
+});
+
 // Activity schema
 const activitySchema = z.object({
   title: z.string().describe("Role or position (e.g., 'President', 'Member', 'Volunteer')"),
@@ -109,12 +116,17 @@ export const profileTools = {
     description: "Save or update the student's GPA. Call this when the student mentions their GPA.",
     inputSchema: gpaSchema,
   },
-  
+
   saveTestScores: {
     description: "Save or update standardized test scores. Call this when the student mentions SAT, ACT, or PSAT scores.",
     inputSchema: testScoresSchema,
   },
-  
+
+  saveAPScore: {
+    description: "Save an AP exam score. Call this when the student mentions an AP exam score (e.g., 'I got a 5 on AP CS', 'AP Calc BC score was 4').",
+    inputSchema: apScoreSchema,
+  },
+
   addActivity: {
     description: "Add an extracurricular activity. Call this when the student mentions a club, sport, job, volunteer work, or other activity.",
     inputSchema: activitySchema,
@@ -203,6 +215,7 @@ export function getWidgetTypeFromToolName(toolName: string): string | null {
   const mapping: Record<string, string> = {
     saveGpa: "transcript",          // GPA mention triggers transcript upload
     saveTestScores: "sat",
+    saveAPScore: "ap",              // AP exam scores
     addActivity: "activity",
     addAward: "award",
     addCourse: "transcript",        // Course mention triggers transcript upload

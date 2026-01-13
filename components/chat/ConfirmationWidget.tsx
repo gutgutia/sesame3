@@ -17,6 +17,7 @@ export type WidgetType =
   // Input widgets - collect data from user
   | "sat"
   | "act"
+  | "ap"          // AP exam scores
   | "activity"
   | "award"
   | "transcript"  // Replaces "course" - triggers transcript upload
@@ -53,6 +54,7 @@ const icons: Record<WidgetType, React.ElementType> = {
   // Standard widgets
   sat: PenTool,
   act: PenTool,
+  ap: PenTool,
   activity: Users,
   award: Trophy,
   transcript: Upload,
@@ -73,6 +75,7 @@ const titles: Record<WidgetType, string> = {
   // Standard widgets
   sat: "SAT Score",
   act: "ACT Score",
+  ap: "AP Score",
   activity: "Activity",
   award: "Award",
   transcript: "Upload Transcript",
@@ -171,6 +174,10 @@ export function ConfirmationWidget({ type, data, onConfirm, onDismiss }: Confirm
 
         {type === "act" && (
           <ACTFields data={formData} onChange={updateField} />
+        )}
+
+        {type === "ap" && (
+          <APFields data={formData} onChange={updateField} />
         )}
 
         {type === "activity" && (
@@ -567,6 +574,114 @@ function ACTFields({ data, onChange }: { data: Record<string, unknown>; onChange
           />
         </div>
       </div>
+    </>
+  );
+}
+
+// =============================================================================
+// AP FIELDS - Subject, score, year
+// =============================================================================
+
+// Common AP subjects for dropdown
+const AP_SUBJECTS = [
+  // STEM
+  "AP Biology", "AP Chemistry", "AP Physics 1", "AP Physics 2",
+  "AP Physics C: Mechanics", "AP Physics C: Electricity & Magnetism",
+  "AP Environmental Science", "AP Computer Science A", "AP Computer Science Principles",
+  "AP Calculus AB", "AP Calculus BC", "AP Statistics", "AP Precalculus",
+  // Humanities
+  "AP English Language & Composition", "AP English Literature & Composition",
+  "AP U.S. History", "AP World History: Modern", "AP European History",
+  "AP U.S. Government & Politics", "AP Comparative Government & Politics",
+  "AP Human Geography", "AP Macroeconomics", "AP Microeconomics", "AP Psychology",
+  // Arts
+  "AP Art History", "AP Music Theory",
+  // Languages
+  "AP Spanish Language & Culture", "AP French Language & Culture",
+  "AP Chinese Language & Culture", "AP Japanese Language & Culture", "AP Latin",
+  // Research
+  "AP Research", "AP Seminar",
+];
+
+function APFields({ data, onChange }: { data: Record<string, unknown>; onChange: (field: string, value: unknown) => void }) {
+  const subject = data.subject as string || "";
+  const score = data.score as number;
+  const year = data.year as number || new Date().getFullYear();
+  const isCustomSubject = subject && !AP_SUBJECTS.includes(subject);
+
+  // Generate year options (current year back to 5 years ago)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
+  return (
+    <>
+      <div>
+        <FieldLabel required>AP Subject</FieldLabel>
+        <select
+          value={isCustomSubject ? "other" : subject}
+          onChange={(e) => {
+            if (e.target.value === "other") {
+              onChange("subject", "");
+            } else {
+              onChange("subject", e.target.value);
+            }
+          }}
+          className="w-full bg-white border border-border-medium rounded-lg px-3 py-2 text-sm text-text-main focus:border-accent-primary outline-none"
+        >
+          <option value="">Select subject...</option>
+          {AP_SUBJECTS.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+          <option value="other">Other</option>
+        </select>
+      </div>
+      {(isCustomSubject || subject === "") && (
+        <div>
+          <FieldLabel>Custom Subject</FieldLabel>
+          <TextField
+            value={subject}
+            onChange={(v) => onChange("subject", v)}
+            placeholder="e.g., AP African American Studies"
+          />
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <FieldLabel required>Score</FieldLabel>
+          <select
+            value={score ?? ""}
+            onChange={(e) => onChange("score", parseInt(e.target.value) || undefined)}
+            className="w-full bg-white border border-border-medium rounded-lg px-3 py-2 text-sm text-text-main focus:border-accent-primary outline-none"
+          >
+            <option value="">Select...</option>
+            <option value="5">5</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1</option>
+          </select>
+        </div>
+        <div>
+          <FieldLabel>Year</FieldLabel>
+          <select
+            value={year}
+            onChange={(e) => onChange("year", parseInt(e.target.value))}
+            className="w-full bg-white border border-border-medium rounded-lg px-3 py-2 text-sm text-text-main focus:border-accent-primary outline-none"
+          >
+            {yearOptions.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {score && (
+        <div className="bg-bg-sidebar rounded-lg p-3 text-center">
+          <div className="text-2xl font-mono font-bold text-accent-primary">{score}</div>
+          <div className="text-xs text-text-muted mt-1">
+            {score >= 4 ? "College credit likely" : score === 3 ? "May qualify for credit" : "No credit typically"}
+          </div>
+        </div>
+      )}
     </>
   );
 }

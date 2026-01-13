@@ -872,6 +872,7 @@ function getApiEndpoint(widgetType: WidgetType): string | null {
     // Standard widgets
     sat: "/api/profile/testing/sat",
     act: "/api/profile/testing/act",
+    ap: "/api/profile/testing/ap",
     activity: "/api/profile/activities",
     award: "/api/profile/awards",
     transcript: null,  // Handled by widget itself
@@ -888,7 +889,7 @@ function getApiEndpoint(widgetType: WidgetType): string | null {
 }
 
 function getApiMethod(widgetType: WidgetType): string {
-  const postTypes: WidgetType[] = ["activity", "award", "program", "goal", "school", "sat", "act"];
+  const postTypes: WidgetType[] = ["activity", "award", "program", "goal", "school", "sat", "act", "ap"];
   // Onboarding widgets use PUT for profile updates
   return postTypes.includes(widgetType) ? "POST" : "PUT";
 }

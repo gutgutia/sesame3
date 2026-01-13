@@ -175,22 +175,22 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Determine if secretary will handle (auto-save) or if we need user confirmation
-          const secretaryWillHandle = !!(secretaryResult?.canHandle && secretaryResult.response);
+          // Check if we have widgets - if so, let the UI handle confirmation (don't auto-save)
+          const hasWidgets = featureFlags.enableWidgets &&
+            ((parserResult?.widgets && parserResult.widgets.length > 0) || parserResult?.widget);
 
           // Send widget data IMMEDIATELY after parsing (before context assembly)
           // This ensures widgets appear in ~600ms, not 3+ seconds
-          // NOTE: If secretary handles, widgets are sent as "saved" (server executes tools)
-          //       If escalating to Claude, widgets are sent as "pending" (need user confirmation)
+          // ALWAYS send widgets as "pending" (saved: false) so user can verify/edit before saving
           if (featureFlags.enableWidgets && parserResult?.widgets && parserResult.widgets.length > 0) {
-            console.log(`[Chat] Sending ${parserResult.widgets.length} widget(s) immediately (saved: ${secretaryWillHandle})`);
+            console.log(`[Chat] Sending ${parserResult.widgets.length} widget(s) for user confirmation`);
             for (const widget of parserResult.widgets) {
               console.log(`[Chat] Widget: type=${widget.type}, data=${JSON.stringify(widget.data || {})}`);
               const widgetEvent = JSON.stringify({
                 type: "widget",
                 widget: widget,
-                // Mark as already saved if secretary is handling (server executes tools)
-                saved: secretaryWillHandle,
+                // Always send as pending - let user confirm via widget
+                saved: false,
               });
               const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
               controller.enqueue(encoder.encode(sseMessage));
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
             const widgetEvent = JSON.stringify({
               type: "widget",
               widget: parserResult.widget,
-              saved: secretaryWillHandle,
+              saved: false,
             });
             const sseMessage = `event: widget\ndata: ${widgetEvent}\n\n`;
             controller.enqueue(encoder.encode(sseMessage));
@@ -231,16 +231,21 @@ export async function POST(request: NextRequest) {
             // Stream secretary's response first
             controller.enqueue(encoder.encode(responseText));
 
-            // Execute tool calls BEFORE closing the stream
+            // Execute tool calls ONLY if there are no widgets
+            // When widgets are present, the UI handles saving via confirmation widget
             // IMPORTANT: In serverless environments, the function terminates after controller.close()
             // so we must execute tools synchronously before closing, not in setImmediate
-            for (const tool of toolsToExecute) {
-              try {
-                await executeToolCall(profileId, tool.name, tool.args);
-                console.log(`[Chat] Executed tool: ${tool.name}`);
-              } catch (err) {
-                console.error(`[Chat] Tool execution error for ${tool.name}:`, err);
+            if (!hasWidgets) {
+              for (const tool of toolsToExecute) {
+                try {
+                  await executeToolCall(profileId, tool.name, tool.args);
+                  console.log(`[Chat] Executed tool: ${tool.name}`);
+                } catch (err) {
+                  console.error(`[Chat] Tool execution error for ${tool.name}:`, err);
+                }
               }
+            } else {
+              console.log(`[Chat] Skipping tool execution - widgets present, UI will handle confirmation`);
             }
 
             // Record usage and save conversation in parallel (still before closing)
@@ -490,52 +495,49 @@ async function saveConversation({
       });
     }
 
-    // Save both messages AND update stats IN PARALLEL
+    // Save messages SEQUENTIALLY to ensure correct ordering
+    // User message first, then assistant message (so createdAt timestamps are in order)
     const userMessage = messages[messages.length - 1];
-    const dbOps: Promise<unknown>[] = [
-      // Update conversation stats
-      prisma.conversation.update({
-        where: { id: conversation.id },
-        data: {
-          lastMessageAt: new Date(),
-          messageCount: { increment: 2 },
-        },
-      }),
-      // Save assistant message
-      prisma.message.create({
+
+    // 1. Save user message first (if present)
+    if (userMessage?.role === "user") {
+      await prisma.message.create({
         data: {
           conversationId: conversation.id,
-          role: "assistant",
-          content: assistantText,
-          toolCalls: toolCalls ? JSON.parse(JSON.stringify(toolCalls)) : undefined,
-          toolResults: toolResults ? JSON.parse(JSON.stringify(toolResults)) : undefined,
-          widgetType: parserResult?.widget?.type,
-          widgetData: parserResult?.widget?.data as unknown as undefined,
-          model: modelName,
-          provider: "anthropic",
-          tokensUsed,
+          role: "user",
+          content: typeof userMessage.content === "string"
+            ? userMessage.content
+            : JSON.stringify(userMessage.content),
+          parsedIntents: parserResult?.intents,
+          parsedEntities: parserResult?.entities as unknown as undefined,
         },
-      }),
-    ];
-
-    // Add user message if present
-    if (userMessage?.role === "user") {
-      dbOps.push(
-        prisma.message.create({
-          data: {
-            conversationId: conversation.id,
-            role: "user",
-            content: typeof userMessage.content === "string"
-              ? userMessage.content
-              : JSON.stringify(userMessage.content),
-            parsedIntents: parserResult?.intents,
-            parsedEntities: parserResult?.entities as unknown as undefined,
-          },
-        })
-      );
+      });
     }
 
-    await Promise.all(dbOps);
+    // 2. Save assistant message second (will have later createdAt timestamp)
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "assistant",
+        content: assistantText,
+        toolCalls: toolCalls ? JSON.parse(JSON.stringify(toolCalls)) : undefined,
+        toolResults: toolResults ? JSON.parse(JSON.stringify(toolResults)) : undefined,
+        widgetType: parserResult?.widget?.type,
+        widgetData: parserResult?.widget?.data as unknown as undefined,
+        model: modelName,
+        provider: "anthropic",
+        tokensUsed,
+      },
+    });
+
+    // 3. Update conversation stats
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessageAt: new Date(),
+        messageCount: { increment: 2 },
+      },
+    });
   } catch (error) {
     console.error("Error saving conversation:", error);
   }
