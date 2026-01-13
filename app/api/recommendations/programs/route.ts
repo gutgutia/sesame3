@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentProfileId } from "@/lib/auth";
 import { calculateEligibility, type EligibilityStatus } from "@/lib/eligibility/calculate-eligibility";
+import type { SummerProgram } from "@prisma/client";
 
 /**
  * GET - Fetch programs by names (provided by LLM) or discover based on profile
@@ -46,33 +47,86 @@ export async function GET(request: Request) {
     // Get current year for program filtering
     const currentYear = new Date().getFullYear();
 
-    let programs;
+    let programs: SummerProgram[];
 
     if (programNames) {
       // MODE 1: LLM provided specific program names - look them up
       const names = programNames.split(",").map(n => n.trim());
 
+      // Extract search terms from each name
+      // e.g., "MIT Research Science Institute (RSI)" -> ["MIT Research Science Institute (RSI)", "RSI", "MIT", "Research Science Institute"]
+      const searchTerms: string[] = [];
+      for (const name of names) {
+        searchTerms.push(name);
+
+        // Extract abbreviation from parentheses: "Something (ABC)" -> "ABC"
+        const parenMatch = name.match(/\(([^)]+)\)/);
+        if (parenMatch) {
+          searchTerms.push(parenMatch[1]);
+          // Also add the name without parentheses
+          searchTerms.push(name.replace(/\s*\([^)]+\)\s*/g, "").trim());
+        }
+
+        // Handle slash-separated names: "MITES/MOSTEC" -> ["MITES", "MOSTEC"]
+        if (name.includes("/")) {
+          searchTerms.push(...name.split("/").map(s => s.trim()));
+        }
+
+        // Extract organization prefix if present: "MIT RSI" -> "RSI"
+        const words = name.split(" ");
+        if (words.length > 1) {
+          // Add the last word(s) which are often the program acronym
+          searchTerms.push(words[words.length - 1]);
+          if (words.length > 2) {
+            searchTerms.push(words.slice(-2).join(" "));
+          }
+        }
+      }
+
+      // Remove duplicates and empty strings
+      const uniqueTerms = [...new Set(searchTerms.filter(t => t.length > 1))];
+
       // Search for programs by name (fuzzy match)
       programs = await prisma.summerProgram.findMany({
         where: {
-          OR: names.flatMap(name => [
-            { name: { contains: name, mode: "insensitive" } },
-            { shortName: { contains: name, mode: "insensitive" } },
+          OR: uniqueTerms.flatMap(term => [
+            { name: { contains: term, mode: "insensitive" } },
+            { shortName: { contains: term, mode: "insensitive" } },
           ]),
           isActive: true,
         },
-        take: limit,
+        take: limit * 2, // Get more to account for duplicates
+      });
+
+      // Remove duplicates (same program might match multiple terms)
+      const seenIds = new Set<string>();
+      programs = programs.filter(p => {
+        if (seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+        return true;
       });
 
       // Sort by the order the LLM provided (if possible)
+      // Try to match each program to the original name order
       const nameOrder = new Map(names.map((n, i) => [n.toLowerCase(), i]));
       programs.sort((a, b) => {
-        const aOrder = nameOrder.get(a.name.toLowerCase()) ??
-                       nameOrder.get(a.shortName?.toLowerCase() || "") ?? 999;
-        const bOrder = nameOrder.get(b.name.toLowerCase()) ??
-                       nameOrder.get(b.shortName?.toLowerCase() || "") ?? 999;
-        return aOrder - bOrder;
+        // Try to find which original name this program matches
+        const findOrder = (program: typeof programs[0]) => {
+          for (const [name, order] of nameOrder) {
+            const lowerName = program.name.toLowerCase();
+            const lowerShortName = program.shortName?.toLowerCase() || "";
+            if (lowerName.includes(name) || name.includes(lowerName) ||
+                lowerShortName.includes(name) || name.includes(lowerShortName)) {
+              return order;
+            }
+          }
+          return 999;
+        };
+        return findOrder(a) - findOrder(b);
       });
+
+      // Limit results
+      programs = programs.slice(0, limit);
     } else {
       // MODE 2: Discovery mode - find programs based on profile
       // Build query for summer programs
