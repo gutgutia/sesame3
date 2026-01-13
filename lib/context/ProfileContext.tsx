@@ -274,6 +274,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         grade: summary.grade,
         graduationYear: summary.graduationYear,
         highSchoolName: summary.highSchoolName,
+        // Include academics from summary (GPA is returned at root level)
+        academics: {
+          gpaUnweighted: summary.gpaUnweighted,
+          gpaWeighted: summary.gpaWeighted,
+        },
+        // Include testing from summary
+        testing: {
+          satScores: summary.bestSAT ? [{ id: "summary", ...summary.bestSAT, testDate: "" }] : [],
+          actScores: summary.bestACT ? [{ id: "summary", composite: summary.bestACT, english: 0, math: 0, reading: 0, science: 0, testDate: "" }] : [],
+        },
         // Initialize empty arrays - will be populated by full load
         courses: [],
         activities: [],

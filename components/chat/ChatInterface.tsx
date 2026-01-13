@@ -521,6 +521,19 @@ export function ChatInterface({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ courses: data.courses }),
           });
+
+          // Also save GPA if it was extracted from the transcript
+          if (data.gpaUnweighted || data.gpaWeighted) {
+            await fetch("/api/profile/academics", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                gpaUnweighted: data.gpaUnweighted,
+                gpaWeighted: data.gpaWeighted,
+              }),
+            });
+          }
+
           if (response.ok) {
             setPendingWidgets(prev =>
               prev.map(w => w.id === widgetId ? { ...w, status: "confirmed" as const } : w)

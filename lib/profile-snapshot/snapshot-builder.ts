@@ -8,6 +8,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { calculateGPA, type CourseForGPA } from "@/lib/gpa-calculator";
 import {
   ProfileSnapshot,
   AcademicsSnapshot,
@@ -77,8 +78,11 @@ export async function buildProfileSnapshot(
     return null;
   }
 
-  // Build academics snapshot
-  const academics = buildAcademicsSnapshot(profile.academics);
+  // Build courses first (needed for GPA calculation)
+  const courses = buildCourses(profile.courses);
+
+  // Build academics snapshot (pass courses for GPA calculation if needed)
+  const academics = buildAcademicsSnapshot(profile.academics, profile.courses);
 
   // Build testing snapshot
   const testing = buildTestingSnapshot(profile.testing);
@@ -91,9 +95,6 @@ export async function buildProfileSnapshot(
 
   // Build programs
   const programs = buildPrograms(profile.programs);
-
-  // Build courses
-  const courses = buildCourses(profile.courses);
 
   // Build goals
   const goals = includeGoals && profile.goals 
@@ -157,30 +158,43 @@ interface AcademicsModel {
   classSize: number | null;
 }
 
-function buildAcademicsSnapshot(academics: AcademicsModel | null): AcademicsSnapshot {
-  if (!academics) {
-    return {
-      gpaUnweighted: null,
-      gpaWeighted: null,
-      gpaScale: null,
-      classRank: null,
-      classSize: null,
-      percentile: null,
-    };
-  }
+interface CourseModel {
+  grade: string | null;
+  level: string | null;
+  credits: number | null;
+  status: string;
+}
+
+function buildAcademicsSnapshot(
+  academics: AcademicsModel | null,
+  courses: CourseModel[] = []
+): AcademicsSnapshot {
+  // Calculate GPA from courses
+  const calculatedGpa = calculateGPA(
+    courses.map(c => ({
+      grade: c.grade,
+      level: c.level,
+      credits: c.credits,
+      status: c.status,
+    }))
+  );
+
+  // Use school-reported GPA if available, otherwise use calculated from courses
+  const gpaUnweighted = academics?.schoolReportedGpaUnweighted ?? calculatedGpa.unweighted;
+  const gpaWeighted = academics?.schoolReportedGpaWeighted ?? calculatedGpa.weighted;
 
   // Calculate percentile from class rank
   let percentile: number | null = null;
-  if (academics.classRank && academics.classSize) {
+  if (academics?.classRank && academics?.classSize) {
     percentile = Math.round((1 - academics.classRank / academics.classSize) * 100);
   }
 
   return {
-    gpaUnweighted: academics.schoolReportedGpaUnweighted,
-    gpaWeighted: academics.schoolReportedGpaWeighted,
-    gpaScale: academics.gpaScale,
-    classRank: academics.classRank,
-    classSize: academics.classSize,
+    gpaUnweighted,
+    gpaWeighted,
+    gpaScale: academics?.gpaScale ?? null,
+    classRank: academics?.classRank ?? null,
+    classSize: academics?.classSize ?? null,
     percentile,
   };
 }

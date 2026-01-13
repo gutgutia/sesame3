@@ -107,8 +107,14 @@ export async function GET() {
     }
 
     // Transform summerProgramList to programs for backward compatibility
+    // Transform academics to use frontend field names
     const transformedProfile = {
       ...profile,
+      academics: profile.academics ? {
+        ...profile.academics,
+        gpaUnweighted: profile.academics.schoolReportedGpaUnweighted,
+        gpaWeighted: profile.academics.schoolReportedGpaWeighted,
+      } : null,
       programs: profile.summerProgramList.map((p) => ({
         id: p.id,
         name: p.isCustom ? p.customName : p.summerProgram?.name,

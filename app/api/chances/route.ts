@@ -95,6 +95,18 @@ export async function POST(request: NextRequest) {
       useQuantitative,
     });
 
+    // Save the calculated chance to the StudentSchool record
+    await prisma.studentSchool.updateMany({
+      where: {
+        studentProfileId: profileId,
+        schoolId: schoolId,
+      },
+      data: {
+        calculatedChance: result.probability / 100, // Store as decimal (0-1)
+        chanceUpdatedAt: new Date(),
+      },
+    });
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Chances calculation error:", error);

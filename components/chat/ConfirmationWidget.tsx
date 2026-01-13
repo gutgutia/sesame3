@@ -1016,6 +1016,9 @@ function TranscriptUploadWidget({
       type: "transcript_extracted",
       courses: selectedCourses,
       count: selectedCourses.length,
+      // Include extracted GPA if available
+      gpaUnweighted: extractedGpa?.unweighted,
+      gpaWeighted: extractedGpa?.weighted,
     });
   };
 
