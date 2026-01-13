@@ -267,7 +267,7 @@ export function ChancesSection({
           </div>
 
           {/* Factor breakdown - only if we have full result */}
-          {result?.factors && (
+          {result?.factors ? (
             <div className="bg-bg-sidebar rounded-xl p-4 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-4 h-4 text-accent-primary" />
@@ -300,6 +300,16 @@ export function ChancesSection({
                   details={result.factors.awards.details}
                 />
               </div>
+            </div>
+          ) : hasExistingChance && !result && (
+            <div className="bg-bg-sidebar rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-text-muted" />
+                <h3 className="font-medium text-text-main">Factor Breakdown</h3>
+              </div>
+              <p className="text-sm text-text-muted">
+                Click &quot;Recalculate&quot; to see the detailed factor breakdown and personalized insights.
+              </p>
             </div>
           )}
 
@@ -437,12 +447,12 @@ function FactorBar({ label, score, impact, details }: FactorBarProps) {
           {getImpactIcon(impact)}
           <span className="text-sm font-medium text-text-main">{label}</span>
         </div>
-        <span className="text-xs text-text-muted">{score}/100</span>
+        <span className="text-xs text-text-muted">{Math.round(score)}/100</span>
       </div>
       <div className="h-1.5 bg-white rounded-full overflow-hidden mb-1">
         <div
           className={cn("h-full rounded-full transition-all", getImpactColor(impact))}
-          style={{ width: `${score}%` }}
+          style={{ width: `${Math.round(score)}%` }}
         />
       </div>
       <p className="text-xs text-text-muted">{details}</p>
