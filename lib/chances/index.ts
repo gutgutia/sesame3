@@ -4,17 +4,16 @@
 
 /**
  * Main entry point for chances calculation.
- * Combines quantitative calculation with LLM assessment.
+ * Uses Claude Opus for holistic assessment based on its training data
+ * about college admissions patterns at specific schools.
  */
 
-import { ProfileSnapshot, buildProfileSnapshot } from "@/lib/profile-snapshot";
+import { buildProfileSnapshot } from "@/lib/profile-snapshot";
 import { prisma } from "@/lib/db";
-import { calculateQuantitative } from "./calculate-quantitative";
-import { assessWithLLM } from "./assess-with-llm";
+import { assessWithOpus, ExtendedSchoolData } from "./assess-with-opus";
 import { ChancesResult, ChancesMode, SchoolData } from "./types";
 
 export * from "./types";
-export { calculateQuantitative } from "./calculate-quantitative";
 
 // =============================================================================
 // CONFIGURATION
@@ -23,21 +22,19 @@ export { calculateQuantitative } from "./calculate-quantitative";
 interface CalculateChancesOptions {
   /**
    * Whether to use LLM for assessment
-   * If false, only quantitative calculation is used
-   * Default: true
+   * Default: true (always use Opus)
+   * Note: Setting to false will throw an error - Opus is required
    */
   useLLM?: boolean;
-  
+
   /**
-   * Whether to use quantitative calculation as base
-   * If false, rely entirely on LLM
-   * Default: true
+   * Legacy option - ignored in Opus-based implementation
+   * @deprecated
    */
   useQuantitative?: boolean;
 }
 
 // Internal mode - always "trajectory" (actual + in-progress)
-// This is not exposed to the API - we always calculate the full picture
 const CALCULATION_MODE: ChancesMode = "projected";
 
 // =============================================================================
@@ -46,41 +43,51 @@ const CALCULATION_MODE: ChancesMode = "projected";
 
 /**
  * Calculate chances for a student at a specific school.
+ * Uses Claude Opus for holistic assessment.
  */
 export async function calculateChances(
   profileId: string,
   schoolId: string,
   options: CalculateChancesOptions = {}
 ): Promise<ChancesResult> {
-  const {
-    useLLM = true,
-    useQuantitative = true,
-  } = options;
-  
+  const { useLLM = true } = options;
+
+  if (!useLLM) {
+    throw new Error("Opus-based assessment is required. Set useLLM: true or omit the option.");
+  }
+
   // Always use trajectory mode (actual + in-progress goals)
   const mode = CALCULATION_MODE;
-  
-  // Load profile snapshot
+
+  // Load profile snapshot with all relevant data
   const profileSnapshot = await buildProfileSnapshot(profileId, {
     includeGoals: true,
     includeSchools: true,
   });
-  
+
   if (!profileSnapshot) {
     throw new Error("Profile not found");
   }
-  
-  // Load school data
+
+  // Load extended school data (includes LLM context)
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
     select: {
       id: true,
       name: true,
+      city: true,
+      state: true,
+      type: true,
       acceptanceRate: true,
       satRange25: true,
       satRange75: true,
       actRange25: true,
       actRange75: true,
+      undergradEnrollment: true,
+      notes: true, // LLM context about what the school values
+      hasEarlyDecision: true,
+      hasEarlyAction: true,
+      isRestrictiveEarlyAction: true,
     },
   });
 
@@ -88,68 +95,35 @@ export async function calculateChances(
     throw new Error("School not found");
   }
 
-  const schoolData: SchoolData = {
+  const schoolData: ExtendedSchoolData = {
     id: school.id,
     name: school.name,
+    city: school.city,
+    state: school.state,
+    type: school.type,
     acceptanceRate: school.acceptanceRate,
     satRange25: school.satRange25,
     satRange75: school.satRange75,
     actRange25: school.actRange25,
     actRange75: school.actRange75,
-    // GPA data not available from College Scorecard - using null
+    undergradEnrollment: school.undergradEnrollment,
+    notes: school.notes,
+    hasEarlyDecision: school.hasEarlyDecision,
+    hasEarlyAction: school.hasEarlyAction,
+    isRestrictiveEarlyAction: school.isRestrictiveEarlyAction,
+    // Legacy fields - not available
     avgGpaUnweighted: null,
     avgGpaWeighted: null,
   };
-  
-  // Calculate quantitative base
-  let quantitativeResult = null;
-  if (useQuantitative) {
-    quantitativeResult = calculateQuantitative(profileSnapshot, schoolData);
-  }
-  
-  // If not using LLM, return quantitative-only result
-  if (!useLLM) {
-    if (!quantitativeResult) {
-      throw new Error("Must use either quantitative or LLM assessment");
-    }
-    
-    return {
-      probability: quantitativeResult.baseProbability,
-      tier: getTierFromProbability(quantitativeResult.baseProbability),
-      mode,
-      factors: {
-        academics: quantitativeResult.factors.academics,
-        testing: quantitativeResult.factors.testing,
-        activities: {
-          score: 50,
-          impact: "neutral",
-          details: "LLM assessment disabled",
-        },
-        awards: {
-          score: 50,
-          impact: "neutral",
-          details: "LLM assessment disabled",
-        },
-      },
-      summary: `Based on quantitative metrics, your estimated chance is ${quantitativeResult.baseProbability}%.`,
-      improvements: [],
-      confidence: quantitativeResult.confidence,
-      confidenceReason: quantitativeResult.confidenceReason,
-      calculatedAt: new Date(),
-      schoolId: school.id,
-      schoolName: school.name,
-    };
-  }
-  
-  // Use LLM for full assessment
-  const llmResult = await assessWithLLM({
+
+  // Use Opus for holistic assessment
+  const result = await assessWithOpus({
     profile: profileSnapshot,
     school: schoolData,
     mode,
-    quantitativeResult: quantitativeResult || getDefaultQuantitativeResult(),
   });
-  
-  return llmResult;
+
+  return result;
 }
 
 /**
@@ -161,21 +135,20 @@ export async function calculateChancesMultiple(
   options: CalculateChancesOptions = {}
 ): Promise<Map<string, ChancesResult>> {
   const results = new Map<string, ChancesResult>();
-  
-  // Run calculations in parallel (with concurrency limit)
-  const CONCURRENCY = 3;
+
+  // Run calculations in parallel (with concurrency limit to avoid rate limits)
+  const CONCURRENCY = 2; // Lower concurrency for Opus calls
   for (let i = 0; i < schoolIds.length; i += CONCURRENCY) {
     const batch = schoolIds.slice(i, i + CONCURRENCY);
     const batchResults = await Promise.all(
-      batch.map(schoolId => 
-        calculateChances(profileId, schoolId, options)
-          .catch(error => {
-            console.error(`Failed to calculate chances for ${schoolId}:`, error);
-            return null;
-          })
+      batch.map((schoolId) =>
+        calculateChances(profileId, schoolId, options).catch((error) => {
+          console.error(`Failed to calculate chances for ${schoolId}:`, error);
+          return null;
+        })
       )
     );
-    
+
     batch.forEach((schoolId, index) => {
       const result = batchResults[index];
       if (result) {
@@ -183,7 +156,7 @@ export async function calculateChancesMultiple(
       }
     });
   }
-  
+
   return results;
 }
 
@@ -198,15 +171,16 @@ export async function updateStoredChances(
   const studentSchools = await prisma.studentSchool.findMany({
     where: {
       studentProfileId: profileId,
-      schoolId: { not: null }, // Only linked schools
+      schoolId: { not: null },
     },
     select: { id: true, schoolId: true },
   });
 
-  // Filter to only linked schools (schoolId is not null)
+  // Filter to only linked schools
   const schoolIds = studentSchools
-    .map(s => s.schoolId)
+    .map((s) => s.schoolId)
     .filter((id): id is string => id !== null);
+
   const results = await calculateChancesMultiple(profileId, schoolIds, options);
 
   // Update stored chances
@@ -229,24 +203,14 @@ export async function updateStoredChances(
 // HELPERS
 // =============================================================================
 
-function getTierFromProbability(probability: number): ChancesResult["tier"] {
+/**
+ * Get tier classification from probability.
+ * Exported for use in UI components.
+ */
+export function getTierFromProbability(probability: number): ChancesResult["tier"] {
   if (probability < 15) return "unlikely";
   if (probability < 30) return "reach";
   if (probability < 50) return "target";
   if (probability < 70) return "likely";
   return "safety";
 }
-
-function getDefaultQuantitativeResult() {
-  return {
-    baseProbability: 50,
-    factors: {
-      academics: { score: 50, impact: "neutral" as const, details: "No quantitative assessment" },
-      testing: { score: 50, impact: "neutral" as const, details: "No quantitative assessment" },
-      acceptance_rate: { score: 50, impact: "neutral" as const, details: "No quantitative assessment" },
-    },
-    confidence: "low" as const,
-    confidenceReason: "Quantitative assessment disabled",
-  };
-}
-

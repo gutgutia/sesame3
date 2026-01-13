@@ -173,6 +173,15 @@ export function buildCounselorSystemPrompt(context: {
   return parts.join("\n");
 }
 
+interface AvailableProgram {
+  name: string;
+  organization: string;
+  description?: string;
+  category?: string;
+  minGrade?: number;
+  maxGrade?: number;
+}
+
 /**
  * Format for secretary model when in counselor mode
  * Combines the counselor persona with secretary response format
@@ -182,6 +191,7 @@ export function buildCounselorSecretaryPrompt(context: {
   grade?: string;
   profileSummary?: string;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  availablePrograms?: AvailableProgram[];
 }): string {
   const counselorPrompt = buildCounselorSystemPrompt(context);
 
@@ -400,5 +410,38 @@ When the student shares data, you MUST create both a tool call AND a correspondi
 5. Match the student's tone - casual if they're casual, focused if they're focused
 6. ALWAYS generate both tools AND widgets for data updates`;
 
-  return counselorPrompt + responseFormat;
+  // Build available programs section
+  let availableProgramsSection = "";
+  if (context.availablePrograms && context.availablePrograms.length > 0) {
+    const programList = context.availablePrograms
+      .map((p) => {
+        let entry = `- **${p.name}** (${p.organization})`;
+        if (p.description) {
+          entry += ` - ${p.description.substring(0, 100)}${p.description.length > 100 ? "..." : ""}`;
+        }
+        if (p.category) {
+          entry += ` [${p.category}]`;
+        }
+        if (p.minGrade && p.maxGrade) {
+          entry += ` (Grades ${p.minGrade}-${p.maxGrade})`;
+        }
+        return entry;
+      })
+      .join("\n");
+
+    availableProgramsSection = `
+
+## Available Summer Programs (Database)
+
+**CRITICAL**: When recommending programs with \`showProgramRecommendations\`, you MUST ONLY recommend programs from this list. Do NOT make up or suggest programs that are not in this list.
+
+${programList}
+
+When the student asks for program recommendations:
+1. Choose programs from the list above that match their interests and grade level
+2. Use the EXACT program name as it appears in the list
+3. Never recommend programs not in this list`;
+  }
+
+  return counselorPrompt + responseFormat + availableProgramsSection;
 }

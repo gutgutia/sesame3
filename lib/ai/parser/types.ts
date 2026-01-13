@@ -154,6 +154,18 @@ export type ParserResponse = z.infer<typeof ParserResponseSchema>;
  * Context needed for parsing
  * Now includes full conversation history for secretary model
  */
+/**
+ * Available program for recommendations (from database)
+ */
+export interface AvailableProgram {
+  name: string;
+  organization: string;
+  description?: string;
+  category?: string;
+  minGrade?: number;
+  maxGrade?: number;
+}
+
 export interface ParserContext {
   studentName?: string;
   grade?: string;
@@ -162,6 +174,8 @@ export interface ParserContext {
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   // Legacy field - kept for backward compatibility
   recentMessages?: Array<{ role: "user" | "assistant"; content: string }>;
+  // Available programs from database for recommendations
+  availablePrograms?: AvailableProgram[];
 }
 
 /**

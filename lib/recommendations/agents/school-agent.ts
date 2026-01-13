@@ -68,7 +68,7 @@ export async function generateSchoolRecommendations(
   }
 
   // Build the prompt with the school list
-  const prompt = buildSchoolPrompt(profile, stage, preferences, availableSchools);
+  const prompt = buildSchoolPrompt(profile, stage, preferences, availableSchools, input.sessionContext);
 
   try {
     const { object } = await generateObject({
@@ -123,12 +123,56 @@ function buildSchoolPrompt(
   profile: RecommendationInput["profile"],
   stage: RecommendationInput["stage"],
   preferences: RecommendationInput["preferences"],
-  availableSchools: SchoolOption[]
+  availableSchools: SchoolOption[],
+  sessionContext: RecommendationInput["sessionContext"]
 ): string {
   const parts: string[] = [];
 
   parts.push("You are a college admissions expert helping a high school student build their college list.");
   parts.push("");
+
+  // Add session context if available - this is KEY for personalization
+  if (sessionContext) {
+    parts.push("## Recent Conversations & Insights");
+    parts.push("");
+    parts.push("**IMPORTANT**: Use these insights from recent advisor conversations to personalize your recommendations.");
+    parts.push("");
+
+    if (sessionContext.studentUnderstanding) {
+      parts.push("### What We Know About This Student");
+      parts.push(sessionContext.studentUnderstanding);
+      parts.push("");
+    }
+
+    if (sessionContext.recentSessions) {
+      parts.push("### Recent Session Summary");
+      parts.push(sessionContext.recentSessions);
+      parts.push("");
+    }
+
+    // Include active conversation if present - this is the most immediate context
+    if (sessionContext.activeConversation && sessionContext.activeConversation.messages.length > 0) {
+      parts.push("### Current Conversation (Active Session)");
+      parts.push("The student is currently talking with the advisor. Here's what they've discussed:");
+      parts.push("");
+      // Include last 10 messages from active conversation
+      const recentMessages = sessionContext.activeConversation.messages.slice(-10);
+      recentMessages.forEach((msg) => {
+        const role = msg.role === "user" ? "Student" : "Advisor";
+        parts.push(`**${role}**: ${msg.content.substring(0, 500)}${msg.content.length > 500 ? "..." : ""}`);
+      });
+      parts.push("");
+      parts.push("**Use this conversation context to tailor your recommendations!**");
+      parts.push("");
+    }
+
+    if (sessionContext.openCommitments) {
+      parts.push("### Open Commitments");
+      parts.push(sessionContext.openCommitments);
+      parts.push("");
+    }
+  }
+
   parts.push("## Student Profile");
   parts.push("");
 

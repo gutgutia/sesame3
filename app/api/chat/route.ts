@@ -111,13 +111,27 @@ export async function POST(request: NextRequest) {
       content: m.content,
     }));
 
-    // Run student profile fetch and feature flags fetch IN PARALLEL
-    const [studentProfile, featureFlags] = await Promise.all([
+    // Run student profile fetch, feature flags fetch, and available programs IN PARALLEL
+    const [studentProfile, featureFlags, availablePrograms] = await Promise.all([
       prisma.studentProfile.findUnique({
         where: { id: profileId },
         select: { firstName: true, grade: true },
       }),
       getFeatureFlags(),
+      // Fetch active summer programs for recommendations
+      prisma.summerProgram.findMany({
+        where: { isActive: true },
+        select: {
+          name: true,
+          organization: true,
+          description: true,
+          category: true,
+          minGrade: true,
+          maxGrade: true,
+        },
+        orderBy: { name: "asc" },
+        take: 100, // Limit to prevent prompt bloat
+      }),
     ]);
 
     // Call secretary model or legacy parser based on feature flag
@@ -131,6 +145,14 @@ export async function POST(request: NextRequest) {
         grade: studentProfile?.grade || undefined,
         entryMode: mode,
         conversationHistory: conversationHistory.slice(0, -1), // Exclude current message (it's in userInput)
+        availablePrograms: availablePrograms.map((p) => ({
+          name: p.name,
+          organization: p.organization,
+          description: p.description || undefined,
+          category: p.category || undefined,
+          minGrade: p.minGrade || undefined,
+          maxGrade: p.maxGrade || undefined,
+        })),
       });
       console.log(`\n========== CHAT REQUEST ==========`);
       console.log(`[Chat] Mode: ${mode}`);

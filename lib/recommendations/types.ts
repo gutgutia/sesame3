@@ -61,10 +61,29 @@ export interface RecommendationPreferencesInput {
   requireMeritScholarships: boolean;
 }
 
+/**
+ * Session context from conversations - used to personalize recommendations
+ * based on what the student has discussed with the advisor
+ */
+export interface SessionContext {
+  // Master summary from StudentContext
+  quickContext: string | null;        // At-a-glance snapshot
+  recentSessions: string | null;      // Summary of recent conversations
+  studentUnderstanding: string | null; // AI's understanding of the student
+  openCommitments: string | null;     // Active action items
+
+  // Active conversation (if within last 4 hours)
+  activeConversation: {
+    messages: Array<{ role: "user" | "assistant"; content: string }>;
+    mode: string;
+  } | null;
+}
+
 export interface RecommendationInput {
   profile: StudentProfileSnapshot;
   stage: StageInfo;
   preferences: RecommendationPreferencesInput | null;
+  sessionContext: SessionContext | null;
 }
 
 export interface GeneratedRecommendation {

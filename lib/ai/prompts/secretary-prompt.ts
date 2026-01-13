@@ -217,12 +217,22 @@ function formatConversationHistory(
 /**
  * Build the complete secretary prompt with conversation history
  */
+interface AvailableProgram {
+  name: string;
+  organization: string;
+  description?: string;
+  category?: string;
+  minGrade?: number;
+  maxGrade?: number;
+}
+
 export function buildSecretaryPrompt(context: {
   studentName?: string;
   grade?: string;
   entryMode?: string;
   profileSummary?: string;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  availablePrograms?: AvailableProgram[];
 }): string {
   // Use dedicated onboarding prompt for onboarding mode
   if (context.entryMode === "onboarding") {
@@ -236,6 +246,7 @@ export function buildSecretaryPrompt(context: {
       grade: context.grade,
       profileSummary: context.profileSummary,
       conversationHistory: context.conversationHistory,
+      availablePrograms: context.availablePrograms,
     });
   }
 

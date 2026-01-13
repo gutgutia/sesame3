@@ -280,6 +280,7 @@ export async function callSecretary(
       grade: context.grade,
       entryMode: context.entryMode,
       conversationHistory: context.conversationHistory,
+      availablePrograms: context.availablePrograms,
     });
 
     const { text } = await generateText({

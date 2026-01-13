@@ -22,8 +22,12 @@ import type {
   RecommendationPreferencesInput,
   RecommendationInput,
   GeneratedRecommendation,
+  SessionContext,
 } from "./types";
 import type { StageInfo } from "./stage";
+
+// Time window for active conversation (4 hours)
+const ACTIVE_CONVERSATION_WINDOW_MS = 4 * 60 * 60 * 1000;
 
 export { getStudentStage } from "./stage";
 export type { StudentStage, StageInfo } from "./stage";
@@ -44,24 +48,28 @@ export async function generateRecommendations(
   const startTime = Date.now();
   console.log(`[Recommendations] Starting recommendation generation for profile ${profileId}`);
 
-  // Load profile data
-  const profile = await loadProfileSnapshot(profileId);
+  // Load profile data, session context, and preferences in parallel
+  const [profile, sessionContext, preferences] = await Promise.all([
+    loadProfileSnapshot(profileId),
+    loadSessionContext(profileId),
+    loadPreferences(profileId),
+  ]);
+
   if (!profile) {
     throw new Error("Profile not found");
   }
   console.log(`[Recommendations] Profile loaded in ${Date.now() - startTime}ms`);
+  console.log(`[Recommendations] Session context: ${sessionContext ? "available" : "none"}`);
 
   // Calculate current stage - use stored grade if available
   const stage = getStudentStage(profile.graduationYear, { grade: profile.grade });
-
-  // Load preferences
-  const preferences = await loadPreferences(profileId);
 
   // Build input for agents
   const input: RecommendationInput = {
     profile,
     stage,
     preferences,
+    sessionContext,
   };
 
   console.log(`[Recommendations] Stage: ${stage.stage}, Grade: ${stage.grade}, Season: ${stage.season}`);
@@ -262,6 +270,76 @@ async function loadPreferences(
     requireNeedBlind: prefs.requireNeedBlind,
     requireMeritScholarships: prefs.requireMeritScholarships,
   };
+}
+
+/**
+ * Load session context from StudentContext and active conversations
+ * This provides the recommendation engine with insights from recent chats
+ */
+async function loadSessionContext(
+  profileId: string
+): Promise<SessionContext | null> {
+  try {
+    // Load StudentContext (master summaries) and recent conversation in parallel
+    const [studentContext, activeConversation] = await Promise.all([
+      prisma.studentContext.findUnique({
+        where: { studentProfileId: profileId },
+        select: {
+          quickContext: true,
+          recentSessions: true,
+          studentUnderstanding: true,
+          openCommitments: true,
+          masterSummaryUpdatedAt: true,
+        },
+      }),
+      // Find most recent conversation within the time window
+      prisma.conversation.findFirst({
+        where: {
+          studentProfileId: profileId,
+          lastMessageAt: {
+            gte: new Date(Date.now() - ACTIVE_CONVERSATION_WINDOW_MS),
+          },
+        },
+        orderBy: { lastMessageAt: "desc" },
+        select: {
+          id: true,
+          mode: true,
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 20, // Limit to recent messages to avoid prompt bloat
+            select: {
+              role: true,
+              content: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    // If we have neither, return null
+    if (!studentContext && !activeConversation) {
+      return null;
+    }
+
+    return {
+      quickContext: studentContext?.quickContext || null,
+      recentSessions: studentContext?.recentSessions || null,
+      studentUnderstanding: studentContext?.studentUnderstanding || null,
+      openCommitments: studentContext?.openCommitments || null,
+      activeConversation: activeConversation
+        ? {
+            messages: activeConversation.messages.map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })),
+            mode: activeConversation.mode || "general",
+          }
+        : null,
+    };
+  } catch (error) {
+    console.error("[Recommendations] Error loading session context:", error);
+    return null;
+  }
 }
 
 /**
