@@ -160,14 +160,26 @@ export function GlobalChat({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         {/* Input */}
         <div className="p-4 bg-white border-t border-border-subtle">
           <div className="relative">
-            <input
-              type="text"
+            <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              onChange={(e) => {
+                setInput(e.target.value);
+                // Auto-resize textarea to fit content
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+              }}
+              onKeyDown={(e) => {
+                // Enter without Shift sends the message
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+                // Shift+Enter creates a new line (default textarea behavior)
+              }}
               placeholder="Type a message..."
-              className="w-full bg-bg-sidebar border border-border-medium rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-accent-primary focus:ring-2 focus:ring-accent-surface transition-all"
+              className="w-full bg-bg-sidebar border border-border-medium rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-accent-primary focus:ring-2 focus:ring-accent-surface transition-all resize-none min-h-[48px] max-h-[200px] overflow-y-auto"
               autoFocus
+              rows={1}
             />
             <button
               onClick={handleSend}

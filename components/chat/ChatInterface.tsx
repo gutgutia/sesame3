@@ -63,7 +63,7 @@ export function ChatInterface({
   preloadedWelcome,
 }: ChatInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasInitialized = useRef(false);
   const welcomeSet = useRef(false);
   const conversationLoaded = useRef(false);
@@ -819,15 +819,30 @@ export function ChatInterface({
       {/* Input Area */}
       <div className="p-4 md:px-8 md:py-4 bg-white border-t border-border-subtle/50">
         <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto">
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize textarea to fit content
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+            }}
+            onKeyDown={(e) => {
+              // Enter without Shift submits the form
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (input.trim() && !isLoading && !hasBlockingWidgets) {
+                  handleSubmit(e);
+                }
+              }
+              // Shift+Enter creates a new line (default textarea behavior)
+            }}
             placeholder="Ask me anything..."
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-5 pr-14 py-3 text-[15px] focus:outline-none focus:border-accent-primary focus:bg-white focus:ring-2 focus:ring-accent-surface/50 transition-all placeholder:text-text-muted/60"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-5 pr-14 py-3 text-[15px] focus:outline-none focus:border-accent-primary focus:bg-white focus:ring-2 focus:ring-accent-surface/50 transition-all placeholder:text-text-muted/60 resize-none min-h-[48px] max-h-[200px] overflow-y-auto"
             disabled={isLoading || hasBlockingWidgets}
             autoFocus
+            rows={1}
           />
           <button
             type="submit"
