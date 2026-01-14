@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { PlatformProvider } from "@/lib/context/PlatformContext";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <BottomNav />
+        <FeedbackButton />
       </div>
     </PlatformProvider>
   );

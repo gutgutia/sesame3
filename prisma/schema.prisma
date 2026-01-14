@@ -174,6 +174,9 @@ model StudentProfile {
   recommendationPreferences RecommendationPreferences?
   recommendations           Recommendation[]
 
+  // Relations - Feedback
+  feedbacks                 Feedback[]
+
   @@index([userId])
 }
 
@@ -1640,7 +1643,52 @@ model DataRequest {
 }
 
 // =============================================================================
-// LAYER 8: NOTIFICATIONS
+// LAYER 8: FEEDBACK
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Feedback - User-submitted feedback/bug reports
+// Simple text-based feedback with AI processing for categorization
+// -----------------------------------------------------------------------------
+
+model Feedback {
+  id               String   @id @default(uuid())
+
+  // Who submitted (optional - could support anonymous later)
+  studentProfileId String?
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id], onDelete: SetNull)
+
+  // Original feedback content
+  content          String   @db.Text
+
+  // AI-processed fields
+  isSpam           Boolean  @default(false)  // AI-detected spam
+  category         String?  // "bug" | "feature" | "ux" | "content" | "general" | "praise"
+  processedSummary String?  @db.Text  // AI-transformed summary for admin
+
+  // Context for debugging
+  pageUrl          String?  // Which page they were on
+  posthogSessionId String?  // PostHog session for replay
+  userAgent        String?  // Browser info
+
+  // Status tracking (for future workflow)
+  status           String   @default("new")  // "new" | "reviewing" | "in_progress" | "fixed" | "wont_fix" | "duplicate"
+  adminNotes       String?  @db.Text
+
+  // Email notification tracking
+  notificationSent Boolean  @default(false)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([studentProfileId])
+  @@index([status])
+  @@index([isSpam])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// LAYER 9: NOTIFICATIONS
 // =============================================================================
 
 // -----------------------------------------------------------------------------

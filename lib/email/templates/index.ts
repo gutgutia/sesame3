@@ -1,3 +1,4 @@
+export { FeedbackEmail } from "./FeedbackEmail";
 export { InvitationEmail } from "./InvitationEmail";
 export { NotificationEmail } from "./NotificationEmail";
 export { SignupNotificationEmail } from "./SignupNotificationEmail";
