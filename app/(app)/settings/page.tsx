@@ -132,24 +132,24 @@ function ConfirmationModal({
         </p>
         
         {details && (
-          <div className="mb-6">
+          <div className="mb-4">
             {details}
           </div>
         )}
-        
-        <div className="flex gap-3">
+
+        <div className="flex gap-3 pt-4 border-t border-border-subtle mt-4">
           <Button
             variant="secondary"
             className="flex-1"
             onClick={onCancel}
             disabled={isLoading}
           >
-            Cancel
+            Never mind
           </Button>
           <Button
             className={cn(
               "flex-1",
-              confirmVariant === "danger" && "bg-red-600 hover:bg-red-700"
+              confirmVariant === "danger" && "bg-red-600 hover:bg-red-700 text-white"
             )}
             onClick={onConfirm}
             disabled={isLoading}
