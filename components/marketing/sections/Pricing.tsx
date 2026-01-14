@@ -17,7 +17,7 @@ const plans = [
       "Goal setting & planning",
     ],
     limit: "20 messages per day",
-    cta: "Join Waitlist",
+    cta: "Get Started Free",
     ctaVariant: "secondary" as const,
     icon: Sparkles,
   },
@@ -39,7 +39,7 @@ const plans = [
       "Priority support",
     ],
     limit: "Unlimited usage",
-    cta: "Join Waitlist",
+    cta: "Get Started",
     ctaVariant: "primary" as const,
     icon: Star,
   },
@@ -52,7 +52,7 @@ export function Pricing() {
         {/* Header */}
         <div className="text-center mb-6 px-4">
           <p className="text-xs font-bold uppercase tracking-widest text-[var(--accent-primary)] mb-4">
-            Planned Pricing
+            Pricing
           </p>
           <h2 className="font-['Satoshi'] text-3xl md:text-4xl font-bold mb-4">
             Choose your counselor
@@ -157,7 +157,7 @@ export function Pricing() {
                 {/* CTA */}
                 <Button
                   variant={plan.featured ? "white" : plan.ctaVariant}
-                  href="#waitlist"
+                  href="/login"
                   className="w-full"
                 >
                   {plan.cta}
@@ -170,7 +170,7 @@ export function Pricing() {
         {/* Bottom Note */}
         <div className="flex items-center justify-center gap-2 text-[var(--text-muted)] text-sm text-center px-4">
           <Info className="w-4 h-4 text-[var(--accent-primary)] flex-shrink-0" />
-          <p>Join the waitlist for early access.</p>
+          <p>Start free, upgrade anytime. No credit card required.</p>
         </div>
       </div>
     </section>

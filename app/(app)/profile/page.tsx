@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Circle,
   BookOpen,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -70,9 +71,17 @@ export default function ProfileOverviewPage() {
   const awardCount = profile?.awards?.length || 0;
   const programCount = profile?.programs?.length || 0;
 
+  // Basic info completeness
+  const hasBasicInfo = !!(
+    profile?.firstName &&
+    profile?.grade &&
+    profile?.highSchoolName
+  );
+
   // Profile completeness - memoized
   const completenessData = useMemo(() => {
     const items = [
+      { label: "About Me", done: hasBasicInfo },
       { label: "Stories", done: storyCount >= 1 },
       { label: "Courses", done: courseCount >= 5 },
       { label: "Test Scores", done: satScores.length > 0 || actScores.length > 0 },
@@ -86,7 +95,7 @@ export default function ProfileOverviewPage() {
       completedCount: completed,
       completenessPercent: Math.round((completed / items.length) * 100),
     };
-  }, [storyCount, courseCount, satScores.length, actScores.length, activityCount, awardCount, programCount]);
+  }, [hasBasicInfo, storyCount, courseCount, satScores.length, actScores.length, activityCount, awardCount, programCount]);
 
   const { completenessItems, completenessPercent } = completenessData;
 
@@ -144,10 +153,20 @@ export default function ProfileOverviewPage() {
 
       {/* Main Content: 2x3 Grid + Right Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left: 2x3 Section Cards Grid */}
+        {/* Left: Section Cards Grid */}
         <div className="lg:col-span-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Stories (About Me) */}
+            {/* About Me */}
+            <AboutMeCard
+              firstName={profile?.firstName}
+              lastName={profile?.lastName}
+              grade={profile?.grade}
+              highSchoolName={profile?.highSchoolName}
+              graduationYear={profile?.graduationYear}
+              hasBasicInfo={hasBasicInfo}
+            />
+
+            {/* Stories */}
             <StoriesCard
               storyCount={storyCount}
               themes={storyThemes}
@@ -324,6 +343,87 @@ function StatCard({
   );
 }
 
+function AboutMeCard({
+  firstName,
+  lastName,
+  grade,
+  highSchoolName,
+  graduationYear,
+  hasBasicInfo,
+}: {
+  firstName?: string | null;
+  lastName?: string | null;
+  grade?: string | null;
+  highSchoolName?: string | null;
+  graduationYear?: number | null;
+  hasBasicInfo: boolean;
+}) {
+  // Empty state
+  if (!hasBasicInfo) {
+    return (
+      <Link
+        href="/profile/info"
+        className="group bg-white border border-dashed border-border-medium rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted group-hover:bg-accent-surface group-hover:text-accent-primary transition-colors">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-text-main">About Me</h3>
+              <p className="text-xs text-text-muted">Your basic information</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+          <p className="text-sm text-text-muted">
+            Add your name, school, and grade
+          </p>
+        </div>
+      </Link>
+    );
+  }
+
+  // With info
+  const displayName = firstName && lastName ? `${firstName} ${lastName}` : firstName || "Student";
+  const gradeDisplay = grade ? `${grade} Grade` : null;
+  const gradYear = graduationYear ? `Class of ${graduationYear}` : null;
+
+  return (
+    <Link
+      href="/profile/info"
+      className="group bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted group-hover:bg-accent-surface group-hover:text-accent-primary transition-colors">
+            <User className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-text-main">About Me</h3>
+            <p className="text-xs text-text-muted">Your basic information</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
+      </div>
+
+      <div className="flex-1 space-y-2">
+        <div className="font-medium text-text-main">{displayName}</div>
+        {highSchoolName && (
+          <div className="text-sm text-text-muted">{highSchoolName}</div>
+        )}
+        <div className="flex gap-3 text-xs text-text-muted">
+          {gradeDisplay && <span>{gradeDisplay}</span>}
+          {gradYear && <span>{gradYear}</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 // Theme colors for visual variety
 const themeColors: Record<string, { bg: string; text: string }> = {
   Identity: { bg: "bg-blue-100", text: "text-blue-700" },
@@ -360,7 +460,7 @@ function StoriesCard({
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-display font-bold text-text-main">My Stories</h3>
+              <h3 className="font-display font-bold text-text-main">Stories</h3>
               <p className="text-xs text-text-muted">Share who you are</p>
             </div>
           </div>
@@ -388,7 +488,7 @@ function StoriesCard({
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-display font-bold text-text-main">My Stories</h3>
+            <h3 className="font-display font-bold text-text-main">Stories</h3>
             <p className="text-xs text-text-muted">Your story journal</p>
           </div>
         </div>
