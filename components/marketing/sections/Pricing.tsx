@@ -1,65 +1,47 @@
-import { Check, Sparkles, Star, Award, Info } from "lucide-react";
+import { Check, Sparkles, Star, Info } from "lucide-react";
 import { Button } from "../Button";
 
 const plans = [
   {
-    name: "Advisor",
-    tagline: "Solid guidance to get started",
+    name: "Free",
+    tagline: "Get started with the basics",
     price: "$0",
     period: "forever",
-    description: "A helpful advisor who knows the basics and can point you in the right direction.",
-    experience: "Entry-level guidance",
+    description: "Access core features to explore schools and start your college prep journey.",
+    experience: "Essential guidance",
     features: [
-      "General college planning advice",
+      "AI advisor (20 messages/day)",
       "School discovery & exploration",
-      "Basic profile building",
-      "Reach / Target / Safety assessments",
-      "Standard response quality",
+      "Profile building tools",
+      "Admission chances for 3 schools",
+      "Goal setting & planning",
     ],
-    limit: "Generous monthly usage",
+    limit: "20 messages per day",
     cta: "Join Waitlist",
     ctaVariant: "secondary" as const,
     icon: Sparkles,
   },
   {
-    name: "Counselor",
-    tagline: "Experienced, personalized guidance",
-    price: "$9.99",
+    name: "Premium",
+    tagline: "Unlimited access, premium AI",
+    price: "$25",
     period: "/month",
-    description: "A seasoned counselor who understands nuance and gives you tailored, strategic advice.",
-    experience: "Experienced guidance",
+    yearlyPrice: "$250/year (save 17%)",
+    description: "Unlock the full power of Sesame with unlimited conversations and our most capable AI advisor.",
+    experience: "Premium guidance",
     badge: "Most Popular",
     featured: true,
     features: [
-      "Everything in Advisor, plus:",
-      "More personalized recommendations",
-      "Nuanced essay feedback",
-      "Strategic application planning",
-      "Higher-quality responses",
+      "Unlimited AI conversations",
+      "Claude Opus advisor (our best AI)",
+      "Unlimited admission chances",
+      "Personalized recommendations",
+      "Priority support",
     ],
-    limit: "Extended monthly usage",
+    limit: "Unlimited usage",
     cta: "Join Waitlist",
     ctaVariant: "primary" as const,
     icon: Star,
-  },
-  {
-    name: "Expert Counselor",
-    tagline: "Elite expertise for competitive applicants",
-    price: "$24.99",
-    period: "/month",
-    description: "A top-tier expert who's guided students into the most competitive schools in the country.",
-    experience: "Expert-level guidance",
-    features: [
-      "Everything in Counselor, plus:",
-      "Deep, nuanced insights",
-      "Sophisticated essay coaching",
-      "Competitive school strategy",
-      "Highest-quality responses",
-    ],
-    limit: "Maximum monthly usage",
-    cta: "Join Waitlist",
-    ctaVariant: "secondary" as const,
-    icon: Award,
   },
 ];
 
@@ -98,7 +80,7 @@ export function Pricing() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-10 max-w-5xl mx-auto px-4 md:px-0">
+        <div className="grid md:grid-cols-2 gap-6 mb-10 max-w-3xl mx-auto px-4 md:px-0">
           {plans.map((plan, i) => {
             const Icon = plan.icon;
             return (
@@ -136,7 +118,7 @@ export function Pricing() {
                 {/* Price */}
                 <div className="text-center pb-6 border-b border-black/10 mb-6">
                   {plan.featured && <div className="border-white/20" />}
-                  <div className="flex items-baseline justify-center gap-1 mb-3">
+                  <div className="flex items-baseline justify-center gap-1 mb-1">
                     <span className="font-['Satoshi'] text-5xl font-black">
                       {plan.price}
                     </span>
@@ -144,6 +126,11 @@ export function Pricing() {
                       {plan.period}
                     </span>
                   </div>
+                  {"yearlyPrice" in plan && plan.yearlyPrice && (
+                    <p className={`text-sm font-medium mb-2 ${plan.featured ? "text-green-400" : "text-[var(--accent-primary)]"}`}>
+                      or {plan.yearlyPrice}
+                    </p>
+                  )}
                   <p className={`text-sm leading-relaxed ${plan.featured ? "text-white/70" : "text-[var(--text-muted)]"}`}>
                     {plan.description}
                   </p>

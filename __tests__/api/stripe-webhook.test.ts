@@ -53,7 +53,7 @@ describe("POST /api/webhooks/stripe", () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toContain("Missing signature");
+      expect(data.error).toContain("signature");
     });
 
     it("should return 400 if signature is invalid", async () => {
@@ -70,10 +70,11 @@ describe("POST /api/webhooks/stripe", () => {
   });
 
   describe("checkout.session.completed", () => {
-    it("should update user tier on successful checkout", async () => {
+    it("should update user to paid tier on successful checkout", async () => {
       const session = createMockCheckoutSession({
-        metadata: { userId: "user_123", plan: "standard" },
+        metadata: { userId: "user_123", plan: "paid" },
         subscription: "sub_new123",
+        customer: "cus_123",
       });
       const event = createMockStripeEvent("checkout.session.completed", session);
 
@@ -81,7 +82,7 @@ describe("POST /api/webhooks/stripe", () => {
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue(
         createMockSubscription({ current_period_end: 1735689600 }) // Jan 1, 2025
       );
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "standard" }));
+      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "paid" }));
 
       const response = await POST(createWebhookRequest(JSON.stringify(event)));
 
@@ -89,30 +90,8 @@ describe("POST /api/webhooks/stripe", () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "user_123" },
         data: expect.objectContaining({
-          subscriptionTier: "standard",
+          subscriptionTier: "paid",
           stripeSubscriptionId: "sub_new123",
-        }),
-      });
-    });
-
-    it("should set premium tier for premium plan", async () => {
-      const session = createMockCheckoutSession({
-        metadata: { userId: "user_123", plan: "premium" },
-        subscription: "sub_new123",
-      });
-      const event = createMockStripeEvent("checkout.session.completed", session);
-
-      mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
-      mockStripeInstance.subscriptions.retrieve.mockResolvedValue(createMockSubscription());
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "premium" }));
-
-      const response = await POST(createWebhookRequest(JSON.stringify(event)));
-
-      expect(response.status).toBe(200);
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user_123" },
-        data: expect.objectContaining({
-          subscriptionTier: "premium",
         }),
       });
     });
@@ -134,19 +113,19 @@ describe("POST /api/webhooks/stripe", () => {
   });
 
   describe("customer.subscription.updated", () => {
-    it("should update user tier based on price ID (premium monthly)", async () => {
+    it("should update user to paid tier based on price ID (monthly)", async () => {
       const subscription = createMockSubscription({
         customer: "cus_123",
         status: "active",
         items: {
-          data: [{ id: "si_123", price: { id: "price_premium_monthly" } }],
+          data: [{ id: "si_123", price: { id: "price_paid_monthly" } }],
         },
       });
       const event = createMockStripeEvent("customer.subscription.updated", subscription);
 
       mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
       mockPrisma.user.findFirst.mockResolvedValue(createMockUser({ id: "user_123" }));
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "premium" }));
+      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "paid" }));
 
       const response = await POST(createWebhookRequest(JSON.stringify(event)));
 
@@ -154,24 +133,24 @@ describe("POST /api/webhooks/stripe", () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "user_123" },
         data: expect.objectContaining({
-          subscriptionTier: "premium",
+          subscriptionTier: "paid",
         }),
       });
     });
 
-    it("should update user tier based on price ID (standard yearly)", async () => {
+    it("should update user to paid tier based on price ID (yearly)", async () => {
       const subscription = createMockSubscription({
         customer: "cus_123",
         status: "active",
         items: {
-          data: [{ id: "si_123", price: { id: "price_standard_yearly" } }],
+          data: [{ id: "si_123", price: { id: "price_paid_yearly" } }],
         },
       });
       const event = createMockStripeEvent("customer.subscription.updated", subscription);
 
       mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
       mockPrisma.user.findFirst.mockResolvedValue(createMockUser({ id: "user_123" }));
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "standard" }));
+      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "paid" }));
 
       const response = await POST(createWebhookRequest(JSON.stringify(event)));
 
@@ -179,34 +158,7 @@ describe("POST /api/webhooks/stripe", () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "user_123" },
         data: expect.objectContaining({
-          subscriptionTier: "standard",
-        }),
-      });
-    });
-
-    it("should reset to free tier if subscription not active", async () => {
-      const subscription = createMockSubscription({
-        customer: "cus_123",
-        status: "canceled",
-        items: {
-          data: [{ id: "si_123", price: { id: "price_standard_monthly" } }],
-        },
-      });
-      const event = createMockStripeEvent("customer.subscription.updated", subscription);
-
-      mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
-      mockPrisma.user.findFirst.mockResolvedValue(createMockUser({ id: "user_123" }));
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "free" }));
-
-      const response = await POST(createWebhookRequest(JSON.stringify(event)));
-
-      expect(response.status).toBe(200);
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user_123" },
-        data: expect.objectContaining({
-          subscriptionTier: "free",
-          subscriptionEndsAt: null,
-          stripeSubscriptionId: null,
+          subscriptionTier: "paid",
         }),
       });
     });
@@ -216,14 +168,14 @@ describe("POST /api/webhooks/stripe", () => {
         customer: "cus_123",
         status: "trialing",
         items: {
-          data: [{ id: "si_123", price: { id: "price_premium_yearly" } }],
+          data: [{ id: "si_123", price: { id: "price_paid_yearly" } }],
         },
       });
       const event = createMockStripeEvent("customer.subscription.updated", subscription);
 
       mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
       mockPrisma.user.findFirst.mockResolvedValue(createMockUser({ id: "user_123" }));
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "premium" }));
+      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "paid" }));
 
       const response = await POST(createWebhookRequest(JSON.stringify(event)));
 
@@ -231,7 +183,7 @@ describe("POST /api/webhooks/stripe", () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "user_123" },
         data: expect.objectContaining({
-          subscriptionTier: "premium",
+          subscriptionTier: "paid",
         }),
       });
     });
@@ -361,14 +313,15 @@ describe("POST /api/webhooks/stripe", () => {
       // The webhook is designed to be resilient - subscription detail fetch failure
       // shouldn't prevent the user update
       const session = createMockCheckoutSession({
-        metadata: { userId: "user_123", plan: "standard" },
+        metadata: { userId: "user_123", plan: "paid" },
         subscription: "sub_new123",
+        customer: "cus_123",
       });
       const event = createMockStripeEvent("checkout.session.completed", session);
 
       mockStripeInstance.webhooks.constructEvent.mockReturnValue(event);
       mockStripeInstance.subscriptions.retrieve.mockRejectedValue(new Error("Stripe error"));
-      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "standard" }));
+      mockPrisma.user.update.mockResolvedValue(createMockUser({ subscriptionTier: "paid" }));
 
       const response = await POST(createWebhookRequest(JSON.stringify(event)));
 

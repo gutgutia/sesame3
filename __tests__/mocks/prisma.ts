@@ -253,19 +253,18 @@ export function createMockUsageRecord(overrides = {}) {
   };
 }
 
-// Helper to create mock global config
+// Helper to create mock global config (two-tier system: free and paid)
 export function createMockGlobalConfig(overrides = {}) {
   return {
     id: "default",
-    freeDailyCostLimit: 0.1,
-    freeWeeklyCostLimit: 0.5,
+    // Free tier limits
+    freeDailyCostLimit: 0.5,
+    freeWeeklyCostLimit: 2.0,
     freeMessageLimit: 20,
-    standardDailyCostLimit: 1.0,
-    standardWeeklyCostLimit: 5.0,
-    standardMessageLimit: 100,
-    premiumDailyCostLimit: 5.0,
-    premiumWeeklyCostLimit: 25.0,
-    premiumMessageLimit: 500,
+    // Paid tier limits ($25/month or $250/year)
+    paidDailyCostLimit: 10.0,
+    paidWeeklyCostLimit: 50.0,
+    paidMessageLimit: 500,
     ...overrides,
   };
 }

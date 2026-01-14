@@ -260,9 +260,9 @@ export function PlanBadge() {
         const res = await fetch("/api/settings");
         if (res.ok) {
           const data = await res.json();
-          // Handle legacy tier names
+          // Two-tier system: free and paid
           const tier = data.subscription?.tier || "free";
-          setCurrentTier(tier === "standard" || tier === "premium" ? "paid" : tier);
+          setCurrentTier(tier === "paid" ? "paid" : "free");
         }
       } catch (err) {
         console.error("Failed to fetch subscription:", err);

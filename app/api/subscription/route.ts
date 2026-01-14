@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
     const { action, plan, yearly = true, returnUrl = "/" } = body;
 
     // Validate action
-    if (!["upgrade", "cancel", "reactivate"].includes(action)) {
+    if (!["upgrade", "cancel", "reactivate", "switch-interval"].includes(action)) {
       return NextResponse.json(
-        { error: "Invalid action. Must be 'upgrade', 'cancel', or 'reactivate'." },
+        { error: "Invalid action. Must be 'upgrade', 'cancel', 'reactivate', or 'switch-interval'." },
         { status: 400 }
       );
     }
@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
         return handleCancel(user);
       case "reactivate":
         return handleReactivate(user);
+      case "switch-interval":
+        return handleSwitchInterval(user, yearly);
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
@@ -181,6 +183,7 @@ async function handleUpgrade(user: UserData, yearly: boolean, returnUrl: string 
     }
 
     // Update subscription with proration (immediate charge for difference)
+    // "always_invoice" creates an invoice immediately and charges the customer
     const updatedSubscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
       {
@@ -190,7 +193,7 @@ async function handleUpgrade(user: UserData, yearly: boolean, returnUrl: string 
             price: priceId,
           },
         ],
-        proration_behavior: "create_prorations",
+        proration_behavior: "always_invoice",
         // Remove any pending cancellation
         cancel_at_period_end: false,
       }
@@ -305,6 +308,118 @@ async function handleReactivate(user: UserData) {
     console.error("[Subscription] Reactivate error:", err);
     return NextResponse.json(
       { error: "Failed to reactivate subscription. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Handle billing interval switch (monthly <-> yearly)
+ * - Only monthly -> yearly is supported
+ * - Applies proration (credit for unused monthly, charge yearly)
+ */
+async function handleSwitchInterval(user: UserData, toYearly: boolean) {
+  if (!stripe) throw new Error("Stripe not configured");
+
+  // Only monthly -> yearly switch is supported
+  if (!toYearly) {
+    return NextResponse.json(
+      { error: "Switching from yearly to monthly is not supported. Please cancel and resubscribe." },
+      { status: 400 }
+    );
+  }
+
+  // Must have active subscription
+  if (!user.stripeSubscriptionId || user.subscriptionTier !== "paid") {
+    return NextResponse.json(
+      { error: "No active subscription to modify" },
+      { status: 400 }
+    );
+  }
+
+  const yearlyPriceId = PRICE_IDS.paid_yearly;
+  if (!yearlyPriceId) {
+    return NextResponse.json(
+      { error: "Yearly price not configured" },
+      { status: 500 }
+    );
+  }
+
+  try {
+    // Get current subscription
+    const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+
+    if (subscription.status !== "active" && subscription.status !== "trialing") {
+      return NextResponse.json(
+        { error: "Subscription is not active" },
+        { status: 400 }
+      );
+    }
+
+    // Check if already on yearly
+    const currentPriceId = subscription.items.data[0]?.price?.id;
+    if (currentPriceId === yearlyPriceId) {
+      return NextResponse.json(
+        { error: "You're already on annual billing" },
+        { status: 400 }
+      );
+    }
+
+    // If subscription is managed by a schedule, release it first
+    if (subscription.schedule) {
+      try {
+        await stripe.subscriptionSchedules.release(subscription.schedule as string);
+        console.log(`[Subscription] Released existing schedule ${subscription.schedule}`);
+      } catch {
+        try {
+          await stripe.subscriptionSchedules.cancel(subscription.schedule as string);
+          console.log(`[Subscription] Canceled existing schedule ${subscription.schedule}`);
+        } catch {
+          console.log(`[Subscription] Could not release/cancel schedule, continuing...`);
+        }
+      }
+    }
+
+    // Update subscription to yearly with proration
+    // "always_invoice" creates an invoice immediately and charges the customer
+    const updatedSubscription = await stripe.subscriptions.update(
+      user.stripeSubscriptionId,
+      {
+        items: [
+          {
+            id: subscription.items.data[0].id,
+            price: yearlyPriceId,
+          },
+        ],
+        proration_behavior: "always_invoice",
+        cancel_at_period_end: false,
+      }
+    );
+
+    console.log(`[Subscription] User ${user.id} switched from monthly to yearly (invoice created)`);
+
+    const updatedSub = updatedSubscription as unknown as StripeSubscription;
+    const subscriptionEndsAt = updatedSub.current_period_end
+      ? new Date(updatedSub.current_period_end * 1000)
+      : null;
+
+    // Update database
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        subscriptionEndsAt,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Successfully switched to annual billing! You save $50/year.",
+      nextBilling: subscriptionEndsAt?.toISOString() || null,
+    });
+  } catch (err) {
+    console.error("[Subscription] Switch interval error:", err);
+    return NextResponse.json(
+      { error: "Failed to switch billing interval. Please try again." },
       { status: 500 }
     );
   }

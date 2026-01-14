@@ -41,7 +41,7 @@ export function resetStripeMocks() {
   vi.clearAllMocks();
 }
 
-// Helper to create subscription object
+// Helper to create subscription object (two-tier system: free and paid)
 export function createMockSubscription(overrides = {}) {
   return {
     id: "sub_mock123",
@@ -56,7 +56,7 @@ export function createMockSubscription(overrides = {}) {
         {
           id: "si_mock123",
           price: {
-            id: "price_standard_monthly",
+            id: "price_paid_monthly",
           },
         },
       ],
@@ -65,7 +65,7 @@ export function createMockSubscription(overrides = {}) {
   };
 }
 
-// Helper to create checkout session
+// Helper to create checkout session (two-tier system: free and paid)
 export function createMockCheckoutSession(overrides = {}) {
   return {
     id: "cs_mock123",
@@ -73,7 +73,7 @@ export function createMockCheckoutSession(overrides = {}) {
     subscription: "sub_mock123",
     metadata: {
       userId: "user_mock123",
-      plan: "standard",
+      plan: "paid",
       yearly: "false",
     },
     ...overrides,

@@ -47,9 +47,9 @@ export async function GET() {
     
     const user = profile.user;
     
-    // Default subscription state
+    // Default subscription state (two-tier system: free and paid)
     let subscription = {
-      tier: user.subscriptionTier as "free" | "standard" | "premium",
+      tier: user.subscriptionTier as "free" | "paid",
       status: "none" as SubscriptionStatus,
       currentPeriodEnd: null as string | null,
       cancelAtPeriodEnd: false,
@@ -68,15 +68,22 @@ export async function GET() {
         const priceId = stripeSubscription.items.data[0]?.price.id;
         const price = stripeSubscription.items.data[0]?.price;
         
-        // Determine tier from price
-        let tier: "free" | "standard" | "premium" = "free";
-        
-        if (priceId === process.env.STRIPE_PRICE_PREMIUM_MONTHLY || 
-            priceId === process.env.STRIPE_PRICE_PREMIUM_YEARLY) {
-          tier = "premium";
-        } else if (priceId === process.env.STRIPE_PRICE_STANDARD_MONTHLY || 
-                   priceId === process.env.STRIPE_PRICE_STANDARD_YEARLY) {
-          tier = "standard";
+        // Determine tier from price (two-tier system: free and paid)
+        // All paid price IDs map to "paid" tier
+        let tier: "free" | "paid" = "free";
+
+        const paidPriceIds = [
+          process.env.STRIPE_PRICE_PAID_MONTHLY,
+          process.env.STRIPE_PRICE_PAID_YEARLY,
+          // Legacy price IDs for backwards compatibility
+          process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+          process.env.STRIPE_PRICE_PREMIUM_YEARLY,
+          process.env.STRIPE_PRICE_STANDARD_MONTHLY,
+          process.env.STRIPE_PRICE_STANDARD_YEARLY,
+        ].filter(Boolean);
+
+        if (paidPriceIds.includes(priceId)) {
+          tier = "paid";
         }
         
         // Determine status

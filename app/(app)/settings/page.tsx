@@ -194,23 +194,32 @@ function SuccessToast({ message, onClose }: { message: string; onClose: () => vo
 function PlanSelectorModal({
   isOpen,
   currentTier,
+  currentInterval,
   isYearly,
   setIsYearly,
   onSelect,
+  onSwitchInterval,
   onClose,
   actionLoading,
 }: {
   isOpen: boolean;
   currentTier: SubscriptionTier;
+  currentInterval: "month" | "year" | null;
   isYearly: boolean;
   setIsYearly: (yearly: boolean) => void;
   onSelect: (planId: SubscriptionTier, isUpgrade: boolean) => void;
+  onSwitchInterval: (toYearly: boolean) => void;
   onClose: () => void;
   actionLoading: string | null;
 }) {
   if (!isOpen) return null;
 
   const currentLevel = TIER_LEVELS[currentTier];
+
+  // Check if user is on paid tier - determines if we show interval switch option
+  const isPaidUser = currentTier === "paid";
+  const isCurrentlyMonthly = currentInterval === "month";
+  const isCurrentlyYearly = currentInterval === "year";
 
   // Handle backdrop click to close
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -272,7 +281,16 @@ function PlanSelectorModal({
         {/* Plan Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
           {PLANS.map((plan) => {
-            const isCurrentPlan = currentTier === plan.id;
+            // For paid plan, check both tier AND interval to determine if current
+            const isSameTier = currentTier === plan.id;
+            const isCurrentInterval = plan.id === "paid"
+              ? (isYearly ? isCurrentlyYearly : isCurrentlyMonthly)
+              : true; // Free plan has no interval
+            const isCurrentPlan = isSameTier && isCurrentInterval;
+
+            // Determine if this is an interval switch (paid→paid with different billing cycle)
+            const isIntervalSwitch = isPaidUser && plan.id === "paid" && !isCurrentInterval;
+
             const planLevel = TIER_LEVELS[plan.id];
             const isUpgrade = planLevel > currentLevel;
             const isDowngrade = planLevel < currentLevel;
@@ -337,10 +355,38 @@ function PlanSelectorModal({
                   <Button variant="secondary" className="w-full" disabled size="sm">
                     Current Plan
                   </Button>
+                ) : isIntervalSwitch ? (
+                  // Paid user switching between monthly and yearly
+                  isYearly && isCurrentlyMonthly ? (
+                    // Monthly → Yearly: Allowed with proration
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      onClick={() => onSwitchInterval(true)}
+                      disabled={actionLoading === "switch-interval"}
+                    >
+                      {actionLoading === "switch-interval" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>Switch to Yearly <ArrowRight className="w-3 h-3 ml-1" /></>
+                      )}
+                    </Button>
+                  ) : (
+                    // Yearly → Monthly: Not recommended
+                    <Button
+                      variant="secondary"
+                      className="w-full text-text-muted"
+                      size="sm"
+                      disabled
+                      title="You can switch to monthly when your annual plan renews"
+                    >
+                      Switch at renewal
+                    </Button>
+                  )
                 ) : plan.id === "free" ? (
-                  <Button 
-                    variant="secondary" 
-                    className="w-full" 
+                  <Button
+                    variant="secondary"
+                    className="w-full"
                     size="sm"
                     onClick={() => onClose()}
                   >
@@ -679,11 +725,93 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSwitchInterval = async (toYearly: boolean) => {
+    // Only allow monthly to yearly switch
+    if (!toYearly) {
+      alert("Switching from yearly to monthly is not available. You can cancel and resubscribe at the monthly rate.");
+      return;
+    }
+
+    // Get proration preview
+    setActionLoading("switch-interval");
+
+    try {
+      const previewRes = await fetch("/api/subscription/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "paid", yearly: true, switchInterval: true }),
+      });
+
+      if (!previewRes.ok) {
+        throw new Error("Failed to get preview");
+      }
+
+      const preview: ProrationPreview = await previewRes.json();
+      setActionLoading(null);
+      setShowPlanSelector(false);
+
+      // Show confirmation modal with proration info
+      const chargeAmount = Number(preview.totalAmount) || 0;
+
+      setConfirmModal({
+        isOpen: true,
+        title: "Switch to Annual Billing?",
+        message: "Switch from $25/month to $250/year and save $50 annually.",
+        details: (
+          <div className="bg-surface-secondary rounded-xl p-4">
+            <div className="flex justify-between text-sm font-medium">
+              <span className="text-text-primary">Charge today</span>
+              <span className="text-text-primary">${chargeAmount.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-text-muted mt-2">
+              Includes credit for unused time on your current monthly plan.
+              Your next charge will be $250 in one year.
+            </p>
+          </div>
+        ),
+        confirmLabel: `Pay $${chargeAmount.toFixed(2)}`,
+        confirmVariant: "primary",
+        action: async () => {
+          setActionLoading("switch-interval");
+          try {
+            const res = await fetch("/api/subscription", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "switch-interval",
+                yearly: true,
+              }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+              setSuccessMessage(data.message || "Successfully switched to annual billing!");
+              await loadData();
+            } else {
+              alert(data.error || "Failed to switch billing");
+            }
+          } catch (error) {
+            console.error("Switch interval error:", error);
+            alert("Failed to switch billing. Please try again.");
+          } finally {
+            setActionLoading(null);
+            setConfirmModal(null);
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Preview error:", error);
+      setActionLoading(null);
+      alert("Failed to calculate switch cost. Please try again.");
+    }
+  };
+
   const handleCancel = async () => {
-    const periodEnd = subscription?.currentPeriodEnd 
+    const periodEnd = subscription?.currentPeriodEnd
       ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
       : "the end of your billing period";
-    
+
     setConfirmModal({
       isOpen: true,
       title: "Cancel subscription?",
@@ -893,9 +1021,11 @@ export default function SettingsPage() {
       <PlanSelectorModal
         isOpen={showPlanSelector}
         currentTier={currentTier}
+        currentInterval={subscription?.interval || null}
         isYearly={isYearly}
         setIsYearly={setIsYearly}
         onSelect={handlePlanSelect}
+        onSwitchInterval={handleSwitchInterval}
         onClose={() => setShowPlanSelector(false)}
         actionLoading={actionLoading}
       />
@@ -1284,16 +1414,23 @@ export default function SettingsPage() {
                       
                       {/* Pricing info */}
                       {hasSubscription && subscription && (
-                        <p className="text-sm text-text-muted mb-2">
-                          {subscription.amount && subscription.interval && (
-                            <>
-                              ${subscription.amount.toFixed(2)}/{subscription.interval === "year" ? "year" : "month"}
-                              <span className="text-text-muted/60">
-                                {subscription.interval === "year" ? " (Annual)" : " (Monthly)"}
-                              </span>
-                            </>
+                        <div className="mb-2">
+                          <p className="text-sm text-text-muted">
+                            {subscription.amount && subscription.interval && (
+                              <>
+                                ${subscription.amount.toFixed(2)}/{subscription.interval === "year" ? "year" : "month"}
+                                <span className="text-text-muted/60">
+                                  {subscription.interval === "year" ? " (Annual)" : " (Monthly)"}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                          {subscription.interval === "month" && (
+                            <p className="text-xs text-accent-primary mt-1">
+                              Switch to annual and save $50/year
+                            </p>
                           )}
-                        </p>
+                        </div>
                       )}
                       
                       {/* Billing info */}
@@ -1323,11 +1460,12 @@ export default function SettingsPage() {
                       )}
                     </div>
                     
-                    {/* Actions */}
+                    {/* Actions - Context-aware buttons */}
                     <div className="flex flex-col gap-2 shrink-0">
                       {isCanceling ? (
-                        <Button 
-                          variant="secondary" 
+                        // Canceling: Show reactivate option
+                        <Button
+                          variant="secondary"
                           size="sm"
                           onClick={handleReactivate}
                           disabled={actionLoading === "reactivate"}
@@ -1341,32 +1479,61 @@ export default function SettingsPage() {
                             </>
                           )}
                         </Button>
-                      ) : (
+                      ) : currentTier === "free" ? (
+                        // Free user: Show upgrade button
+                        <Button
+                          size="sm"
+                          onClick={() => setShowPlanSelector(true)}
+                        >
+                          <ArrowRight className="w-4 h-4 mr-1.5" />
+                          Upgrade
+                        </Button>
+                      ) : subscription?.interval === "month" ? (
+                        // Monthly paid user: Show "Switch to Annual" + Cancel
                         <>
-                          <Button 
+                          <Button
                             size="sm"
-                            onClick={() => setShowPlanSelector(true)}
+                            onClick={() => handleSwitchInterval(true)}
+                            disabled={actionLoading === "switch-interval"}
                           >
-                            <ArrowLeftRight className="w-4 h-4 mr-1.5" />
-                            Switch Plan
+                            {actionLoading === "switch-interval" ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <ArrowRight className="w-4 h-4 mr-1.5" />
+                                Switch to Annual
+                              </>
+                            )}
                           </Button>
-                          
-                          {isActive && hasSubscription && (
-                            <Button 
-                              variant="secondary" 
-                              size="sm"
-                              onClick={handleCancel}
-                              disabled={actionLoading === "cancel"}
-                              className="text-text-muted hover:text-red-600 hover:bg-red-50"
-                            >
-                              {actionLoading === "cancel" ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                "Cancel"
-                              )}
-                            </Button>
-                          )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleCancel}
+                            disabled={actionLoading === "cancel"}
+                            className="text-text-muted hover:text-red-600 hover:bg-red-50"
+                          >
+                            {actionLoading === "cancel" ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              "Cancel"
+                            )}
+                          </Button>
                         </>
+                      ) : (
+                        // Yearly paid user: Only cancel option
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleCancel}
+                          disabled={actionLoading === "cancel"}
+                          className="text-text-muted hover:text-red-600 hover:bg-red-50"
+                        >
+                          {actionLoading === "cancel" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Cancel Subscription"
+                          )}
+                        </Button>
                       )}
                     </div>
                   </div>

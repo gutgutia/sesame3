@@ -1,6 +1,13 @@
-// =============================================================================
-// STRIPE WEBHOOK HANDLER
-// =============================================================================
+/**
+ * Stripe Webhook Handler
+ *
+ * Handles events from Stripe:
+ * - checkout.session.completed: New subscription created
+ * - customer.subscription.updated: Subscription changed (upgrade/downgrade)
+ * - customer.subscription.deleted: Subscription canceled
+ * - invoice.paid: Payment successful
+ * - invoice.payment_failed: Payment failed
+ */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -8,35 +15,39 @@ import Stripe from "stripe";
 
 // Helper types for Stripe SDK v20 compatibility
 type StripeSubscription = { current_period_end?: number; status?: string; items?: { data: Array<{ price?: { id: string } }> }; [key: string]: unknown };
+type StripeInvoice = { subscription?: string | null; customer?: string | null; [key: string]: unknown };
 
-// Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-/**
- * POST /api/webhooks/stripe
- * Handle Stripe webhook events
- * 
- * Key events:
- * - checkout.session.completed: User completed payment
- * - customer.subscription.updated: Subscription changed (upgrade/downgrade)
- * - customer.subscription.deleted: Subscription canceled
- * - invoice.payment_failed: Payment failed
- */
+// Map Stripe price IDs to tiers (two-tier system: free and paid)
+// All paid price IDs map to "paid" tier
+const PRICE_TO_TIER: Record<string, "paid"> = {
+  // New price IDs
+  [process.env.STRIPE_PRICE_PAID_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PAID_YEARLY || ""]: "paid",
+  // Legacy price IDs (for backwards compatibility)
+  [process.env.STRIPE_PRICE_STANDARD_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_STANDARD_YEARLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PREMIUM_MONTHLY || ""]: "paid",
+  [process.env.STRIPE_PRICE_PREMIUM_YEARLY || ""]: "paid",
+};
+
 export async function POST(request: NextRequest) {
   if (!stripe || !webhookSecret) {
-    console.error("Stripe webhook not configured");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    console.error("[Webhook] Stripe or webhook secret not configured");
+    return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 
   if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    console.error("[Webhook] No signature provided");
+    return NextResponse.json({ error: "No signature" }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -44,199 +55,193 @@ export async function POST(request: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+    console.error("[Webhook] Signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.log(`[Stripe Webhook] Received: ${event.type}`);
+  console.log(`[Webhook] Received event: ${event.type}`);
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutCompleted(session);
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      }
 
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionUpdated(subscription);
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
-      }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionDeleted(subscription);
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
-      }
 
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handlePaymentFailed(invoice);
+      case "invoice.paid":
+        await handleInvoicePaid(event.data.object as Stripe.Invoice);
         break;
-      }
+
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+        break;
 
       default:
-        console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
+        console.log(`[Webhook] Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error(`[Stripe Webhook] Error handling ${event.type}:`, error);
+    console.error(`[Webhook] Error handling ${event.type}:`, error);
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
 
 // =============================================================================
-// WEBHOOK HANDLERS
+// EVENT HANDLERS
 // =============================================================================
 
-/**
- * Handle checkout.session.completed
- * User just completed payment for a new subscription
- */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const userId = session.metadata?.userId;
-  const plan = session.metadata?.plan;
+  console.log("[Webhook] Checkout completed:", session.id);
 
-  if (!userId || !plan) {
-    console.error("[Stripe] Checkout session missing metadata:", session.id);
+  const userId = session.metadata?.userId;
+
+  if (!userId) {
+    console.error("[Webhook] Missing userId in checkout metadata");
     return;
   }
 
-  console.log(`[Stripe] User ${userId} subscribed to ${plan}`);
+  // Get subscription details
+  const subscriptionId = session.subscription as string;
 
-  // Map plan to tier
-  const tier = plan === "premium" ? "premium" : "standard";
+  if (!subscriptionId) {
+    console.error("[Webhook] No subscription ID in checkout session");
+    return;
+  }
 
-  // Get subscription details for end date
+  // Fetch subscription to get the period end date
   let subscriptionEndsAt: Date | null = null;
-  if (session.subscription && stripe) {
+  if (stripe) {
     try {
-      const subscriptionData = await stripe.subscriptions.retrieve(session.subscription as string);
+      const subscriptionData = await stripe.subscriptions.retrieve(subscriptionId);
       const sub = subscriptionData as unknown as StripeSubscription;
-      if (sub.current_period_end && typeof sub.current_period_end === 'number') {
+      if (sub.current_period_end && typeof sub.current_period_end === "number") {
         subscriptionEndsAt = new Date(sub.current_period_end * 1000);
       }
     } catch (err) {
-      console.error("[Stripe] Failed to retrieve subscription details:", err);
+      console.error("[Webhook] Failed to retrieve subscription details:", err);
     }
   }
 
-  // Update user
+  // Update user with subscription info (always "paid" in two-tier system)
   await prisma.user.update({
     where: { id: userId },
     data: {
-      subscriptionTier: tier,
+      subscriptionTier: "paid",
+      stripeSubscriptionId: subscriptionId,
+      stripeCustomerId: session.customer as string,
       subscriptionEndsAt,
-      stripeSubscriptionId: session.subscription as string,
     },
   });
 
-  console.log(`[Stripe] Updated user ${userId} to ${tier} tier`);
+  console.log(`[Webhook] User ${userId} upgraded to paid`);
 }
 
-/**
- * Handle customer.subscription.updated
- * Subscription was modified (plan change, renewal, etc.)
- */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const customerId = subscription.customer as string;
+  console.log("[Webhook] Subscription updated:", subscription.id);
 
-  // Find user by Stripe customer ID
+  // Find user by subscription ID
   const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
+    where: { stripeSubscriptionId: subscription.id },
   });
 
   if (!user) {
-    console.error(`[Stripe] User not found for customer: ${customerId}`);
+    console.log("[Webhook] No user found for subscription:", subscription.id);
     return;
   }
 
-  // Determine tier from price
-  const priceId = subscription.items.data[0]?.price.id;
-  let tier: "free" | "standard" | "premium" = "free";
+  // Get tier from price
+  const priceId = subscription.items.data[0]?.price?.id;
+  const tier = priceId ? PRICE_TO_TIER[priceId] : null;
 
-  if (priceId === process.env.STRIPE_PRICE_PREMIUM_MONTHLY || 
-      priceId === process.env.STRIPE_PRICE_PREMIUM_YEARLY) {
-    tier = "premium";
-  } else if (priceId === process.env.STRIPE_PRICE_STANDARD_MONTHLY || 
-             priceId === process.env.STRIPE_PRICE_STANDARD_YEARLY) {
-    tier = "standard";
+  if (!tier) {
+    console.log("[Webhook] Could not determine tier from price:", priceId);
+    return;
   }
 
-  // Check subscription status
+  // Update subscription dates
   const sub = subscription as unknown as StripeSubscription;
-  const isActive = sub.status === "active" || sub.status === "trialing";
-
-  // Safely parse subscription end date
-  let subscriptionEndsAt: Date | null = null;
-  if (sub.current_period_end && typeof sub.current_period_end === 'number') {
-    subscriptionEndsAt = new Date(sub.current_period_end * 1000);
-  }
-
-  console.log(`[Stripe] Subscription updated for user ${user.id}: ${tier}, active: ${isActive}`);
+  const subscriptionEndsAt = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000)
+    : null;
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      subscriptionTier: isActive ? tier : "free",
-      subscriptionEndsAt: isActive ? subscriptionEndsAt : null,
-      stripeSubscriptionId: isActive ? subscription.id : null,
+      subscriptionTier: tier,
+      subscriptionEndsAt,
     },
   });
+
+  console.log(`[Webhook] User ${user.id} subscription updated to ${tier}`);
 }
 
-/**
- * Handle customer.subscription.deleted
- * Subscription was canceled
- */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const customerId = subscription.customer as string;
+  console.log("[Webhook] Subscription deleted:", subscription.id);
 
-  // Find user by Stripe customer ID
+  // Find user by subscription ID
   const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
+    where: { stripeSubscriptionId: subscription.id },
   });
 
   if (!user) {
-    console.error(`[Stripe] User not found for customer: ${customerId}`);
+    console.log("[Webhook] No user found for subscription:", subscription.id);
     return;
   }
 
-  console.log(`[Stripe] Subscription canceled for user ${user.id}`);
-
+  // Revert to free tier
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionTier: "free",
-      subscriptionEndsAt: null,
       stripeSubscriptionId: null,
+      subscriptionEndsAt: null,
     },
   });
+
+  console.log(`[Webhook] User ${user.id} reverted to free tier`);
 }
 
-/**
- * Handle invoice.payment_failed
- * Payment failed (card declined, expired, etc.)
- */
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  const customerId = invoice.customer as string;
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  console.log("[Webhook] Invoice paid:", invoice.id);
 
-  // Find user by Stripe customer ID
+  // Subscription renewals are handled by subscription.updated
+  // This is mainly for logging/tracking
+  const inv = invoice as unknown as StripeInvoice;
+  const subscriptionId = inv.subscription as string;
+
+  if (!subscriptionId) return;
+
   const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
+    where: { stripeSubscriptionId: subscriptionId },
   });
 
-  if (!user) {
-    console.error(`[Stripe] User not found for customer: ${customerId}`);
-    return;
+  if (user) {
+    console.log(`[Webhook] User ${user.id} payment successful`);
   }
-
-  console.log(`[Stripe] Payment failed for user ${user.id}`);
-
-  // Note: Stripe will retry the payment based on your dunning settings.
-  // After all retries fail, it will send customer.subscription.deleted.
-  // For now, we just log it. Could send an email notification here.
 }
 
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  console.log("[Webhook] Invoice payment failed:", invoice.id);
+
+  const inv = invoice as unknown as StripeInvoice;
+  const subscriptionId = inv.subscription as string;
+
+  if (!subscriptionId) return;
+
+  const user = await prisma.user.findFirst({
+    where: { stripeSubscriptionId: subscriptionId },
+  });
+
+  if (user) {
+    console.log(`[Webhook] User ${user.id} payment failed - may need follow-up`);
+    // TODO: Send email notification about failed payment
+  }
+}

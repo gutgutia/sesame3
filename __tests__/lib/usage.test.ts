@@ -159,8 +159,8 @@ describe("Usage Tracking", () => {
 
     it("should return allowed=false when daily cost limit exceeded", async () => {
       const user = createMockUser({ subscriptionTier: "free" });
-      const config = createMockGlobalConfig(); // freeDailyCostLimit: 0.1
-      const usageRecord = createMockUsageRecord({ costTotal: 0.15, messageCount: 5 });
+      const config = createMockGlobalConfig(); // freeDailyCostLimit: 0.5
+      const usageRecord = createMockUsageRecord({ costTotal: 0.60, messageCount: 5 }); // Exceeds $0.50 limit
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
       mockPrisma.globalConfig.findUnique.mockResolvedValue(config);
@@ -175,15 +175,15 @@ describe("Usage Tracking", () => {
 
     it("should return allowed=false when weekly cost limit exceeded", async () => {
       const user = createMockUser({ subscriptionTier: "free" });
-      const config = createMockGlobalConfig(); // freeWeeklyCostLimit: 0.5
+      const config = createMockGlobalConfig(); // freeWeeklyCostLimit: 2.0
 
       // Today's usage is under daily limit but weekly is over
-      const todayRecord = createMockUsageRecord({ costTotal: 0.05, messageCount: 2 });
+      const todayRecord = createMockUsageRecord({ costTotal: 0.3, messageCount: 2 });
       const weeklyRecords = [
-        createMockUsageRecord({ costTotal: 0.2 }),
-        createMockUsageRecord({ costTotal: 0.2 }),
-        createMockUsageRecord({ costTotal: 0.15 }),
-      ]; // Total: 0.55 > 0.5
+        createMockUsageRecord({ costTotal: 0.8 }),
+        createMockUsageRecord({ costTotal: 0.8 }),
+        createMockUsageRecord({ costTotal: 0.6 }),
+      ]; // Total: 2.2 > 2.0
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
       mockPrisma.globalConfig.findUnique.mockResolvedValue(config);
@@ -215,8 +215,8 @@ describe("Usage Tracking", () => {
       expect(result.usage.messageLimit).toBe(1000);
     });
 
-    it("should use correct limits for standard tier", async () => {
-      const user = createMockUser({ subscriptionTier: "standard" });
+    it("should use correct limits for paid tier", async () => {
+      const user = createMockUser({ subscriptionTier: "paid" });
       const config = createMockGlobalConfig();
 
       mockPrisma.user.findUnique.mockResolvedValue(user);
@@ -227,24 +227,8 @@ describe("Usage Tracking", () => {
       const result = await checkUsage("user_123");
 
       expect(result.allowed).toBe(true);
-      expect(result.usage.dailyLimit).toBe(1.0); // Standard tier limit
-      expect(result.usage.messageLimit).toBe(100); // Standard tier limit
-    });
-
-    it("should use correct limits for premium tier", async () => {
-      const user = createMockUser({ subscriptionTier: "premium" });
-      const config = createMockGlobalConfig();
-
-      mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.globalConfig.findUnique.mockResolvedValue(config);
-      mockPrisma.usageRecord.findUnique.mockResolvedValue(null);
-      mockPrisma.usageRecord.findMany.mockResolvedValue([]);
-
-      const result = await checkUsage("user_123");
-
-      expect(result.allowed).toBe(true);
-      expect(result.usage.dailyLimit).toBe(5.0); // Premium tier limit
-      expect(result.usage.messageLimit).toBe(500); // Premium tier limit
+      expect(result.usage.dailyLimit).toBe(10.0); // Paid tier limit
+      expect(result.usage.messageLimit).toBe(500); // Paid tier limit
     });
 
     it("should create default config if not exists", async () => {

@@ -8,21 +8,18 @@ import { requireProfile } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Stripe from "stripe";
 
-// Helper types for Stripe SDK v20 compatibility
+// Helper type for Stripe SDK v20 compatibility
 type StripeSubscription = { current_period_end?: number; [key: string]: unknown };
-type StripeInvoiceLineItem = { proration?: boolean; amount?: number; [key: string]: unknown };
 
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-12-15.clover" })
   : null;
 
-// Price IDs
+// Price IDs (two-tier system: free and paid)
 const PRICE_IDS: Record<string, string | undefined> = {
-  standard_monthly: process.env.STRIPE_PRICE_STANDARD_MONTHLY,
-  standard_yearly: process.env.STRIPE_PRICE_STANDARD_YEARLY,
-  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
-  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY,
+  paid_monthly: process.env.STRIPE_PRICE_PAID_MONTHLY || process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+  paid_yearly: process.env.STRIPE_PRICE_PAID_YEARLY || process.env.STRIPE_PRICE_PREMIUM_YEARLY,
 };
 
 /**
@@ -63,12 +60,10 @@ export async function POST(request: NextRequest) {
     const user = profile.user;
     
     // If no existing subscription, no proration - just show the full price
+    // Two-tier pricing: $25/month or $250/year
     if (!user.stripeSubscriptionId || user.subscriptionTier === "free") {
-      const priceKey = `${plan}_${yearly ? "yearly" : "monthly"}`;
-      const price = plan === "premium" 
-        ? (yearly ? 249 : 24.99)
-        : (yearly ? 99 : 9.99);
-      
+      const price = yearly ? 250 : 25;
+
       return NextResponse.json({
         isNewSubscription: true,
         totalAmount: price,
@@ -84,8 +79,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No active subscription" }, { status: 400 });
     }
     
-    // Get price ID for new plan
-    const priceKey = `${plan}_${yearly ? "yearly" : "monthly"}`;
+    // Get price ID for new plan (two-tier system)
+    const priceKey = `paid_${yearly ? "yearly" : "monthly"}`;
     const priceId = PRICE_IDS[priceKey];
     
     if (!priceId) {
@@ -106,22 +101,41 @@ export async function POST(request: NextRequest) {
         proration_behavior: "create_prorations",
       },
     });
-    
-    // Calculate amounts
-    const prorationAmount = preview.lines.data
-      .filter(line => (line as unknown as StripeInvoiceLineItem).proration)
-      .reduce((sum, line) => sum + (line as unknown as StripeInvoiceLineItem).amount!, 0);
 
-    const totalAmount = preview.amount_due;
+    // Parse line items from Stripe's invoice preview
+    // Stripe returns: proration credits, proration charges, and next billing cycle
+    // We only want the proration items (charged today), not the next billing cycle
+    const lineItems = preview.lines.data.map(line => {
+      const item = line as unknown as { description?: string; amount?: number };
+      const desc = item.description || "";
+      // Proration items have "Unused time" or "Remaining time" in description
+      // Regular subscription charges have "1 × Plan Name (at $X / interval)"
+      const isProration = desc.includes("Unused time") || desc.includes("Remaining time");
+      const amountDollars = (item.amount || 0) / 100; // Stripe returns cents
+      return { description: desc, amount: amountDollars, isProration };
+    });
+
+    // Log what Stripe returned
+    console.log("[Preview] Stripe line items:", lineItems.map(l => `${l.description}: $${l.amount.toFixed(2)} (proration: ${l.isProration})`));
+
+    // Sum only proration items = immediate charge today
+    const immediateCharge = lineItems
+      .filter(item => item.isProration)
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    // Round to 2 decimal places
+    const totalAmountDollars = Math.round(immediateCharge * 100) / 100;
+
+    console.log(`[Preview] Charge today (from Stripe proration): $${totalAmountDollars.toFixed(2)}`);
+
     const sub = subscription as unknown as StripeSubscription;
 
     return NextResponse.json({
       isNewSubscription: false,
-      prorationAmount: prorationAmount / 100, // Convert from cents
-      totalAmount: totalAmount / 100,
-      currency: preview.currency,
-      message: totalAmount > 0
-        ? `You'll be charged $${(totalAmount / 100).toFixed(2)} now for the upgrade.`
+      totalAmount: Math.max(0, totalAmountDollars), // In dollars, from Stripe
+      currency: "usd",
+      message: totalAmountDollars > 0
+        ? `You'll be charged $${totalAmountDollars.toFixed(2)} today.`
         : "No charge - you have credit from your current plan.",
       periodEnd: sub.current_period_end
         ? new Date(sub.current_period_end * 1000).toISOString()

@@ -49,7 +49,7 @@ describe("POST /api/subscription", () => {
     it("should return 401 if not authenticated", async () => {
       setupUnauthenticated();
 
-      const response = await POST(createRequest({ action: "upgrade", plan: "standard" }));
+      const response = await POST(createRequest({ action: "upgrade", plan: "paid" }));
 
       expect(response.status).toBe(401);
     });
@@ -72,42 +72,28 @@ describe("POST /api/subscription", () => {
       setupAuthenticatedUser();
       mockPrisma.studentProfile.findUnique.mockResolvedValue(null);
 
-      const response = await POST(createRequest({ action: "upgrade", plan: "standard" }));
+      const response = await POST(createRequest({ action: "upgrade", plan: "paid" }));
 
       expect(response.status).toBe(404);
     });
   });
 
   describe("Upgrade", () => {
-    it("should return 400 for invalid plan", async () => {
+    it("should return 400 if already on paid tier", async () => {
       setupAuthenticatedUser();
       const profile = createMockProfile({
-        user: createMockUser({ subscriptionTier: "free" }),
+        user: createMockUser({ subscriptionTier: "paid" }),
       });
       mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
 
-      const response = await POST(createRequest({ action: "upgrade", plan: "invalid" }));
+      const response = await POST(createRequest({ action: "upgrade", plan: "paid" }));
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain("Invalid plan");
+      expect(data.error).toContain("already have a paid subscription");
     });
 
-    it("should return 400 if not actually an upgrade", async () => {
-      setupAuthenticatedUser();
-      const profile = createMockProfile({
-        user: createMockUser({ subscriptionTier: "premium" }),
-      });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-
-      const response = await POST(createRequest({ action: "upgrade", plan: "standard" }));
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toContain("not an upgrade");
-    });
-
-    it("should create checkout session for user without subscription", async () => {
+    it("should create checkout session for free user", async () => {
       setupAuthenticatedUser();
       const user = createMockUser({ subscriptionTier: "free" });
       const profile = createMockProfile({ user });
@@ -118,7 +104,7 @@ describe("POST /api/subscription", () => {
       mockStripeInstance.customers.create.mockResolvedValue({ id: "cus_new123" });
       mockStripeInstance.checkout.sessions.create.mockResolvedValue(mockSession);
 
-      const response = await POST(createRequest({ action: "upgrade", plan: "standard" }));
+      const response = await POST(createRequest({ action: "upgrade", plan: "paid", yearly: false }));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -126,168 +112,56 @@ describe("POST /api/subscription", () => {
       expect(data.checkoutUrl).toBe("https://checkout.stripe.com/mock");
     });
 
-    it("should update existing subscription inline with proration", async () => {
+    it("should create checkout session with yearly pricing", async () => {
       setupAuthenticatedUser();
-      const user = createMockUser({
-        subscriptionTier: "standard",
-        stripeSubscriptionId: "sub_existing",
-        stripeCustomerId: "cus_existing",
-      });
+      const user = createMockUser({ subscriptionTier: "free" });
       const profile = createMockProfile({ user });
       mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.user.update.mockResolvedValue({ ...user, subscriptionTier: "premium" });
+      mockPrisma.user.update.mockResolvedValue(user);
 
-      const mockSubscription = createMockSubscription({ status: "active" });
-      mockStripeInstance.subscriptions.retrieve.mockResolvedValue(mockSubscription);
-      mockStripeInstance.subscriptions.update.mockResolvedValue({
-        ...mockSubscription,
-        items: { data: [{ price: { id: "price_premium_yearly" } }] },
-      });
+      const mockSession = createMockCheckoutSession();
+      mockStripeInstance.customers.create.mockResolvedValue({ id: "cus_new123" });
+      mockStripeInstance.checkout.sessions.create.mockResolvedValue(mockSession);
 
-      const response = await POST(createRequest({ action: "upgrade", plan: "premium" }));
+      const response = await POST(createRequest({ action: "upgrade", plan: "paid", yearly: true }));
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.tier).toBe("premium");
-      expect(data.immediate).toBe(true);
+      expect(data.checkoutUrl).toBe("https://checkout.stripe.com/mock");
 
-      // Verify proration behavior was set
-      expect(mockStripeInstance.subscriptions.update).toHaveBeenCalledWith(
-        "sub_existing",
+      // Verify yearly price was used
+      expect(mockStripeInstance.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          proration_behavior: "create_prorations",
-          cancel_at_period_end: false,
+          line_items: [{ price: "price_paid_yearly", quantity: 1 }],
         })
       );
     });
 
-    it("should release existing schedule before upgrade", async () => {
+    it("should use existing customer ID if available", async () => {
       setupAuthenticatedUser();
       const user = createMockUser({
-        subscriptionTier: "standard",
-        stripeSubscriptionId: "sub_existing",
+        subscriptionTier: "free",
         stripeCustomerId: "cus_existing",
       });
       const profile = createMockProfile({ user });
       mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.user.update.mockResolvedValue({ ...user, subscriptionTier: "premium" });
 
-      const mockSubscription = createMockSubscription({
-        status: "active",
-        schedule: "sub_sched_123", // Has a schedule
-      });
-      mockStripeInstance.subscriptions.retrieve.mockResolvedValue(mockSubscription);
-      mockStripeInstance.subscriptionSchedules.release.mockResolvedValue({});
-      mockStripeInstance.subscriptions.update.mockResolvedValue(mockSubscription);
+      const mockSession = createMockCheckoutSession();
+      mockStripeInstance.checkout.sessions.create.mockResolvedValue(mockSession);
 
-      await POST(createRequest({ action: "upgrade", plan: "premium" }));
+      await POST(createRequest({ action: "upgrade", plan: "paid" }));
 
-      expect(mockStripeInstance.subscriptionSchedules.release).toHaveBeenCalledWith("sub_sched_123");
-    });
-
-    it("should fallback to cancel if release fails", async () => {
-      setupAuthenticatedUser();
-      const user = createMockUser({
-        subscriptionTier: "standard",
-        stripeSubscriptionId: "sub_existing",
-        stripeCustomerId: "cus_existing",
-      });
-      const profile = createMockProfile({ user });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.user.update.mockResolvedValue({ ...user, subscriptionTier: "premium" });
-
-      const mockSubscription = createMockSubscription({
-        status: "active",
-        schedule: "sub_sched_123",
-      });
-      mockStripeInstance.subscriptions.retrieve.mockResolvedValue(mockSubscription);
-      mockStripeInstance.subscriptionSchedules.release.mockRejectedValue(new Error("Release failed"));
-      mockStripeInstance.subscriptionSchedules.cancel.mockResolvedValue({});
-      mockStripeInstance.subscriptions.update.mockResolvedValue(mockSubscription);
-
-      await POST(createRequest({ action: "upgrade", plan: "premium" }));
-
-      expect(mockStripeInstance.subscriptionSchedules.cancel).toHaveBeenCalledWith("sub_sched_123");
-    });
-  });
-
-  describe("Downgrade", () => {
-    it("should return 400 if trying to downgrade to invalid plan", async () => {
-      setupAuthenticatedUser();
-      const user = createMockUser({ subscriptionTier: "premium" });
-      const profile = createMockProfile({ user });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-
-      const response = await POST(createRequest({ action: "downgrade", plan: "free" }));
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toContain("Can only downgrade to 'standard'");
-    });
-
-    it("should return 400 if not actually a downgrade", async () => {
-      setupAuthenticatedUser();
-      const user = createMockUser({ subscriptionTier: "standard" });
-      const profile = createMockProfile({ user });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-
-      const response = await POST(createRequest({ action: "downgrade", plan: "standard" }));
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toContain("not a downgrade");
-    });
-
-    it("should return 400 if no subscription to downgrade", async () => {
-      setupAuthenticatedUser();
-      const user = createMockUser({
-        subscriptionTier: "premium",
-        stripeSubscriptionId: null, // No subscription
-      });
-      const profile = createMockProfile({ user });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-
-      const response = await POST(createRequest({ action: "downgrade", plan: "standard" }));
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.error).toContain("No active subscription");
-    });
-
-    it("should downgrade subscription with no proration", async () => {
-      setupAuthenticatedUser();
-      const user = createMockUser({
-        subscriptionTier: "premium",
-        stripeSubscriptionId: "sub_existing",
-        stripeCustomerId: "cus_existing",
-      });
-      const profile = createMockProfile({ user });
-      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.user.update.mockResolvedValue({ ...user, subscriptionTier: "standard" });
-
-      const mockSubscription = createMockSubscription({ status: "active" });
-      mockStripeInstance.subscriptions.retrieve.mockResolvedValue(mockSubscription);
-      mockStripeInstance.subscriptions.update.mockResolvedValue({
-        ...mockSubscription,
-        current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-      });
-
-      const response = await POST(createRequest({ action: "downgrade", plan: "standard" }));
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.tier).toBe("standard");
-
-      // Verify no proration
-      expect(mockStripeInstance.subscriptions.update).toHaveBeenCalledWith(
-        "sub_existing",
+      // Should not create new customer
+      expect(mockStripeInstance.customers.create).not.toHaveBeenCalled();
+      // Should use existing customer ID
+      expect(mockStripeInstance.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          proration_behavior: "none",
+          customer: "cus_existing",
         })
       );
     });
+
   });
 
   describe("Cancel", () => {
@@ -310,7 +184,7 @@ describe("POST /api/subscription", () => {
     it("should set cancel_at_period_end on subscription", async () => {
       setupAuthenticatedUser();
       const user = createMockUser({
-        subscriptionTier: "standard",
+        subscriptionTier: "paid",
         stripeSubscriptionId: "sub_existing",
       });
       const profile = createMockProfile({ user });
@@ -357,7 +231,7 @@ describe("POST /api/subscription", () => {
     it("should remove cancel_at_period_end flag", async () => {
       setupAuthenticatedUser();
       const user = createMockUser({
-        subscriptionTier: "standard",
+        subscriptionTier: "paid",
         stripeSubscriptionId: "sub_existing",
       });
       const profile = createMockProfile({ user });
@@ -381,6 +255,103 @@ describe("POST /api/subscription", () => {
         "sub_existing",
         { cancel_at_period_end: false }
       );
+    });
+  });
+
+  describe("Switch Interval", () => {
+    it("should return 400 if trying to switch from yearly to monthly", async () => {
+      setupAuthenticatedUser();
+      const user = createMockUser({
+        subscriptionTier: "paid",
+        stripeSubscriptionId: "sub_existing",
+      });
+      const profile = createMockProfile({ user });
+      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
+
+      const response = await POST(createRequest({ action: "switch-interval", yearly: false }));
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("not supported");
+    });
+
+    it("should return 400 if no active subscription", async () => {
+      setupAuthenticatedUser();
+      const user = createMockUser({
+        subscriptionTier: "free",
+        stripeSubscriptionId: null,
+      });
+      const profile = createMockProfile({ user });
+      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
+
+      const response = await POST(createRequest({ action: "switch-interval", yearly: true }));
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("No active subscription");
+    });
+
+    it("should switch from monthly to yearly with proration", async () => {
+      setupAuthenticatedUser();
+      const user = createMockUser({
+        subscriptionTier: "paid",
+        stripeSubscriptionId: "sub_existing",
+      });
+      const profile = createMockProfile({ user });
+      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
+      mockPrisma.user.update.mockResolvedValue(user);
+
+      const futureDate = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+      mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
+        ...createMockSubscription(),
+        items: {
+          data: [{ id: "si_123", price: { id: "price_paid_monthly" } }],
+        },
+      });
+      mockStripeInstance.subscriptions.update.mockResolvedValue({
+        ...createMockSubscription(),
+        current_period_end: futureDate,
+        items: {
+          data: [{ id: "si_123", price: { id: "price_paid_yearly" } }],
+        },
+      });
+
+      const response = await POST(createRequest({ action: "switch-interval", yearly: true }));
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.message).toContain("annual billing");
+
+      expect(mockStripeInstance.subscriptions.update).toHaveBeenCalledWith(
+        "sub_existing",
+        expect.objectContaining({
+          proration_behavior: "always_invoice",
+        })
+      );
+    });
+
+    it("should return 400 if already on yearly billing", async () => {
+      setupAuthenticatedUser();
+      const user = createMockUser({
+        subscriptionTier: "paid",
+        stripeSubscriptionId: "sub_existing",
+      });
+      const profile = createMockProfile({ user });
+      mockPrisma.studentProfile.findUnique.mockResolvedValue(profile);
+
+      mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
+        ...createMockSubscription(),
+        items: {
+          data: [{ id: "si_123", price: { id: "price_paid_yearly" } }],
+        },
+      });
+
+      const response = await POST(createRequest({ action: "switch-interval", yearly: true }));
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("already on annual billing");
     });
   });
 });
