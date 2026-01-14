@@ -19,7 +19,8 @@ const ALL_ROUTES = [
   // Main app routes
   { path: '/', name: 'dashboard', description: 'Main Dashboard' },
   { path: '/profile', name: 'profile-overview', description: 'Profile Overview' },
-  { path: '/profile/about-me', name: 'profile-about', description: 'About Me' },
+  { path: '/profile/about', name: 'profile-about', description: 'About Me' },
+  { path: '/profile/stories', name: 'profile-stories', description: 'Stories' },
   { path: '/profile/activities', name: 'profile-activities', description: 'Activities' },
   { path: '/profile/awards', name: 'profile-awards', description: 'Awards' },
   { path: '/profile/courses', name: 'profile-courses', description: 'Courses' },

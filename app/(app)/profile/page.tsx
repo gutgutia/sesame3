@@ -362,7 +362,7 @@ function AboutMeCard({
   if (!hasBasicInfo) {
     return (
       <Link
-        href="/profile/info"
+        href="/profile/about"
         className="group bg-white border border-dashed border-border-medium rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
       >
         <div className="flex items-start justify-between mb-4">
@@ -394,7 +394,7 @@ function AboutMeCard({
 
   return (
     <Link
-      href="/profile/info"
+      href="/profile/about"
       className="group bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
     >
       <div className="flex items-start justify-between mb-4">
@@ -451,7 +451,7 @@ function StoriesCard({
   if (storyCount === 0) {
     return (
       <Link
-        href="/profile/about-me"
+        href="/profile/stories"
         className="group bg-white border border-dashed border-border-medium rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
       >
         <div className="flex items-start justify-between mb-4">
@@ -479,7 +479,7 @@ function StoriesCard({
   // With stories
   return (
     <Link 
-      href="/profile/about-me"
+      href="/profile/stories"
       className="group bg-white border border-border-subtle rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
     >
       <div className="flex items-start justify-between mb-4">

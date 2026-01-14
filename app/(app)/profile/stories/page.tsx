@@ -125,36 +125,37 @@ export default function AboutMePage() {
   const stories = aboutMe?.storyEntries || [];
 
   return (
-    <div className="min-h-screen bg-bg-app">
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+    <>
+      {/* Header */}
+      <div className="mb-6">
+        <Link
+          href="/profile"
+          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-accent-primary mb-4 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Profile
+        </Link>
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link 
-              href="/profile" 
-              className="p-2 -m-2 text-text-muted hover:text-text-main hover:bg-white rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent-surface flex items-center justify-center">
-                <User className="w-5 h-5 text-accent-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-text-main">About Me</h1>
-                <p className="text-sm text-text-muted">Your personal story journal</p>
-              </div>
+            <div className="w-12 h-12 bg-accent-surface rounded-xl flex items-center justify-center text-accent-primary">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-2xl text-text-main">Stories</h1>
+              <p className="text-text-muted">Your personal story journal</p>
             </div>
           </div>
-          
+
           <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="w-4 h-4" />
             Share a Story
           </Button>
         </div>
+      </div>
 
-        {/* Content */}
-        {isLoading ? (
+      {/* Content */}
+      {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-pulse flex flex-col items-center gap-3">
               <div className="w-12 h-12 bg-bg-sidebar rounded-full" />
@@ -283,14 +284,13 @@ export default function AboutMePage() {
           </div>
         )}
 
-        {/* Share Story Modal */}
-        <ShareStoryModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onStorySaved={handleStorySaved}
-        />
-      </div>
-    </div>
+      {/* Share Story Modal */}
+      <ShareStoryModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onStorySaved={handleStorySaved}
+      />
+    </>
   );
 }
 

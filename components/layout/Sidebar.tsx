@@ -41,8 +41,8 @@ const navItems: NavItem[] = [
     href: "/profile",
     icon: User,
     children: [
-      { name: "Overview", href: "/profile", icon: User },
-      { name: "Story", href: "/profile/about-me", icon: Lightbulb },
+      { name: "About Me", href: "/profile/about", icon: User },
+      { name: "Stories", href: "/profile/stories", icon: Lightbulb },
       { name: "Testing", href: "/profile/testing", icon: FlaskConical },
       { name: "Courses", href: "/profile/courses", icon: BookOpenCheck },
       { name: "Activities", href: "/profile/activities", icon: Briefcase },

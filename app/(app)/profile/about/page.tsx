@@ -176,12 +176,12 @@ export default function AboutMeInfoPage() {
       </div>
 
       {/* Form */}
-      <div className="max-w-2xl space-y-8">
+      <div className="space-y-6">
         {/* Personal Information */}
         <section className="bg-white border border-border-subtle rounded-[20px] p-6 shadow-card">
           <h2 className="font-display font-bold text-lg text-text-main mb-4">Personal Information</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-main mb-1.5">
                 First Name
@@ -239,7 +239,7 @@ export default function AboutMeInfoPage() {
         <section className="bg-white border border-border-subtle rounded-[20px] p-6 shadow-card">
           <h2 className="font-display font-bold text-lg text-text-main mb-4">School Information</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-main mb-1.5">
                 Current Grade

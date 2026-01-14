@@ -9,7 +9,8 @@ import { waitForPageLoad, takeScreenshot, captureConsoleErrors, VIEWPORTS } from
 
 const PROFILE_SECTIONS = [
   { path: '/profile', name: 'Overview' },
-  { path: '/profile/about-me', name: 'AboutMe' },
+  { path: '/profile/about', name: 'AboutMe' },
+  { path: '/profile/stories', name: 'Stories' },
   { path: '/profile/activities', name: 'Activities' },
   { path: '/profile/awards', name: 'Awards' },
   { path: '/profile/courses', name: 'Courses' },
