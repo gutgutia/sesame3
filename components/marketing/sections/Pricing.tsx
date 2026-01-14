@@ -33,7 +33,7 @@ const plans = [
     featured: true,
     features: [
       "Unlimited AI conversations",
-      "Claude Opus advisor (our best AI)",
+      "Our smartest AI counselor",
       "Unlimited admission chances",
       "Personalized recommendations",
       "Priority support",

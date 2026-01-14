@@ -54,11 +54,11 @@ export const PLANS: Plan[] = [
     priceYearly: 250,
     description: "The full college counseling experience",
     features: [
-      "Our smartest AI counselor (Opus)",
+      "Our smartest AI counselor",
       "Unlimited conversations",
       "Unlimited chances calculations",
       "Personalized school & program recommendations",
-      "Expert-level reasoning & strategy",
+      "Expert-level guidance & strategy",
       "Priority support",
     ],
     icon: Crown,
