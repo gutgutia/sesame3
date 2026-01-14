@@ -10,5 +10,6 @@ export { CourseForm } from "./CourseForm";
 export { TranscriptUploader } from "./TranscriptUploader";
 export { CourseReviewTable } from "./CourseReviewTable";
 export { BulkCourseEditor } from "./BulkCourseEditor";
+export { AddCoursesModal } from "./AddCoursesModal";
 export { ShareStoryModal } from "./ShareStoryModal";
 

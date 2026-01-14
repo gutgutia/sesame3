@@ -14,19 +14,11 @@ import {
   CheckCircle2,
   Circle,
   BookOpen,
-  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { calculateGPA, formatGPA } from "@/lib/gpa-calculator";
-import { ShareStoryModal } from "@/components/profile";
-import { CourseForm } from "@/components/profile/CourseForm";
-import { ActivityForm } from "@/components/profile/ActivityForm";
-import { AwardForm } from "@/components/profile/AwardForm";
-import { ProgramForm } from "@/components/profile/ProgramForm";
-import { SATScoreForm } from "@/components/profile/SATScoreForm";
 
 // =============================================================================
 // MAIN PROFILE OVERVIEW PAGE
@@ -37,16 +29,8 @@ interface StoryData {
 }
 
 export default function ProfileOverviewPage() {
-  const { profile, isLoading, error, refreshProfile } = useProfile();
+  const { profile, isLoading, error } = useProfile();
   const [storyData, setStoryData] = useState<StoryData | null>(null);
-  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-
-  // Quick-add modal states
-  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  const [isAwardModalOpen, setIsAwardModalOpen] = useState(false);
-  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
-  const [isTestingModalOpen, setIsTestingModalOpen] = useState(false);
 
   // Fetch story data
   useEffect(() => {
@@ -164,10 +148,9 @@ export default function ProfileOverviewPage() {
         <div className="lg:col-span-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Stories (About Me) */}
-            <StoriesCard 
+            <StoriesCard
               storyCount={storyCount}
               themes={storyThemes}
-              onAddStory={() => setIsStoryModalOpen(true)}
             />
 
             {/* Courses */}
@@ -183,8 +166,6 @@ export default function ProfileOverviewPage() {
               ]}
               isEmpty={courseCount === 0}
               emptyMessage="Add your courses to calculate GPA"
-              addButtonLabel="Add Course"
-              onAdd={() => setIsCourseModalOpen(true)}
             />
 
             {/* Testing */}
@@ -200,8 +181,6 @@ export default function ProfileOverviewPage() {
               ]}
               isEmpty={satScores.length === 0 && actScores.length === 0}
               emptyMessage="Add your test scores"
-              addButtonLabel="Add Score"
-              onAdd={() => setIsTestingModalOpen(true)}
             />
 
             {/* Activities */}
@@ -217,8 +196,6 @@ export default function ProfileOverviewPage() {
               ]}
               isEmpty={activityCount === 0}
               emptyMessage="Add your activities"
-              addButtonLabel="Add Activity"
-              onAdd={() => setIsActivityModalOpen(true)}
             />
 
             {/* Awards */}
@@ -232,8 +209,6 @@ export default function ProfileOverviewPage() {
               ]}
               isEmpty={awardCount === 0}
               emptyMessage="Add your awards"
-              addButtonLabel="Add Award"
-              onAdd={() => setIsAwardModalOpen(true)}
             />
 
             {/* Programs */}
@@ -247,8 +222,6 @@ export default function ProfileOverviewPage() {
               ]}
               isEmpty={programCount === 0}
               emptyMessage="Add programs you've done"
-              addButtonLabel="Add Program"
-              onAdd={() => setIsProgramModalOpen(true)}
             />
           </div>
         </div>
@@ -311,140 +284,6 @@ export default function ProfileOverviewPage() {
           </Link>
         </div>
       </div>
-
-      {/* Share Story Modal */}
-      <ShareStoryModal
-        isOpen={isStoryModalOpen}
-        onClose={() => setIsStoryModalOpen(false)}
-        onStorySaved={() => {
-          setIsStoryModalOpen(false);
-          // Refresh story data
-          fetch("/api/profile/stories")
-            .then(res => res.ok ? res.json() : null)
-            .then(data => setStoryData(data))
-            .catch(console.error);
-        }}
-      />
-
-      {/* Quick Add Course Modal */}
-      <Modal
-        isOpen={isCourseModalOpen}
-        onClose={() => setIsCourseModalOpen(false)}
-        title="Add Course"
-        description="Add a course to your transcript"
-        size="lg"
-      >
-        <CourseForm
-          onSubmit={async (data) => {
-            const res = await fetch("/api/profile/courses", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              await refreshProfile();
-              setIsCourseModalOpen(false);
-            }
-          }}
-          onCancel={() => setIsCourseModalOpen(false)}
-        />
-      </Modal>
-
-      {/* Quick Add Activity Modal */}
-      <Modal
-        isOpen={isActivityModalOpen}
-        onClose={() => setIsActivityModalOpen(false)}
-        title="Add Activity"
-        description="Add an extracurricular activity"
-        size="lg"
-      >
-        <ActivityForm
-          onSubmit={async (data) => {
-            const res = await fetch("/api/profile/activities", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              await refreshProfile();
-              setIsActivityModalOpen(false);
-            }
-          }}
-          onCancel={() => setIsActivityModalOpen(false)}
-        />
-      </Modal>
-
-      {/* Quick Add Award Modal */}
-      <Modal
-        isOpen={isAwardModalOpen}
-        onClose={() => setIsAwardModalOpen(false)}
-        title="Add Award"
-        description="Add an honor or recognition"
-        size="lg"
-      >
-        <AwardForm
-          onSubmit={async (data) => {
-            const res = await fetch("/api/profile/awards", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              await refreshProfile();
-              setIsAwardModalOpen(false);
-            }
-          }}
-          onCancel={() => setIsAwardModalOpen(false)}
-        />
-      </Modal>
-
-      {/* Quick Add Program Modal */}
-      <Modal
-        isOpen={isProgramModalOpen}
-        onClose={() => setIsProgramModalOpen(false)}
-        title="Add Program"
-        description="Add a summer program or research experience"
-        size="lg"
-      >
-        <ProgramForm
-          onSubmit={async (data) => {
-            const res = await fetch("/api/profile/programs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              await refreshProfile();
-              setIsProgramModalOpen(false);
-            }
-          }}
-          onCancel={() => setIsProgramModalOpen(false)}
-        />
-      </Modal>
-
-      {/* Quick Add SAT Score Modal */}
-      <Modal
-        isOpen={isTestingModalOpen}
-        onClose={() => setIsTestingModalOpen(false)}
-        title="Add SAT Score"
-        description="Add your SAT test score"
-        size="md"
-      >
-        <SATScoreForm
-          onSubmit={async (data) => {
-            const res = await fetch("/api/profile/testing/sat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              await refreshProfile();
-              setIsTestingModalOpen(false);
-            }
-          }}
-          onCancel={() => setIsTestingModalOpen(false)}
-        />
-      </Modal>
     </>
   );
 }
@@ -499,24 +338,25 @@ const themeColors: Record<string, { bg: string; text: string }> = {
   Resilience: { bg: "bg-red-100", text: "text-red-700" },
 };
 
-function StoriesCard({ 
-  storyCount, 
+function StoriesCard({
+  storyCount,
   themes,
-  onAddStory,
-}: { 
+}: {
   storyCount: number;
   themes: string[];
-  onAddStory: () => void;
 }) {
   const uniqueThemes = Array.from(new Set(themes)).slice(0, 3);
 
-  // Empty state
+  // Empty state - clickable card that navigates to stories page
   if (storyCount === 0) {
     return (
-      <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card flex flex-col">
+      <Link
+        href="/profile/about-me"
+        className="group bg-white border border-dashed border-border-medium rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted">
+            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted group-hover:bg-accent-surface group-hover:text-accent-primary transition-colors">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
@@ -524,18 +364,15 @@ function StoriesCard({
               <p className="text-xs text-text-muted">Share who you are</p>
             </div>
           </div>
+          <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
         </div>
-        
+
         <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
-          <p className="text-sm text-text-muted mb-4">
+          <p className="text-sm text-text-muted">
             Beyond grades and scores — who are you?
           </p>
-          <Button size="sm" onClick={onAddStory}>
-            <Plus className="w-4 h-4" />
-            Share a Story
-          </Button>
         </div>
-      </div>
+      </Link>
     );
   }
 
@@ -598,8 +435,6 @@ function SectionCard({
   stats,
   isEmpty,
   emptyMessage,
-  addButtonLabel,
-  onAdd,
 }: {
   icon: React.ElementType;
   title: string;
@@ -608,16 +443,17 @@ function SectionCard({
   stats: Array<{ label: string; value: number }>;
   isEmpty?: boolean;
   emptyMessage?: string;
-  addButtonLabel?: string;
-  onAdd?: () => void;
 }) {
-  // Empty state with add button
-  if (isEmpty && onAdd) {
+  // Empty state - clickable card that navigates to detail page
+  if (isEmpty) {
     return (
-      <div className="bg-white border border-border-subtle rounded-[20px] p-5 shadow-card flex flex-col">
+      <Link
+        href={href}
+        className="group bg-white border border-dashed border-border-medium rounded-[20px] p-5 shadow-card hover:border-accent-primary hover:shadow-lg transition-all flex flex-col"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted">
+            <div className="w-10 h-10 bg-bg-sidebar rounded-xl flex items-center justify-center text-text-muted group-hover:bg-accent-surface group-hover:text-accent-primary transition-colors">
               <Icon className="w-5 h-5" />
             </div>
             <div>
@@ -625,18 +461,15 @@ function SectionCard({
               <p className="text-xs text-text-muted">{description}</p>
             </div>
           </div>
+          <ChevronRight className="w-5 h-5 text-text-light group-hover:text-accent-primary group-hover:translate-x-1 transition-all" />
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
-          <p className="text-sm text-text-muted mb-4">
+          <p className="text-sm text-text-muted">
             {emptyMessage}
           </p>
-          <Button size="sm" onClick={onAdd}>
-            <Plus className="w-4 h-4" />
-            {addButtonLabel || `Add ${title}`}
-          </Button>
         </div>
-      </div>
+      </Link>
     );
   }
 

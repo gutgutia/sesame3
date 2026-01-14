@@ -123,7 +123,7 @@ export default function TestingPage() {
     );
   }
 
-  const hasAnyScores = satScores.length > 0 || actScores.length > 0;
+  const hasAnyScores = satScores.length > 0 || actScores.length > 0 || apScores.length > 0;
 
   return (
     <>
@@ -372,18 +372,18 @@ export default function TestingPage() {
       )}
 
       {/* AP Scores Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-display font-bold text-lg text-text-main">AP Exam Scores</h2>
-          <button
-            onClick={() => openModal("ap")}
-            className="text-sm text-accent-primary hover:underline flex items-center gap-1"
-          >
-            <Plus className="w-4 h-4" />
-            Add Score
-          </button>
-        </div>
-        {apScores.length > 0 ? (
+      {apScores.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-bold text-lg text-text-main">AP Exam Scores</h2>
+            <button
+              onClick={() => openModal("ap")}
+              className="text-sm text-accent-primary hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add Score
+            </button>
+          </div>
           <div className="bg-white border border-border-subtle rounded-[16px] overflow-hidden shadow-card">
             {apScores.map((score, i) => (
               <div
@@ -428,16 +428,8 @@ export default function TestingPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="bg-white border border-border-subtle border-dashed rounded-[16px] p-6 text-center shadow-card">
-            <p className="text-text-muted text-sm mb-3">No AP scores added yet</p>
-            <Button variant="secondary" size="sm" onClick={() => openModal("ap")}>
-              <Plus className="w-4 h-4" />
-              Add AP Score
-            </Button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modals */}
       <Modal 
