@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 1200px;
+      height: 630px;
+      background: #FDFCF9;
+      font-family: 'Inter', system-ui, sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Grid pattern */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(#E8E5DF 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      padding: 80px;
+    }
+
+    /* Left content */
+    .left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-right: 60px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    .logo-mark {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2D2A26;
+    }
+
+    .headline {
+      font-size: 72px;
+      font-weight: 800;
+      color: #2D2A26;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+
+    .subheadline {
+      font-size: 28px;
+      font-weight: 500;
+      color: #6B665E;
+      line-height: 1.4;
+    }
+
+    /* Right content - Chat mockup */
+    .right {
+      width: 440px;
+      flex-shrink: 0;
+    }
+
+    .chat-card {
+      width: 440px;
+      height: 500px;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.12);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #E8E5DF;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #36736A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .avatar svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .avatar-small {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .avatar-small.advisor {
+      background: #36736A;
+    }
+
+    .avatar-small.user {
+      background: #E8E5DF;
+    }
+
+    .avatar-small svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .avatar-small.user span {
+      font-size: 13px;
+      font-weight: 700;
+      color: #9E988E;
+    }
+
+    .header-info {
+      flex: 1;
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2D2A26;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22C55E;
+    }
+
+    .status-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6B665E;
+    }
+
+    .chat-messages {
+      flex: 1;
+      background: #F9F8F6;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .message {
+      display: flex;
+      gap: 8px;
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .message-bubble {
+      padding: 16px;
+      border-radius: 16px;
+      max-width: 300px;
+    }
+
+    .message.user .message-bubble {
+      background: #2D2A26;
+      color: white;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .message.advisor .message-bubble {
+      background: white;
+      border: 1px solid #E8E5DF;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #2D2A26;
+      max-width: 348px;
+    }
+
+    .highlight {
+      color: #36736A;
+      font-weight: 700;
+    }
+
+    .insight-box {
+      background: #E8F5F3;
+      border: 1px solid #C5E4DF;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .insight-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .insight-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #36736A;
+    }
+
+    .insight-label-text {
+      font-size: 10px;
+      font-weight: 700;
+      color: #36736A;
+      letter-spacing: 0.05em;
+    }
+
+    .insight-content {
+      font-size: 14px;
+      color: #0F5F54;
+      line-height: 1.5;
+    }
+
+    .chat-input {
+      padding: 14px 20px;
+      border-top: 1px solid #E8E5DF;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .input-field {
+      flex: 1;
+      height: 40px;
+      background: #F3F1ED;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      font-size: 14px;
+      color: #9E988E;
+    }
+
+    .send-button {
+      width: 44px;
+      height: 40px;
+      background: #36736A;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .send-button svg {
+      width: 20px;
+      height: 20px;
+      stroke: white;
+      stroke-width: 2.5;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="left">
+      <div class="logo">
+        <svg class="logo-mark" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="56" height="56" rx="12" fill="#36736A"/>
+          <g transform="translate(3, 0)">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M17.4097 45.3592L11.2856 39.3408L11.3229 39.3408L20.9198 29.9095L26.6705 35.561C28.4007 37.09 32.8021 39.3261 36.5662 36.038C37.9105 34.9004 39.9942 31.7004 37.5744 28.0012L32.6079 23.1205L35.0725 20.6984L39.7402 25.2489C41.4455 27.3896 43.8329 32.8894 39.7402 37.7628L32.6079 44.772C30.2305 47.0718 23.8624 50.4088 17.4097 45.3592ZM29.5832 42.9372L31.4876 41.0656C28.082 40.772 25.1644 38.7414 24.1312 37.7628L20.8451 34.5334L15.916 39.3775L19.7622 42.9372C23.8549 45.9611 28.0148 44.1971 29.5832 42.9372Z" fill="white"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M32.5903 10.6408L38.7144 16.6592H38.6771L29.0802 26.0905L23.3295 20.439C21.5993 18.91 17.1979 16.6739 13.4338 19.962C12.0895 21.0996 10.0058 24.2996 12.4256 27.9988L17.3921 32.8795L14.9275 35.3016L10.2598 30.7511C8.5545 28.6104 6.1671 23.1106 10.2598 18.2372L17.3921 11.228C19.7695 8.92822 26.1376 5.59117 32.5903 10.6408ZM20.4168 13.0628L18.5124 14.9344C21.918 15.228 24.8356 17.2586 25.8688 18.2372L29.1549 21.4666L34.084 16.6225L30.2378 13.0628C26.1451 10.0389 21.9852 11.8029 20.4168 13.0628Z" fill="white"/>
+          </g>
+        </svg>
+        <span class="logo-text">Sesame3</span>
+      </div>
+
+      <h1 class="headline">Your AI College<br>Counselor</h1>
+
+      <p class="subheadline">Expert guidance. Honest chances.<br>Clear roadmap.</p>
+    </div>
+
+    <div class="right">
+      <div class="chat-card">
+        <div class="chat-header">
+          <div class="avatar">
+            <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g transform="translate(3, 0)">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M17.4097 45.3592L11.2856 39.3408L11.3229 39.3408L20.9198 29.9095L26.6705 35.561C28.4007 37.09 32.8021 39.3261 36.5662 36.038C37.9105 34.9004 39.9942 31.7004 37.5744 28.0012L32.6079 23.1205L35.0725 20.6984L39.7402 25.2489C41.4455 27.3896 43.8329 32.8894 39.7402 37.7628L32.6079 44.772C30.2305 47.0718 23.8624 50.4088 17.4097 45.3592ZM29.5832 42.9372L31.4876 41.0656C28.082 40.772 25.1644 38.7414 24.1312 37.7628L20.8451 34.5334L15.916 39.3775L19.7622 42.9372C23.8549 45.9611 28.0148 44.1971 29.5832 42.9372Z" fill="white"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M32.5903 10.6408L38.7144 16.6592H38.6771L29.0802 26.0905L23.3295 20.439C21.5993 18.91 17.1979 16.6739 13.4338 19.962C12.0895 21.0996 10.0058 24.2996 12.4256 27.9988L17.3921 32.8795L14.9275 35.3016L10.2598 30.7511C8.5545 28.6104 6.1671 23.1106 10.2598 18.2372L17.3921 11.228C19.7695 8.92822 26.1376 5.59117 32.5903 10.6408ZM20.4168 13.0628L18.5124 14.9344C21.918 15.228 24.8356 17.2586 25.8688 18.2372L29.1549 21.4666L34.084 16.6225L30.2378 13.0628C26.1451 10.0389 21.9852 11.8029 20.4168 13.0628Z" fill="white"/>
+              </g>
+            </svg>
+          </div>
+          <div class="header-info">
+            <div class="header-title">Your Advisor</div>
+            <div class="header-status">
+              <div class="status-dot"></div>
+              <span class="status-text">Always here to help</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-messages">
+          <div class="message user">
+            <div class="avatar-small user">
+              <span>A</span>
+            </div>
+            <div class="message-bubble">
+              Should I apply Early Decision to Stanford or save it for Yale?
+            </div>
+          </div>
+
+          <div class="message advisor">
+            <div class="avatar-small advisor">
+              <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(3, 0)">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M17.4097 45.3592L11.2856 39.3408L11.3229 39.3408L20.9198 29.9095L26.6705 35.561C28.4007 37.09 32.8021 39.3261 36.5662 36.038C37.9105 34.9004 39.9942 31.7004 37.5744 28.0012L32.6079 23.1205L35.0725 20.6984L39.7402 25.2489C41.4455 27.3896 43.8329 32.8894 39.7402 37.7628L32.6079 44.772C30.2305 47.0718 23.8624 50.4088 17.4097 45.3592ZM29.5832 42.9372L31.4876 41.0656C28.082 40.772 25.1644 38.7414 24.1312 37.7628L20.8451 34.5334L15.916 39.3775L19.7622 42.9372C23.8549 45.9611 28.0148 44.1971 29.5832 42.9372Z" fill="white"/>
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M32.5903 10.6408L38.7144 16.6592H38.6771L29.0802 26.0905L23.3295 20.439C21.5993 18.91 17.1979 16.6739 13.4338 19.962C12.0895 21.0996 10.0058 24.2996 12.4256 27.9988L17.3921 32.8795L14.9275 35.3016L10.2598 30.7511C8.5545 28.6104 6.1671 23.1106 10.2598 18.2372L17.3921 11.228C19.7695 8.92822 26.1376 5.59117 32.5903 10.6408ZM20.4168 13.0628L18.5124 14.9344C21.918 15.228 24.8356 17.2586 25.8688 18.2372L29.1549 21.4666L34.084 16.6225L30.2378 13.0628C26.1451 10.0389 21.9852 11.8029 20.4168 13.0628Z" fill="white"/>
+                </g>
+              </svg>
+            </div>
+            <div class="message-bubble">
+              Based on your profile, I'd lean toward <span class="highlight">Yale ED</span>. Here's why:
+
+              <div class="insight-box">
+                <div class="insight-label">
+                  <div class="insight-dot"></div>
+                  <span class="insight-label-text">MY RECOMMENDATION</span>
+                </div>
+                <div class="insight-content">
+                  Apply Yale ED. Use Stanford RD — by then, you may have AIME results to strengthen your app.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input">
+          <div class="input-field">Ask anything...</div>
+          <div class="send-button">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5L12 19M12 5L6 11M12 5L18 11"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

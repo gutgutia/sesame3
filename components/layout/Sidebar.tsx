@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect, startTransition } from "react";
 import {
@@ -211,11 +212,14 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex w-[260px] bg-sidebar border-r border-border-subtle p-6 flex-col sticky top-0 h-screen">
       {/* Logo */}
-      <div className="flex items-center gap-2 mb-12">
-        <div className="w-8 h-8 bg-text-main text-white rounded-lg flex items-center justify-center font-bold text-lg">
-          S3
-        </div>
-        <span className="font-display font-bold text-2xl text-text-main">Sesame3</span>
+      <div className="mb-12">
+        <Image
+          src="/brand/sesame3-primary.png"
+          alt="Sesame3"
+          width={142}
+          height={32}
+          priority
+        />
       </div>
 
       {/* Navigation */}

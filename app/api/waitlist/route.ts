@@ -20,7 +20,7 @@ function getWaitlistEmailHTML(email: string): string {
           <!-- Logo -->
           <tr>
             <td align="center" style="padding-bottom: 32px;">
-              <img src="https://sesame3.com/assets/logo-full.png" alt="Sesame3" width="140" style="display: block;" />
+              <img src="https://sesame3.com/brand/sesame3-primary.png" alt="Sesame3" width="160" style="display: block;" />
             </td>
           </tr>
 
