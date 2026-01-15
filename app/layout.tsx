@@ -19,6 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sesame3.com"),
   title: "Sesame3",
   description: "College prep without the panic.",
   openGraph: {
