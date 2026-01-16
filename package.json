@@ -23,6 +23,7 @@
     "db:clear-all": "dotenv -e .env.local -- tsx prisma/db-cleanup.ts --all",
     "db:fix-duplicates": "dotenv -e .env.local -- tsx prisma/db-cleanup.ts --duplicates",
     "db:clear-user": "dotenv -e .env.local -- tsx scripts/clear-user.ts",
+    "db:upgrade-premium": "dotenv -e .env.local -- tsx prisma/upgrade-to-premium.ts",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
