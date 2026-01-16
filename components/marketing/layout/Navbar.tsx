@@ -1,16 +1,26 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "../Button";
 import { Logo } from "../Logo";
 
 export function Navbar() {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  useEffect(() => {
+    // Check auth status via API (cookie is httpOnly so can't read directly)
+    fetch("/api/user/me")
+      .then((res) => setIsSignedIn(res.ok))
+      .catch(() => setIsSignedIn(false));
+  }, []);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 py-4 md:py-5 bg-[var(--bg-page)]/85 backdrop-blur-md border-b border-black/5">
       <div className="container flex justify-between items-center px-4">
         <a href="/">
           <Logo size="md" />
         </a>
-        
+
         <div className="hidden md:flex items-center gap-8">
           <a href="/#how" className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
             How It Works
@@ -27,8 +37,14 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" href="/login">Sign In</Button>
-          <Button variant="primary" size="sm" href="/login">Get Started</Button>
+          {isSignedIn ? (
+            <Button variant="primary" size="sm" href="/dashboard">Dashboard</Button>
+          ) : (
+            <>
+              <Button variant="secondary" size="sm" href="/login">Sign In</Button>
+              <Button variant="primary" size="sm" href="/login">Get Started</Button>
+            </>
+          )}
         </div>
       </div>
     </nav>

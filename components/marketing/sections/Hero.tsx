@@ -1,8 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 
 export function Hero() {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  useEffect(() => {
+    // Check auth status via API (cookie is httpOnly so can't read directly)
+    fetch("/api/user/me")
+      .then((res) => setIsSignedIn(res.ok))
+      .catch(() => setIsSignedIn(false));
+  }, []);
+
   return (
     <header className="pt-28 md:pt-40 pb-16 md:pb-24 text-center">
       <div className="container px-4">
@@ -20,10 +30,10 @@ export function Hero() {
         {/* CTA Button */}
         <div className="flex justify-center gap-4 mb-12 md:mb-16">
           <a
-            href="/login"
+            href={isSignedIn ? "/dashboard" : "/login"}
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[var(--text-main)] text-white font-semibold rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
           >
-            Get Started Free
+            {isSignedIn ? "Go to Dashboard" : "Get Started Free"}
             <ArrowRight className="w-4 h-4" />
           </a>
         </div>
