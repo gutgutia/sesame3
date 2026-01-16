@@ -31,8 +31,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Mobile Header */}
           <header className="md:hidden h-14 bg-bg-sidebar border-b border-border-subtle flex items-center px-4 sticky top-0 z-40 justify-between">
               <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-text-main text-white rounded flex items-center justify-center font-bold text-xs">S3</div>
-                  <span className="font-display font-bold text-lg">Sesame3</span>
+                  <img src="/brand/sesame3-mark.svg" alt="Sesame3" className="w-6 h-6" />
+                  <span className="font-display font-bold text-lg">sesame3</span>
               </div>
               <div className="w-8 h-8 bg-accent-surface text-accent-primary rounded-full flex items-center justify-center font-semibold text-xs">R</div>
           </header>

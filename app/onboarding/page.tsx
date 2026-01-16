@@ -68,10 +68,12 @@ export default function OnboardingPage() {
         <div>
           {/* Logo */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-text-main text-white rounded-xl flex items-center justify-center font-bold text-sm">
-              S3
-            </div>
-            <span className="font-display font-bold text-xl text-text-main">Sesame3</span>
+            <img
+              src="/brand/sesame3-mark.svg"
+              alt="Sesame3"
+              className="w-10 h-10"
+            />
+            <span className="font-display font-bold text-xl text-text-main">sesame3</span>
           </div>
 
           {/* Tagline */}
@@ -94,10 +96,12 @@ export default function OnboardingPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
         <div className="md:hidden h-14 bg-bg-sidebar border-b border-border-subtle flex items-center px-4 gap-3 flex-shrink-0">
-          <div className="w-8 h-8 bg-text-main text-white rounded-lg flex items-center justify-center font-bold text-xs">
-            S3
-          </div>
-          <span className="font-display font-bold text-lg">Sesame3</span>
+          <img
+            src="/brand/sesame3-mark.svg"
+            alt="Sesame3"
+            className="w-8 h-8"
+          />
+          <span className="font-display font-bold text-lg">sesame3</span>
         </div>
 
         {/* Chat Area - constrained width for readability */}

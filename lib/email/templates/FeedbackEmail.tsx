@@ -11,6 +11,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
   Section,
@@ -73,7 +74,13 @@ export function FeedbackEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <div style={logoBox}>S3</div>
+            <Img
+              src="https://sesame3.com/brand/sesame3-mark-192.png"
+              width="40"
+              height="40"
+              alt="Sesame3"
+              style={logoImage}
+            />
             <Heading style={title}>New User Feedback</Heading>
           </Section>
 
@@ -185,15 +192,9 @@ const header = {
   textAlign: "center" as const,
 };
 
-const logoBox = {
-  display: "inline-block",
-  backgroundColor: "#ffffff",
-  color: "#1a1a1a",
-  fontWeight: "bold",
-  fontSize: "14px",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  marginBottom: "12px",
+const logoImage = {
+  borderRadius: "8px",
+  margin: "0 auto 12px",
 };
 
 const title = {

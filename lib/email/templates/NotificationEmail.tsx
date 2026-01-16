@@ -12,6 +12,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
   Section,
@@ -87,7 +88,13 @@ export function NotificationEmail({
         <Container style={container}>
           {/* Logo */}
           <Section style={logoSection}>
-            <div style={logoBox}>S3</div>
+            <Img
+              src="https://sesame3.com/brand/sesame3-mark-192.png"
+              width="56"
+              height="56"
+              alt="Sesame3"
+              style={logoImage}
+            />
           </Section>
 
           {/* Greeting */}
@@ -159,14 +166,9 @@ const logoSection = {
   marginBottom: "16px",
 };
 
-const logoBox = {
-  display: "inline-block",
-  backgroundColor: "#1a1a1a",
-  color: "#ffffff",
-  fontWeight: "bold",
-  fontSize: "16px",
-  padding: "10px 14px",
-  borderRadius: "8px",
+const logoImage = {
+  borderRadius: "12px",
+  margin: "0 auto",
 };
 
 const greeting = {
