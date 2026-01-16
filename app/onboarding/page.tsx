@@ -20,6 +20,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OnboardingData>({
     accountType: null,
     firstName: "",
@@ -61,10 +62,11 @@ export default function OnboardingPage() {
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    setError(null);
 
     try {
       // Update profile with collected data
-      await fetch("/api/profile", {
+      const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,10 +77,16 @@ export default function OnboardingPage() {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save profile");
+      }
+
       // Redirect to dashboard
       router.push("/dashboard?new=true");
-    } catch (error) {
-      console.error("Failed to complete onboarding:", error);
+    } catch (err) {
+      console.error("Failed to complete onboarding:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -312,6 +320,13 @@ export default function OnboardingPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Error message */}
+            {error && (
+              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
               </div>
             )}
 

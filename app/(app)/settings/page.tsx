@@ -1103,7 +1103,7 @@ export default function SettingsPage() {
                 <div className="bg-surface-secondary border border-border-subtle rounded-2xl p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-text-primary">
-                      Your Information
+                      {accountType === "student" ? "Your Information" : "Student Information"}
                     </h2>
                     {!isEditingProfile ? (
                       <Button
