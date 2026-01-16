@@ -202,9 +202,11 @@ function AuthPageContent() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#E8F5F3_0%,transparent_60%)]" />
 
         <div className="relative z-10 max-w-lg">
-          <div className="w-12 h-12 bg-text-main text-white rounded-xl flex items-center justify-center font-bold text-2xl mb-8">
-            S3
-          </div>
+          <img
+            src="/brand/sesame3-mark.svg"
+            alt="Sesame3"
+            className="w-14 h-14 mb-8"
+          />
 
           <h1 className="font-display font-bold text-5xl mb-6 leading-tight text-text-main">
             College prep,
@@ -286,6 +288,7 @@ function AuthPageContent() {
                 )}
 
                 <Button
+                  type="submit"
                   className="w-full justify-center h-12 text-base"
                   disabled={isLoading}
                 >
@@ -367,6 +370,7 @@ function AuthPageContent() {
               )}
 
               <Button
+                type="submit"
                 className="w-full justify-center h-12 text-base"
                 disabled={isLoading || code.length !== 6}
               >
