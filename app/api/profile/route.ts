@@ -152,22 +152,24 @@ export async function GET() {
 /**
  * PUT /api/profile
  * Update basic profile fields (name, grade, school info)
+ * Also supports updating User fields like accountType
  */
 export async function PUT(request: NextRequest) {
   try {
     const profileId = await getCurrentProfileId();
-    
-    if (!profileId) {
+    const user = await getCurrentUser();
+
+    if (!profileId || !user) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
-    
+
     const body = await request.json();
-    
-    // Only allow updating specific fields
-    const allowedFields = [
+
+    // Fields that go to StudentProfile
+    const profileFields = [
       "firstName",
       "lastName",
       "preferredName",
@@ -183,23 +185,55 @@ export async function PUT(request: NextRequest) {
       "onboardingCompletedAt",
     ];
 
-    const updateData: Record<string, unknown> = {};
-    for (const field of allowedFields) {
+    // Fields that go to User model
+    const userFields = ["accountType"];
+
+    const profileUpdateData: Record<string, unknown> = {};
+    for (const field of profileFields) {
       if (body[field] !== undefined) {
         // Handle birthDate specially - convert string to Date
         if (field === "birthDate" && body[field]) {
-          updateData[field] = new Date(body[field]);
+          profileUpdateData[field] = new Date(body[field]);
         } else {
-          updateData[field] = body[field];
+          profileUpdateData[field] = body[field];
         }
       }
     }
-    
-    const profile = await prisma.studentProfile.update({
-      where: { id: profileId },
-      data: updateData,
-    });
-    
+
+    const userUpdateData: Record<string, unknown> = {};
+    for (const field of userFields) {
+      if (body[field] !== undefined) {
+        // Validate accountType
+        if (field === "accountType") {
+          const validTypes = ["student", "parent", "counselor"];
+          if (validTypes.includes(body[field])) {
+            userUpdateData[field] = body[field];
+          }
+        }
+      }
+    }
+
+    // Update profile if there are profile fields to update
+    let profile;
+    if (Object.keys(profileUpdateData).length > 0) {
+      profile = await prisma.studentProfile.update({
+        where: { id: profileId },
+        data: profileUpdateData,
+      });
+    } else {
+      profile = await prisma.studentProfile.findUnique({
+        where: { id: profileId },
+      });
+    }
+
+    // Update user if there are user fields to update
+    if (Object.keys(userUpdateData).length > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: userUpdateData,
+      });
+    }
+
     // Invalidate caches (profile and context both depend on profile data)
     invalidateProfileCache(profileId);
     invalidateContextCache(profileId);
