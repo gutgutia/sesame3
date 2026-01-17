@@ -11,11 +11,13 @@ import {
   BarChart3,
   Search,
   Shield,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
+  { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/schools", label: "Schools", icon: School },
   { href: "/admin/programs", label: "Programs", icon: Building2 },
   { href: "/admin/data-import", label: "Data Import", icon: Database },

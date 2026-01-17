@@ -55,7 +55,7 @@ export default async function AdminDashboard() {
       value: userCount,
       icon: Users,
       color: "bg-purple-500",
-      href: "#",
+      href: "/admin/users",
     },
     {
       label: "Missing Deadlines",
